@@ -54,7 +54,7 @@ def train(
         from stable_baselines3 import PPO
         from stable_baselines3.common.env_util import make_vec_env
         from stable_baselines3.common.callbacks import EvalCallback
-        from stable_baselines3.common.vec_env import SubprocVecEnv
+        from stable_baselines3.common.vec_env import SubprocVecEnv, DummyVecEnv
     except ImportError as e:
         raise ImportError(
             "stable-baselines3 is required. Install with: pip install stable-baselines3[extra]"
@@ -71,12 +71,16 @@ def train(
         window=window,
     )
 
-    # Vectorised training environments
+    # Vectorised training environments.
+    # Use DummyVecEnv when n_envs=1 (or when multiprocessing is unavailable,
+    # e.g. when the script is not guarded with if __name__ == '__main__').
+    import multiprocessing as _mp
+    _use_subproc = n_envs > 1 and _mp.current_process().name == "MainProcess"
     vec_env = make_vec_env(
         PropFirmEnv,
         n_envs=n_envs,
         env_kwargs=env_kwargs,
-        vec_env_cls=SubprocVecEnv if n_envs > 1 else None,
+        vec_env_cls=SubprocVecEnv if _use_subproc else DummyVecEnv,
     )
 
     # Separate evaluation environment

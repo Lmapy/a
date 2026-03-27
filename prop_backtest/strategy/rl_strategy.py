@@ -57,7 +57,7 @@ class RLStrategy(Strategy):
         obs = obs.reshape(1, -1)  # SB3 expects (1, obs_dim)
 
         action_idx, _ = self._model.predict(obs, deterministic=self.deterministic)
-        action_idx = int(action_idx)
+        action_idx = int(action_idx.flat[0])
 
         return self._action_to_signal(action_idx, account)
 
