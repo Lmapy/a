@@ -1,4 +1,4 @@
-"""Market data loading — yfinance and local CSV."""
+"""Market data loading — yfinance, Barchart, and local CSV."""
 from __future__ import annotations
 
 import warnings
@@ -10,6 +10,30 @@ from typing import Optional
 import pandas as pd
 
 from prop_backtest.contracts.specs import ContractSpec
+
+# Barchart symbol map: ContractSpec.symbol → Barchart root + continuous suffix
+_BARCHART_SYMBOL_MAP: dict[str, str] = {
+    "ES": "ESc1",   # S&P 500 E-mini continuous front month
+    "NQ": "NQc1",   # Nasdaq E-mini
+    "CL": "CLc1",   # Crude Oil WTI
+    "GC": "GCc1",   # Gold
+    "RTY": "RTYc1", # Russell 2000 E-mini
+    "MES": "MESc1", # Micro S&P 500
+    "MNQ": "MNQc1", # Micro Nasdaq
+}
+
+# Barchart interval string mapping
+_BARCHART_INTERVAL_MAP: dict[str, tuple[str, str]] = {
+    # DataLoader interval → (type, interval)
+    "1m":  ("minutes", "1"),
+    "5m":  ("minutes", "5"),
+    "15m": ("minutes", "15"),
+    "30m": ("minutes", "30"),
+    "1h":  ("minutes", "60"),
+    "60m": ("minutes", "60"),
+    "1d":  ("daily",   "1"),
+    "1wk": ("weekly",  "1"),
+}
 
 # yfinance interval → approximate max history depth
 _YFINANCE_INTERVAL_LIMITS: dict[str, str] = {
@@ -43,7 +67,7 @@ class BarData:
 
 
 class DataLoader:
-    """Load OHLCV bars from yfinance or a local CSV file.
+    """Load OHLCV bars from yfinance, Barchart, or a local CSV file.
 
     Notes on yfinance futures data:
     - Continuous front-month contract: ES=F, NQ=F, CL=F etc.
@@ -51,7 +75,13 @@ class DataLoader:
     - Hourly (1h/60m): up to ~730 days.
     - 15m and shorter: up to ~60 days only.
     - Data is not back-adjusted at roll dates; gaps may appear.
-    - For production use, a premium data source (Norgate, CQG, Barchart) is recommended.
+
+    Notes on Barchart data:
+    - Uses the free cmdty.io / barchart getHistory endpoint (no API key needed).
+    - Continuous front-month contracts: ESc1, NQc1, CLc1, etc.
+    - Daily history goes back many years; intraday depth varies (~1 year for 1d).
+    - Rate-limited; avoid hammering the endpoint in tight loops.
+    - For production use, a premium source (Norgate, CQG, Databento) is recommended.
     """
 
     def __init__(self, contract: ContractSpec):
@@ -63,21 +93,31 @@ class DataLoader:
         end: str | date,
         interval: str = "1d",
         local_csv_path: Optional[str | Path] = None,
+        source: str = "yfinance",
+        barchart_api_key: Optional[str] = None,
     ) -> list[BarData]:
         """Load bars for the given date range.
 
         Args:
             start: Start date, e.g. "2024-01-01" or datetime.date object.
             end: End date (inclusive).
-            interval: yfinance interval string, e.g. "1d", "1h", "15m".
-            local_csv_path: If provided, load from a CSV file instead of yfinance.
+            interval: Bar interval, e.g. "1d", "1h", "15m", "5m".
+            local_csv_path: If provided, load from a CSV file instead of a remote source.
                             Expected columns: datetime, open, high, low, close, volume.
+            source: Remote data source when local_csv_path is None.
+                    "yfinance" (default) or "barchart".
+            barchart_api_key: Optional Barchart API key. When provided the official
+                              /v2/history endpoint is used (higher rate limits + full
+                              history). When omitted the free cmdtyview endpoint is used.
 
         Returns:
             List of BarData sorted by timestamp ascending.
         """
         if local_csv_path is not None:
             return self._load_csv(Path(local_csv_path))
+
+        if source == "barchart":
+            return self._load_barchart(str(start), str(end), interval, barchart_api_key)
 
         return self._load_yfinance(str(start), str(end), interval)
 
@@ -135,6 +175,194 @@ class DataLoader:
         if not bars:
             raise ValueError(f"All bars were NaN after cleaning for {ticker}.")
 
+        return bars
+
+    def _load_barchart(
+        self,
+        start: str,
+        end: str,
+        interval: str,
+        api_key: Optional[str],
+    ) -> list[BarData]:
+        """Fetch OHLCV bars from Barchart.
+
+        Two modes:
+        - **No API key**: scrapes the free cmdtyview/getHistory endpoint used by
+          barchart.com own charts. Works for daily bars and light intraday use.
+          May break if Barchart changes their internal API.
+        - **API key**: uses the official Barchart Market Data API v2 endpoint
+          (marketdata.websol.barchart.com/getHistory.json).
+          Requires a free or paid account at barchart.com/ondemand.
+        """
+        try:
+            import requests
+        except ImportError as e:
+            raise ImportError(
+                "requests is required for Barchart data. Install with: pip install requests"
+            ) from e
+
+        symbol = _BARCHART_SYMBOL_MAP.get(self.contract.symbol)
+        if symbol is None:
+            raise ValueError(
+                f"No Barchart symbol mapping for contract '{self.contract.symbol}'. "
+                f"Supported: {', '.join(_BARCHART_SYMBOL_MAP)}"
+            )
+
+        if interval not in _BARCHART_INTERVAL_MAP:
+            raise ValueError(
+                f"Unsupported interval '{interval}' for Barchart. "
+                f"Supported: {', '.join(_BARCHART_INTERVAL_MAP)}"
+            )
+        bar_type, bar_interval = _BARCHART_INTERVAL_MAP[interval]
+
+        if api_key:
+            rows = self._barchart_api_v2(symbol, start, end, bar_type, bar_interval, api_key)
+        else:
+            rows = self._barchart_free(symbol, start, end, bar_type, bar_interval)
+
+        if not rows:
+            raise ValueError(
+                f"No data returned from Barchart for {symbol} ({start} to {end}, "
+                f"interval={interval})."
+            )
+        return rows
+
+    def _barchart_free(
+        self,
+        symbol: str,
+        start: str,
+        end: str,
+        bar_type: str,
+        bar_interval: str,
+    ) -> list[BarData]:
+        """Use Barchart free (unauthenticated) getHistory endpoint."""
+        import requests
+
+        # This endpoint powers barchart.com's own chart widget — no key required.
+        url = "https://www.barchart.com/proxies/timeseries/queryeod.ashx"
+        params = {
+            "data":      bar_type,
+            "symbol":    symbol,
+            "startDate": start.replace("-", ""),
+            "endDate":   end.replace("-", ""),
+            "volume":    "total",
+            "order":     "asc",
+            "dividends": "false",
+            "backadjust": "false",
+            "daystoexpiration": "1",
+            "contractroll": "combined",
+        }
+        if bar_type == "minutes":
+            params["interval"] = bar_interval
+
+        headers = {
+            "User-Agent": (
+                "Mozilla/5.0 (Windows NT 10.0; Win64; x64) "
+                "AppleWebKit/537.36 (KHTML, like Gecko) "
+                "Chrome/120.0.0.0 Safari/537.36"
+            ),
+            "Referer": "https://www.barchart.com/",
+        }
+
+        resp = requests.get(url, params=params, headers=headers, timeout=30)
+        resp.raise_for_status()
+
+        # Response is plain CSV text
+        from io import StringIO
+        raw = resp.text.strip()
+        if not raw or raw.startswith("Error") or raw.startswith("<!"):
+            raise ValueError(
+                f"Barchart free endpoint returned unexpected response. "
+                "Try using an API key or a local CSV file instead."
+            )
+
+        df = pd.read_csv(StringIO(raw), header=None)
+        # Columns: Symbol, Date, Open, High, Low, Close, Volume (for daily)
+        # Intraday adds Time column: Symbol, Date, Time, Open, High, Low, Close, Volume
+        df.columns = [c.lower() for c in df.columns.astype(str)]
+        return self._parse_barchart_df(df)
+
+    def _barchart_api_v2(
+        self,
+        symbol: str,
+        start: str,
+        end: str,
+        bar_type: str,
+        bar_interval: str,
+        api_key: str,
+    ) -> list[BarData]:
+        """Use the official Barchart Market Data API v2 (requires API key)."""
+        import requests
+
+        url = "https://marketdata.websol.barchart.com/getHistory.json"
+        params = {
+            "apikey":    api_key,
+            "symbol":    symbol,
+            "type":      bar_type,
+            "startDate": start,
+            "endDate":   end,
+            "order":     "asc",
+        }
+        if bar_type == "minutes":
+            params["interval"] = bar_interval
+
+        resp = requests.get(url, params=params, timeout=30)
+        resp.raise_for_status()
+        data = resp.json()
+
+        if data.get("status", {}).get("code") != 200:
+            msg = data.get("status", {}).get("message", "unknown error")
+            raise ValueError(f"Barchart API error: {msg}")
+
+        results = data.get("results") or []
+        bars: list[BarData] = []
+        for row in results:
+            # tradingDay format: "2024-01-02T09:30:00-05:00" or "2024-01-02"
+            raw_ts = row.get("tradingDay") or row.get("timestamp") or ""
+            ts = pd.to_datetime(raw_ts, utc=True).tz_localize(None)
+            bars.append(BarData(
+                timestamp=ts.to_pydatetime(),
+                open=float(row["open"]),
+                high=float(row["high"]),
+                low=float(row["low"]),
+                close=float(row["close"]),
+                volume=int(row.get("volume", 0)),
+                contract=self.contract,
+            ))
+        return bars
+
+    def _parse_barchart_df(self, df: pd.DataFrame) -> list[BarData]:
+        """Parse the CSV format returned by the free Barchart endpoint."""
+        bars: list[BarData] = []
+        cols = list(df.columns)
+
+        # Determine column positions by count
+        if len(cols) >= 8:
+            # Intraday: symbol, date, time, open, high, low, close, volume
+            date_col, time_col = cols[1], cols[2]
+            o_col, h_col, l_col, c_col, v_col = cols[3], cols[4], cols[5], cols[6], cols[7]
+            df["_dt"] = pd.to_datetime(
+                df[date_col].astype(str) + " " + df[time_col].astype(str),
+                errors="coerce",
+            )
+        else:
+            # Daily: symbol, date, open, high, low, close, volume
+            date_col = cols[1]
+            o_col, h_col, l_col, c_col = cols[2], cols[3], cols[4], cols[5]
+            v_col = cols[6] if len(cols) > 6 else None
+            df["_dt"] = pd.to_datetime(df[date_col].astype(str), errors="coerce")
+
+        df = df.dropna(subset=["_dt"])
+        for _, row in df.iterrows():
+            bars.append(BarData(
+                timestamp=row["_dt"].to_pydatetime(),
+                open=float(row[o_col]),
+                high=float(row[h_col]),
+                low=float(row[l_col]),
+                close=float(row[c_col]),
+                volume=int(row[v_col]) if v_col and pd.notna(row[v_col]) else 0,
+                contract=self.contract,
+            ))
         return bars
 
     def _load_csv(self, path: Path) -> list[BarData]:

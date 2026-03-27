@@ -31,8 +31,10 @@ def main() -> None:
 @click.option("--model-path", default=None, help="Path to a trained SB3 model (for --strategy rl).")
 @click.option("--start", required=True, help="Start date, e.g. 2024-01-01")
 @click.option("--end", required=True, help="End date, e.g. 2024-12-31")
-@click.option("--interval", default="1d", show_default=True, help="yfinance bar interval: 1d, 1h, 15m, ...")
+@click.option("--interval", default="1d", show_default=True, help="Bar interval: 1d, 1h, 15m, ...")
 @click.option("--csv", default=None, help="Path to a local CSV file instead of downloading.")
+@click.option("--source", default="yfinance", show_default=True, help="Remote data source: yfinance, barchart.")
+@click.option("--barchart-key", default=None, envvar="BARCHART_API_KEY", help="Barchart API key (or set BARCHART_API_KEY env var).")
 @click.option("--commission", default=4.50, show_default=True, type=float, help="Commission per round-turn in $.")
 @click.option("--slippage", default=0, show_default=True, type=int, help="Slippage in ticks.")
 @click.option("--output", default=None, help="Directory to save trades.csv and equity_curve.csv.")
@@ -40,7 +42,7 @@ def main() -> None:
 @click.option("--plot-path", default=None, help="File path to save plot (PNG/PDF). Implies --plot.")
 def run(
     firm, tier, contract, strategy, model_path,
-    start, end, interval, csv,
+    start, end, interval, csv, source, barchart_key,
     commission, slippage,
     output, plot, plot_path,
 ) -> None:
@@ -57,8 +59,12 @@ def run(
 
     # ── Load data ─────────────────────────────────────────────────────────
     loader = DataLoader(contract_spec)
-    click.echo(f"Loading data for {contract_spec.yfinance_ticker} ({start} → {end}, {interval})...")
-    bars = loader.load(start=start, end=end, interval=interval, local_csv_path=csv)
+    src_label = "local CSV" if csv else source
+    click.echo(f"Loading data for {contract_spec.symbol} ({start} → {end}, {interval}) via {src_label}...")
+    bars = loader.load(
+        start=start, end=end, interval=interval,
+        local_csv_path=csv, source=source, barchart_api_key=barchart_key,
+    )
     click.echo(f"Loaded {len(bars)} bars.")
 
     # ── Resolve strategy ──────────────────────────────────────────────────
@@ -96,6 +102,8 @@ def run(
 @click.option("--end", required=True, help="End date for training data.")
 @click.option("--interval", default="1d", show_default=True, help="Bar interval.")
 @click.option("--csv", default=None, help="Local CSV data file.")
+@click.option("--source", default="yfinance", show_default=True, help="Remote data source: yfinance, barchart.")
+@click.option("--barchart-key", default=None, envvar="BARCHART_API_KEY", help="Barchart API key.")
 @click.option("--timesteps", default=500_000, show_default=True, type=int, help="Total training steps.")
 @click.option("--output", default="models/ppo_agent", show_default=True, help="Model save path (without .zip).")
 @click.option("--n-envs", default=4, show_default=True, type=int, help="Parallel training environments.")
@@ -103,7 +111,7 @@ def run(
 @click.option("--commission", default=4.50, show_default=True, type=float, help="Commission per round-turn in $.")
 @click.option("--slippage", default=0, show_default=True, type=int, help="Slippage in ticks.")
 def train(
-    firm, tier, contract, start, end, interval, csv,
+    firm, tier, contract, start, end, interval, csv, source, barchart_key,
     timesteps, output, n_envs, window, commission, slippage,
 ) -> None:
     """Train a PPO RL agent to pass a prop firm challenge."""
@@ -116,8 +124,11 @@ def train(
     contract_spec = get_contract(contract)
 
     loader = DataLoader(contract_spec)
-    click.echo(f"Loading training data for {contract_spec.yfinance_ticker} ({start} → {end})...")
-    bars = loader.load(start=start, end=end, interval=interval, local_csv_path=csv)
+    click.echo(f"Loading training data for {contract_spec.symbol} ({start} → {end})...")
+    bars = loader.load(
+        start=start, end=end, interval=interval,
+        local_csv_path=csv, source=source, barchart_api_key=barchart_key,
+    )
     click.echo(f"Loaded {len(bars)} bars. Starting training for {timesteps:,} timesteps...")
 
     model = _train(
