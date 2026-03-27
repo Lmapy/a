@@ -106,8 +106,9 @@ class BacktestEngine:
                     }
                 elif fill.action == "close" and open_trade is not None:
                     mae, mfe = broker.get_excursion(state)
-                    gross_pnl = fill.realized_pnl + fill.commission
-                    net_pnl = fill.realized_pnl
+                    total_commission = fill.commission + open_trade["commission"]
+                    gross_pnl = fill.realized_pnl
+                    net_pnl = gross_pnl - total_commission
                     trade_records.append(TradeRecord(
                         trade_id=open_trade["trade_id"],
                         entry_time=open_trade["entry_time"],
@@ -117,7 +118,7 @@ class BacktestEngine:
                         entry_price=open_trade["entry_price"],
                         exit_price=fill.fill_price,
                         gross_pnl=gross_pnl,
-                        commission=fill.commission + open_trade["commission"],
+                        commission=total_commission,
                         net_pnl=net_pnl,
                         mae=mae,
                         mfe=mfe,
@@ -146,7 +147,9 @@ class BacktestEngine:
                         fills.append(forced_fill)
                         if open_trade is not None:
                             mae, mfe = broker.get_excursion(state)
-                            gross_pnl = forced_fill.realized_pnl + forced_fill.commission
+                            total_commission = forced_fill.commission + open_trade["commission"]
+                            gross_pnl = forced_fill.realized_pnl
+                            net_pnl = gross_pnl - total_commission
                             trade_records.append(TradeRecord(
                                 trade_id=open_trade["trade_id"],
                                 entry_time=open_trade["entry_time"],
@@ -156,8 +159,8 @@ class BacktestEngine:
                                 entry_price=open_trade["entry_price"],
                                 exit_price=forced_fill.fill_price,
                                 gross_pnl=gross_pnl,
-                                commission=forced_fill.commission + open_trade["commission"],
-                                net_pnl=forced_fill.realized_pnl,
+                                commission=total_commission,
+                                net_pnl=net_pnl,
                                 mae=mae,
                                 mfe=mfe,
                             ))
@@ -217,13 +220,14 @@ def _force_close(
     is_short = state.position_contracts < 0
     fill_price = bar.close
 
-    commission = broker.commission_per_rt * contracts
-    realized_pnl = state.contract.pnl(
+    # Charge close-side only (open-side commission was already paid when position was opened)
+    close_commission = (broker.commission_per_rt / 2.0) * contracts
+    gross_pnl = state.contract.pnl(
         state.avg_entry_price, fill_price, state.position_contracts, is_short=is_short
     )
-    realized_pnl -= commission
+    net_pnl = gross_pnl - close_commission
 
-    state.realized_balance += realized_pnl
+    state.realized_balance += net_pnl
     state.open_pnl = 0.0
     state.position_contracts = 0
     state.avg_entry_price = 0.0
@@ -235,9 +239,9 @@ def _force_close(
         direction="long" if not is_short else "short",
         contracts=contracts,
         fill_price=fill_price,
-        commission=commission,
-        realized_pnl=realized_pnl + commission,
-        net_pnl=realized_pnl,
+        commission=close_commission,
+        realized_pnl=gross_pnl,
+        net_pnl=net_pnl,
         slippage_ticks=0,
     )
 

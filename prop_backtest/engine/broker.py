@@ -112,26 +112,24 @@ class SimulatedBroker:
             if contracts == 0:
                 return None  # nothing to close
 
+        # Half of the round-turn commission applies to each side (open and close).
         commission_this_side = (self.commission_per_rt / 2.0) * contracts
         realized_pnl = 0.0
         direction = "long" if action == "buy" else "short"
 
         if action == "close":
             direction = "long" if state.position_contracts > 0 else "short"
-            realized_pnl = state.contract.pnl(
+            gross_pnl = state.contract.pnl(
                 state.avg_entry_price,
                 fill_price,
                 state.position_contracts,
                 is_short=(state.position_contracts < 0),
             )
-            # Also charge the open-side commission that was deferred to now
-            close_commission = (self.commission_per_rt / 2.0) * contracts
-            total_commission = close_commission + commission_this_side
-            realized_pnl -= total_commission
+            # Close side: only charge half RT (open side was charged when position was opened)
+            close_commission = commission_this_side
+            net_pnl = gross_pnl - close_commission
 
-            state.realized_balance += realized_pnl + total_commission - total_commission
-            # Simplified: net the commission into realized_pnl already
-            state.realized_balance += realized_pnl
+            state.realized_balance += net_pnl
             state.open_pnl = 0.0
             state.position_contracts = 0
             state.avg_entry_price = 0.0
@@ -143,9 +141,9 @@ class SimulatedBroker:
                 direction=direction,
                 contracts=contracts,
                 fill_price=fill_price,
-                commission=total_commission,
-                realized_pnl=realized_pnl + total_commission,
-                net_pnl=realized_pnl,
+                commission=close_commission,
+                realized_pnl=gross_pnl,
+                net_pnl=net_pnl,
                 slippage_ticks=self.slippage_ticks,
             )
             self._reset_excursion()
