@@ -3,16 +3,16 @@ enabled: true
 instruments: ["ES", "NQ"]
 timeframe: "5min"
 parameters:
-  opening_range_minutes: 30
-  volume_spike_threshold: 1.5
+  opening_range_minutes: 15
+  volume_spike_threshold: 1.0
   stop_loss_atr: 1.5
-  take_profit_multiplier: 1.5
+  take_profit_multiplier: 2.0
   atr_period: 14
-  min_range_atr: 0.5
-  max_range_atr: 3.0
+  min_range_atr: 0.3
+  max_range_atr: 5.0
 regime_filter:
-  allowed_regimes: ["high_volatility", "strong_trend_up", "strong_trend_down"]
-  blocked_regimes: ["low_volatility"]
+  allowed_regimes: ["high_volatility", "strong_trend_up", "strong_trend_down", "weak_trend"]
+  blocked_regimes: []
 risk:
   max_risk_per_trade_pct: 0.5
   max_concurrent_positions: 1

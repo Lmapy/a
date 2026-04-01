@@ -7,26 +7,31 @@ from src.strategy.base import BaseStrategy
 
 
 class MeanReversionStrategy(BaseStrategy):
-    """Trade reversions to VWAP when price extends too far.
+    """Trade reversions to VWAP when price overextends.
 
-    Entry: price > entry_threshold_atr ATRs from VWAP → fade the move.
-    Stop: entry +/- stop_loss_atr * ATR.
-    Take profit: back toward VWAP (take_profit_atr * ATR from entry).
-    Filter: only in ranging/low-volatility regimes with sufficient volume.
+    Entry logic (uses OR, not AND, for flexibility):
+        - Price is > threshold ATRs from VWAP, OR
+        - RSI is extreme AND price is moving away from VWAP
+    Exit:
+        - Take profit at a fraction of the distance back to VWAP
+        - Stop loss at entry +/- stop_loss_atr * ATR
+        - Time-based exit: close after max_hold_bars if neither hit
     """
 
     name = "mean_reversion"
-    allowed_regimes = ["ranging", "low_volatility", "weak_trend"]
-    blocked_regimes = ["strong_trend_up", "strong_trend_down"]
+    allowed_regimes = ["ranging", "low_volatility", "weak_trend", "high_volatility"]
+    blocked_regimes = []
 
     def __init__(self, params: dict | None = None):
         p = params or {}
-        self.entry_threshold_atr = p.get("entry_threshold_atr", 1.5)
-        self.stop_loss_atr = p.get("stop_loss_atr", 2.0)
-        self.take_profit_atr = p.get("take_profit_atr", 1.0)
-        self.rsi_oversold = p.get("rsi_oversold", 30)
-        self.rsi_overbought = p.get("rsi_overbought", 70)
-        self.min_volume_percentile = p.get("min_volume_percentile", 30)
+        self.entry_threshold_atr = p.get("entry_threshold_atr", 1.0)
+        self.stop_loss_atr = p.get("stop_loss_atr", 2.5)
+        self.take_profit_atr = p.get("take_profit_atr", 1.5)
+        self.rsi_oversold = p.get("rsi_oversold", 35)
+        self.rsi_overbought = p.get("rsi_overbought", 65)
+        self.min_volume_percentile = p.get("min_volume_percentile", 10)
+        self.max_hold_bars = p.get("max_hold_bars", 20)
+        self._bars_in_trade: dict[str, int] = {}
 
     def on_bar(self, bar: Bar, indicators: pd.Series, regime: MarketRegime) -> Signal | None:
         if not self.is_regime_allowed(regime):
@@ -35,27 +40,27 @@ class MeanReversionStrategy(BaseStrategy):
         atr_val = indicators.get("atr_14")
         vwap_val = indicators.get("vwap")
         rsi_val = indicators.get("rsi_14")
-        volume = bar.volume
-        volume_sma = indicators.get("volume_sma")
+        bb_upper = indicators.get("bb_upper")
+        bb_lower = indicators.get("bb_lower")
 
         if any(v is None or (isinstance(v, float) and pd.isna(v))
-               for v in [atr_val, vwap_val, rsi_val, volume_sma]):
+               for v in [atr_val, vwap_val, rsi_val]):
             return None
 
         if atr_val <= 0:
             return None
 
-        # Volume filter
-        if volume_sma > 0 and volume < volume_sma * (self.min_volume_percentile / 100.0):
-            return None
-
         distance_atr = (bar.close - vwap_val) / atr_val
 
-        # Short signal: price too far above VWAP + RSI overbought
-        if distance_atr > self.entry_threshold_atr and rsi_val > self.rsi_overbought:
+        # SHORT: price extended above VWAP or hitting upper Bollinger Band
+        short_vwap = distance_atr > self.entry_threshold_atr
+        short_rsi = rsi_val is not None and rsi_val > self.rsi_overbought
+        short_bb = bb_upper is not None and not pd.isna(bb_upper) and bar.close > bb_upper
+
+        if short_vwap and (short_rsi or short_bb):
             stop = bar.close + self.stop_loss_atr * atr_val
             tp = bar.close - self.take_profit_atr * atr_val
-            confidence = min(abs(distance_atr) / (self.entry_threshold_atr * 2), 1.0)
+            confidence = min(abs(distance_atr) / 3.0, 1.0)
             return Signal(
                 direction=SignalDirection.SHORT,
                 instrument=bar.instrument,
@@ -67,11 +72,15 @@ class MeanReversionStrategy(BaseStrategy):
                 metadata={"distance_atr": distance_atr, "rsi": rsi_val},
             )
 
-        # Long signal: price too far below VWAP + RSI oversold
-        if distance_atr < -self.entry_threshold_atr and rsi_val < self.rsi_oversold:
+        # LONG: price extended below VWAP or hitting lower Bollinger Band
+        long_vwap = distance_atr < -self.entry_threshold_atr
+        long_rsi = rsi_val is not None and rsi_val < self.rsi_oversold
+        long_bb = bb_lower is not None and not pd.isna(bb_lower) and bar.close < bb_lower
+
+        if long_vwap and (long_rsi or long_bb):
             stop = bar.close - self.stop_loss_atr * atr_val
             tp = bar.close + self.take_profit_atr * atr_val
-            confidence = min(abs(distance_atr) / (self.entry_threshold_atr * 2), 1.0)
+            confidence = min(abs(distance_atr) / 3.0, 1.0)
             return Signal(
                 direction=SignalDirection.LONG,
                 instrument=bar.instrument,
@@ -86,30 +95,31 @@ class MeanReversionStrategy(BaseStrategy):
         return None
 
     def should_exit(self, position: Position, bar: Bar, indicators: pd.Series) -> Signal | None:
-        atr_val = indicators.get("atr_14")
-        vwap_val = indicators.get("vwap")
-        if atr_val is None or vwap_val is None:
-            return None
+        inst = position.instrument
+        self._bars_in_trade[inst] = self._bars_in_trade.get(inst, 0) + 1
 
         # Check stop loss
         if position.stop_loss is not None:
             if position.direction == SignalDirection.LONG and bar.low <= position.stop_loss:
+                self._bars_in_trade.pop(inst, None)
                 return self._exit_signal(position, position.stop_loss, "stop_loss")
             if position.direction == SignalDirection.SHORT and bar.high >= position.stop_loss:
+                self._bars_in_trade.pop(inst, None)
                 return self._exit_signal(position, position.stop_loss, "stop_loss")
 
         # Check take profit
         if position.take_profit is not None:
             if position.direction == SignalDirection.LONG and bar.high >= position.take_profit:
+                self._bars_in_trade.pop(inst, None)
                 return self._exit_signal(position, position.take_profit, "take_profit")
             if position.direction == SignalDirection.SHORT and bar.low <= position.take_profit:
+                self._bars_in_trade.pop(inst, None)
                 return self._exit_signal(position, position.take_profit, "take_profit")
 
-        # Exit if price crosses back through VWAP (mean reverted)
-        if position.direction == SignalDirection.LONG and bar.close >= vwap_val:
-            return self._exit_signal(position, bar.close, "vwap_reversion")
-        if position.direction == SignalDirection.SHORT and bar.close <= vwap_val:
-            return self._exit_signal(position, bar.close, "vwap_reversion")
+        # Time-based exit
+        if self._bars_in_trade.get(inst, 0) >= self.max_hold_bars:
+            self._bars_in_trade.pop(inst, None)
+            return self._exit_signal(position, bar.close, "time_exit")
 
         return None
 

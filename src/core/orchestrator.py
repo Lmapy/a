@@ -31,26 +31,21 @@ class TradingOrchestrator:
         strategies: dict[str, BaseStrategy] = {}
 
         strat_configs = self.config.strategies
-        if "mean_reversion" in strat_configs:
-            strategies["mean_reversion"] = MeanReversionStrategy(
-                strat_configs["mean_reversion"].parameters
-            )
-        else:
-            strategies["mean_reversion"] = MeanReversionStrategy()
 
-        if "trend_following" in strat_configs:
-            strategies["trend_following"] = TrendFollowingStrategy(
-                strat_configs["trend_following"].parameters
-            )
-        else:
-            strategies["trend_following"] = TrendFollowingStrategy()
+        # Only build strategies that are enabled in config (or default all if no config)
+        build_defaults = len(strat_configs) == 0
 
-        if "breakout" in strat_configs:
-            strategies["breakout"] = BreakoutStrategy(
-                strat_configs["breakout"].parameters
-            )
-        else:
-            strategies["breakout"] = BreakoutStrategy()
+        if "mean_reversion" in strat_configs or build_defaults:
+            params = strat_configs["mean_reversion"].parameters if "mean_reversion" in strat_configs else {}
+            strategies["mean_reversion"] = MeanReversionStrategy(params)
+
+        if "trend_following" in strat_configs or build_defaults:
+            params = strat_configs["trend_following"].parameters if "trend_following" in strat_configs else {}
+            strategies["trend_following"] = TrendFollowingStrategy(params)
+
+        if "breakout" in strat_configs or build_defaults:
+            params = strat_configs["breakout"].parameters if "breakout" in strat_configs else {}
+            strategies["breakout"] = BreakoutStrategy(params)
 
         return strategies
 

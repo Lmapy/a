@@ -4,7 +4,7 @@ risk:
   scale_down_threshold: 500
   min_drawdown_buffer: 300
   end_of_day_flatten_minutes: 5
-  max_risk_per_trade_pct: 1.0
+  max_risk_per_trade_pct: 8.0
   max_consecutive_losses: 3
   profit_protection_threshold: 500
   acceleration_profit_pct: 50

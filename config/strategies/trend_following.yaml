@@ -6,10 +6,10 @@ parameters:
   ema_fast: 20
   ema_slow: 50
   adx_period: 14
-  adx_threshold: 25
-  pullback_atr: 0.5
-  stop_loss_atr: 2.0
-  trailing_stop_atr: 2.0
+  adx_threshold: 20
+  pullback_atr: 1.0
+  stop_loss_atr: 1.2
+  trailing_stop_atr: 1.8
   atr_period: 14
 regime_filter:
   allowed_regimes: ["strong_trend_up", "strong_trend_down", "weak_trend"]

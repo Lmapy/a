@@ -1,20 +1,20 @@
 strategy_name: "mean_reversion"
-enabled: true
+enabled: false
 instruments: ["ES", "NQ"]
 timeframe: "5min"
 parameters:
   vwap_lookback: "session"
-  entry_threshold_atr: 1.5
-  stop_loss_atr: 2.0
-  take_profit_atr: 1.0
+  entry_threshold_atr: 1.2
+  stop_loss_atr: 1.0
+  take_profit_atr: 2.0
   atr_period: 14
-  min_volume_percentile: 30
-  rsi_oversold: 30
-  rsi_overbought: 70
+  min_volume_percentile: 10
+  rsi_oversold: 35
+  rsi_overbought: 65
   rsi_period: 14
 regime_filter:
-  allowed_regimes: ["ranging", "low_volatility", "weak_trend"]
-  blocked_regimes: ["strong_trend_up", "strong_trend_down"]
+  allowed_regimes: ["ranging", "low_volatility", "weak_trend", "high_volatility"]
+  blocked_regimes: []
 risk:
   max_risk_per_trade_pct: 0.5
   max_concurrent_positions: 1
