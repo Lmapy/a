@@ -104,6 +104,49 @@ class ChallengeSim:
 
         return results
 
+    def run_sequential(self, data: pd.DataFrame, instrument: str = "ES",
+                       max_days_per_attempt: int = 0) -> list[ChallengeResult]:
+        """Run sequential non-overlapping challenge attempts through the data.
+
+        Each attempt starts where the previous one ended. Simulates real-world
+        scenario of attempting challenges back-to-back.
+
+        Args:
+            data: Full historical OHLCV data.
+            instrument: Futures instrument symbol.
+            max_days_per_attempt: Max trading days per attempt (0 = unlimited).
+
+        Returns:
+            List of ChallengeResult for each attempt.
+        """
+        results = []
+        daily_groups = list(data.groupby(data.index.date))
+        start_idx = 0
+
+        while start_idx < len(daily_groups):
+            if max_days_per_attempt > 0:
+                end_idx = min(start_idx + max_days_per_attempt, len(daily_groups))
+            else:
+                end_idx = len(daily_groups)
+
+            window_dates = [d for d, _ in daily_groups[start_idx:end_idx]]
+            start_date = window_dates[0]
+            end_date = window_dates[-1]
+
+            window_data = data[(data.index.date >= start_date) & (data.index.date <= end_date)]
+            if len(window_data) < 50:
+                break
+
+            result = self.run(window_data, instrument)
+            results.append(result)
+
+            # Move past the days used in this attempt
+            start_idx += result.days_taken
+            if result.days_taken == 0:
+                start_idx += 1  # avoid infinite loop
+
+        return results
+
     @staticmethod
     def summarize(results: list[ChallengeResult]) -> str:
         """Summarize multiple challenge results."""

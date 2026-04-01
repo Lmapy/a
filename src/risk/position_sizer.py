@@ -83,6 +83,12 @@ class PositionSizer:
 
         contracts = math.floor(risk_dollars / stop_dollars)
 
+        # Always allow at least 1 contract if budget is above min buffer
+        # and the stop risk is within 50% of remaining budget
+        if contracts == 0 and remaining_budget > self.risk.min_drawdown_buffer:
+            if stop_dollars <= remaining_budget * 0.50:
+                contracts = 1
+
         # Clamp to firm maximum
         max_contracts = self.firm.max_contracts.get(instrument, 1)
         contracts = min(contracts, max_contracts)

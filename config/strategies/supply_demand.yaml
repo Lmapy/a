@@ -1,0 +1,15 @@
+strategy_name: "supply_demand"
+enabled: true
+instruments: ["ES", "NQ", "GC"]
+timeframe: "5min"
+parameters:
+  zone_atr_mult: 2.0
+  zone_body_pct: 0.75
+  stop_buffer_ticks: 12
+  take_profit_rr: 2.0
+  max_zone_age_bars: 240
+  rejection_wick_pct: 0.55
+regime_filter:
+  allowed: ["ranging", "weak_trend", "low_volatility", "high_volatility", "strong_trend_up", "strong_trend_down"]
+risk:
+  max_risk_per_trade_pct: 5.0

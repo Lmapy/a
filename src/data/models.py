@@ -130,4 +130,5 @@ INSTRUMENT_SPECS: dict[str, dict] = {
     "MNQ": {"tick_size": 0.25, "tick_value": 0.50, "point_value": 2.0, "margin": 50},
     "CL": {"tick_size": 0.01, "tick_value": 10.00, "point_value": 1000.0, "margin": 500},
     "GC": {"tick_size": 0.10, "tick_value": 10.00, "point_value": 100.0, "margin": 500},
+    "MGC": {"tick_size": 0.10, "tick_value": 1.00, "point_value": 10.0, "margin": 50},
 }

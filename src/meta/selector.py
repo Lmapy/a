@@ -6,12 +6,12 @@ from src.strategy.base import BaseStrategy
 
 # Default regime -> strategy allocation mapping
 DEFAULT_ALLOCATIONS: dict[MarketRegime, dict[str, float]] = {
-    MarketRegime.STRONG_TREND_UP:   {"trend_following": 0.70, "breakout": 0.30},
-    MarketRegime.STRONG_TREND_DOWN: {"trend_following": 0.70, "breakout": 0.30},
-    MarketRegime.WEAK_TREND:        {"trend_following": 0.50, "mean_reversion": 0.50},
-    MarketRegime.RANGING:           {"mean_reversion": 0.80, "breakout": 0.20},
-    MarketRegime.HIGH_VOLATILITY:   {"breakout": 0.60, "mean_reversion": 0.40},
-    MarketRegime.LOW_VOLATILITY:    {"mean_reversion": 1.00},
+    MarketRegime.STRONG_TREND_UP:   {"breakout": 0.40, "supply_demand": 0.30, "level_sweep": 0.30},
+    MarketRegime.STRONG_TREND_DOWN: {"breakout": 0.40, "supply_demand": 0.30, "level_sweep": 0.30},
+    MarketRegime.WEAK_TREND:        {"breakout": 0.35, "supply_demand": 0.35, "level_sweep": 0.30},
+    MarketRegime.RANGING:           {"supply_demand": 0.40, "level_sweep": 0.30, "breakout": 0.30},
+    MarketRegime.HIGH_VOLATILITY:   {"breakout": 0.40, "supply_demand": 0.30, "level_sweep": 0.30},
+    MarketRegime.LOW_VOLATILITY:    {"supply_demand": 0.40, "level_sweep": 0.30, "breakout": 0.30},
 }
 
 
@@ -50,9 +50,17 @@ class StrategySelector:
                 if strat.is_regime_allowed(regime):
                     result[strat_name] = (strat, pct)
 
-        # If no strategies available, fall back to mean reversion at minimal allocation
-        if not result and "mean_reversion" in self.strategies:
-            result["mean_reversion"] = (self.strategies["mean_reversion"], 0.5)
+        # If no strategies available, try any available strategy
+        if not result:
+            for sname, sinst in self.strategies.items():
+                result[sname] = (sinst, 1.0)
+                break
+
+        # Normalize allocations so they sum to 1.0 (redistribute from missing strategies)
+        if result:
+            total_alloc = sum(pct for _, (_, pct) in result.items())
+            if total_alloc > 0 and total_alloc < 0.99:
+                result = {k: (s, p / total_alloc) for k, (s, p) in result.items()}
 
         return result
 

@@ -5,15 +5,14 @@ timeframe: "5min"
 parameters:
   ema_fast: 20
   ema_slow: 50
-  adx_period: 14
-  adx_threshold: 20
-  pullback_atr: 1.0
-  stop_loss_atr: 1.2
-  trailing_stop_atr: 1.8
+  adx_threshold: 0
+  stop_loss_atr: 2.0
+  trailing_stop_atr: 2.5
+  rr_target: 3.0
   atr_period: 14
 regime_filter:
-  allowed_regimes: ["strong_trend_up", "strong_trend_down", "weak_trend"]
-  blocked_regimes: ["ranging", "low_volatility"]
+  allowed_regimes: ["strong_trend_up", "strong_trend_down", "weak_trend", "ranging", "high_volatility"]
+  blocked_regimes: ["low_volatility"]
 risk:
   max_risk_per_trade_pct: 0.75
   max_concurrent_positions: 1

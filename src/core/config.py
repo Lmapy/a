@@ -33,6 +33,7 @@ class FirmConfig:
     max_calendar_days: int | None = None
     allowed_instruments: list[str] = field(default_factory=lambda: ["ES", "NQ", "MES", "MNQ"])
     trading_hours: TradingHoursConfig = field(default_factory=TradingHoursConfig)
+    min_tick_profit: int = 0  # minimum ticks profit per trade (MFF requires 4)
 
 
 @dataclass
@@ -92,6 +93,7 @@ def load_firm_config(path: str | Path) -> FirmConfig:
         max_calendar_days=data.get("max_calendar_days"),
         allowed_instruments=data.get("allowed_instruments", []),
         trading_hours=TradingHoursConfig(**th),
+        min_tick_profit=data.get("min_tick_profit", 0),
     )
 
 

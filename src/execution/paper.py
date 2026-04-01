@@ -26,7 +26,7 @@ class PaperBroker(Broker):
     Limit/stop orders fill when the bar's range touches the order price.
     """
 
-    def __init__(self, slippage_ticks: float = 1.0, commission_per_contract: float = 2.50):
+    def __init__(self, slippage_ticks: float = 0.0, commission_per_contract: float = 2.50):
         self.slippage_ticks = slippage_ticks
         self.commission = commission_per_contract
         self.pending_orders: list[Order] = []

@@ -10,11 +10,13 @@ daily_loss_limit: null
 max_contracts:
   ES: 2
   NQ: 2
+  GC: 2
   MES: 10
   MNQ: 10
+  MGC: 10
 min_trading_days: 0
 max_calendar_days: null
-allowed_instruments: ["ES", "NQ", "MES", "MNQ"]
+allowed_instruments: ["ES", "NQ", "GC", "MES", "MNQ", "MGC"]
 trading_hours:
   start: "08:30"
   end: "15:00"

@@ -7,27 +7,26 @@ from src.strategy.base import BaseStrategy
 
 
 class BreakoutStrategy(BaseStrategy):
-    """Trade opening range breakouts and key level breaks.
+    """Trade opening range breakouts.
 
     Entry: price breaks above/below the opening range (first N minutes)
-           with volume confirmation (volume > threshold * avg volume).
-    Stop: opposite side of the range (clamped to stop_loss_atr * ATR).
-    Take profit: measured move (range height projected from breakout).
-    Filter: volatile/trending regime, ATR above median.
+    Stop: half of OR range from entry (tighter than full OR).
+    Take profit: 2x risk (measured from entry).
     """
 
     name = "breakout"
-    allowed_regimes = ["high_volatility", "strong_trend_up", "strong_trend_down"]
-    blocked_regimes = ["low_volatility"]
+    allowed_regimes = ["high_volatility", "strong_trend_up", "strong_trend_down", "weak_trend", "ranging", "low_volatility"]
+    blocked_regimes = []
 
     def __init__(self, params: dict | None = None):
         p = params or {}
-        self.opening_range_minutes = p.get("opening_range_minutes", 30)
-        self.volume_spike_threshold = p.get("volume_spike_threshold", 1.5)
-        self.stop_loss_atr = p.get("stop_loss_atr", 1.5)
-        self.take_profit_multiplier = p.get("take_profit_multiplier", 1.5)
-        self.min_range_atr = p.get("min_range_atr", 0.5)
-        self.max_range_atr = p.get("max_range_atr", 3.0)
+        self.opening_range_minutes = p.get("opening_range_minutes", 60)
+        self.stop_range_pct = p.get("stop_range_pct", 0.5)  # stop at 50% of OR range
+        self.take_profit_rr = p.get("take_profit_rr", 2.0)  # R:R target
+        self.min_range_points = p.get("min_range_points", 0.5)
+        self.max_range_points = p.get("max_range_points", 20.0)
+        self.max_bars_after_or = p.get("max_bars_after_or", 18)  # 90 min window
+        self.min_tick_profit = p.get("min_tick_profit", 0)  # min ticks for TP (MFF: 4)
 
         # Per-instrument daily state
         self._or_high: dict[str, float] = {}
@@ -35,6 +34,7 @@ class BreakoutStrategy(BaseStrategy):
         self._or_established: dict[str, bool] = {}
         self._breakout_traded: dict[str, bool] = {}
         self._bar_count: dict[str, int] = {}
+        self._bars_after_or: dict[str, int] = {}
 
     def reset_daily(self) -> None:
         """Reset opening range state at start of each day."""
@@ -43,21 +43,13 @@ class BreakoutStrategy(BaseStrategy):
         self._or_established.clear()
         self._breakout_traded.clear()
         self._bar_count.clear()
+        self._bars_after_or.clear()
 
     def on_bar(self, bar: Bar, indicators: pd.Series, regime: MarketRegime) -> Signal | None:
         if not self.is_regime_allowed(regime):
             return None
 
         inst = bar.instrument
-        atr_val = indicators.get("atr_14")
-        volume_sma = indicators.get("volume_sma")
-
-        if any(v is None or (isinstance(v, float) and pd.isna(v))
-               for v in [atr_val, volume_sma]):
-            return None
-
-        if atr_val <= 0:
-            return None
 
         # Track bar count for opening range calculation
         self._bar_count[inst] = self._bar_count.get(inst, 0) + 1
@@ -71,6 +63,7 @@ class BreakoutStrategy(BaseStrategy):
             bars_needed = self.opening_range_minutes // 5
             if self._bar_count[inst] >= bars_needed:
                 self._or_established[inst] = True
+                self._bars_after_or[inst] = 0
 
             return None
 
@@ -78,24 +71,33 @@ class BreakoutStrategy(BaseStrategy):
         if self._breakout_traded.get(inst, False):
             return None
 
+        # Only look for breakouts within time window after OR
+        self._bars_after_or[inst] = self._bars_after_or.get(inst, 0) + 1
+        if self._bars_after_or[inst] > self.max_bars_after_or:
+            return None
+
         or_high = self._or_high[inst]
         or_low = self._or_low[inst]
         or_range = or_high - or_low
 
         # Range size filter
-        if or_range < self.min_range_atr * atr_val:
-            return None  # range too narrow, likely a squeeze — wait
-        if or_range > self.max_range_atr * atr_val:
-            return None  # range too wide, stop would be too large
-
-        # Volume confirmation
-        has_volume = volume_sma > 0 and bar.volume > volume_sma * self.volume_spike_threshold
+        if or_range < self.min_range_points or or_range > self.max_range_points:
+            return None
 
         # Breakout above opening range high
-        if bar.close > or_high and has_volume:
-            stop = max(or_low, bar.close - self.stop_loss_atr * atr_val)
-            tp = bar.close + or_range * self.take_profit_multiplier
-            confidence = min(bar.volume / (volume_sma * 2) if volume_sma > 0 else 0.5, 1.0)
+        if bar.close > or_high:
+            stop = bar.close - or_range * self.stop_range_pct
+            risk = bar.close - stop
+            tp = bar.close + risk * self.take_profit_rr
+
+            # Enforce minimum tick profit (e.g., MFF 4-tick rule)
+            if self.min_tick_profit > 0:
+                from src.data.models import INSTRUMENT_SPECS
+                spec = INSTRUMENT_SPECS.get(inst, {})
+                tick_size = spec.get("tick_size", 0.25)
+                min_tp = bar.close + self.min_tick_profit * tick_size
+                tp = max(tp, min_tp)
+
             self._breakout_traded[inst] = True
             return Signal(
                 direction=SignalDirection.LONG,
@@ -103,16 +105,25 @@ class BreakoutStrategy(BaseStrategy):
                 entry_price=bar.close,
                 stop_loss=stop,
                 take_profit=tp,
-                confidence=confidence,
+                confidence=1.0,
                 strategy_name=self.name,
                 metadata={"or_high": or_high, "or_low": or_low, "or_range": or_range},
             )
 
         # Breakout below opening range low
-        if bar.close < or_low and has_volume:
-            stop = min(or_high, bar.close + self.stop_loss_atr * atr_val)
-            tp = bar.close - or_range * self.take_profit_multiplier
-            confidence = min(bar.volume / (volume_sma * 2) if volume_sma > 0 else 0.5, 1.0)
+        if bar.close < or_low:
+            stop = bar.close + or_range * self.stop_range_pct
+            risk = stop - bar.close
+            tp = bar.close - risk * self.take_profit_rr
+
+            # Enforce minimum tick profit (e.g., MFF 4-tick rule)
+            if self.min_tick_profit > 0:
+                from src.data.models import INSTRUMENT_SPECS
+                spec = INSTRUMENT_SPECS.get(inst, {})
+                tick_size = spec.get("tick_size", 0.25)
+                min_tp = bar.close - self.min_tick_profit * tick_size
+                tp = min(tp, min_tp)
+
             self._breakout_traded[inst] = True
             return Signal(
                 direction=SignalDirection.SHORT,
@@ -120,7 +131,7 @@ class BreakoutStrategy(BaseStrategy):
                 entry_price=bar.close,
                 stop_loss=stop,
                 take_profit=tp,
-                confidence=confidence,
+                confidence=1.0,
                 strategy_name=self.name,
                 metadata={"or_high": or_high, "or_low": or_low, "or_range": or_range},
             )
