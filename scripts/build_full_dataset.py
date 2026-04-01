@@ -99,6 +99,29 @@ def filter_rth(df: pd.DataFrame, source: str = "oanda") -> pd.DataFrame:
     return df
 
 
+def filter_eth(df: pd.DataFrame, source: str = "oanda") -> pd.DataFrame:
+    """Filter to extended trading hours (18:00 previous day - 16:00 ET).
+
+    Covers the full futures session: ETH open at 6 PM ET through RTH close
+    at 4 PM ET next day. Excludes the 4:15 PM - 6:00 PM maintenance break.
+    """
+    if source == "oanda":
+        df = df.copy()
+        df.index = df.index.tz_localize("UTC").tz_convert("US/Eastern")
+        # Include 18:00-23:59 (evening ETH) and 00:00-16:00 (overnight + RTH)
+        evening = df.between_time("18:00", "23:59")
+        overnight_rth = df.between_time("00:00", "16:00")
+        df = pd.concat([evening, overnight_rth]).sort_index()
+        df = df[~df.index.duplicated(keep="first")]
+        df.index = df.index.tz_localize(None)
+    else:
+        evening = df.between_time("18:00", "23:59")
+        overnight_rth = df.between_time("00:00", "16:00")
+        df = pd.concat([evening, overnight_rth]).sort_index()
+        df = df[~df.index.duplicated(keep="first")]
+    return df
+
+
 def generate_volume_if_zero(df: pd.DataFrame) -> pd.DataFrame:
     """If volume is all zeros, generate realistic volume from price action."""
     if (df["volume"] == 0).mean() > 0.8:  # >80% zero volume
@@ -123,16 +146,24 @@ def generate_volume_if_zero(df: pd.DataFrame) -> pd.DataFrame:
 
 
 def build_dataset(name: str, raw_1min: pd.DataFrame, output_path: Path,
-                  source: str = "oanda") -> dict:
-    """Resample, filter, fix volume, and save."""
+                  source: str = "oanda", hours: str = "rth") -> dict:
+    """Resample, filter, fix volume, and save.
+
+    Args:
+        hours: "rth" for regular trading hours, "eth" for extended (6PM-4PM ET).
+    """
     print(f"  Raw 1-min bars: {len(raw_1min):,}")
     print(f"  Date range: {raw_1min.index[0]} to {raw_1min.index[-1]}")
 
     bars_5m = resample_to_5min(raw_1min)
     print(f"  5-min bars (all hours): {len(bars_5m):,}")
 
-    bars_rth = filter_rth(bars_5m, source=source)
-    print(f"  5-min bars (RTH only): {len(bars_rth):,}")
+    if hours == "eth":
+        bars_rth = filter_eth(bars_5m, source=source)
+        print(f"  5-min bars (ETH 18:00-16:00): {len(bars_rth):,}")
+    else:
+        bars_rth = filter_rth(bars_5m, source=source)
+        print(f"  5-min bars (RTH only): {len(bars_rth):,}")
 
     bars_rth = generate_volume_if_zero(bars_rth)
 
@@ -180,12 +211,13 @@ def main():
     s = build_dataset("NQ_oanda", nq_oanda, output_dir / "NQ_5min.csv", source="oanda")
     summaries.append(s)
 
-    # 3. GC (Gold) from Oanda — 2006-2020
+    # 3. GC (Gold) from Oanda — 2006-2020, ETH hours (6 PM - 4 PM ET)
     print("=" * 60)
-    print("BUILDING GC (Gold) DATASET — Oanda 2006-2020")
+    print("BUILDING GC (Gold) DATASET — Oanda 2006-2020 (ETH)")
     print("=" * 60)
     gc_oanda = load_oanda_instrument("XAU_USD")
-    s = build_dataset("GC_oanda", gc_oanda, output_dir / "GC_5min.csv", source="oanda")
+    s = build_dataset("GC_oanda_eth", gc_oanda, output_dir / "GC_5min.csv",
+                      source="oanda", hours="eth")
     summaries.append(s)
 
     # 4. ES from histdata (higher quality) — 2010-2018

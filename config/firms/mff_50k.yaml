@@ -19,6 +19,6 @@ max_calendar_days: null
 allowed_instruments: ["ES", "NQ", "GC", "MES", "MNQ", "MGC"]
 min_tick_profit: 4  # MFF requires minimum 4 tick profit per trade
 trading_hours:
-  start: "08:30"
-  end: "15:00"
+  start: "18:00"  # ETH open (previous day)
+  end: "15:55"    # Must flatten before 4 PM ET
   flat_by_close: true

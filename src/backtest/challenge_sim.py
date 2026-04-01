@@ -37,16 +37,14 @@ class ChallengeSim:
         self.engine = BacktestEngine(config, strategies)
 
     def run(self, data: pd.DataFrame, instrument: str = "ES") -> ChallengeResult:
-        """Run one complete challenge simulation."""
-        logger.info(
-            f"Starting challenge simulation: "
-            f"{self.config.firm.firm_name} {self.config.firm.account_name}, "
-            f"target=${self.config.firm.profit_target}, "
-            f"drawdown=${self.config.firm.trailing_drawdown.initial_amount}"
-        )
+        """Run one complete challenge simulation (single instrument)."""
+        return self._run_result(self.engine.run(data, instrument))
 
-        bt = self.engine.run(data, instrument)
+    def run_multi(self, instrument_data: dict[str, pd.DataFrame]) -> ChallengeResult:
+        """Run one complete challenge simulation with multiple instruments."""
+        return self._run_result(self.engine.run_multi(instrument_data))
 
+    def _run_result(self, bt: BacktestResult) -> ChallengeResult:
         passed = bt.status == ChallengeStatus.PASSED
         profit = bt.final_balance - self.config.firm.account_size
 
@@ -100,6 +98,45 @@ class ChallengeSim:
                 continue
 
             result = self.run(window_data, instrument)
+            results.append(result)
+
+        return results
+
+    def run_multiple_multi(self, instrument_data: dict[str, pd.DataFrame],
+                           n_runs: int = 1, window_days: int = 60) -> list[ChallengeResult]:
+        """Run multiple multi-instrument challenge simulations using rolling windows."""
+        results = []
+
+        # Use the first instrument's dates to define windows
+        first_inst = next(iter(instrument_data))
+        first_df = instrument_data[first_inst]
+        daily_groups = list(first_df.groupby(first_df.index.date))
+
+        if len(daily_groups) < window_days:
+            return [self.run_multi(instrument_data)]
+
+        step = max(1, window_days // 4)
+
+        for start_idx in range(0, len(daily_groups) - window_days + 1, step):
+            if len(results) >= n_runs:
+                break
+
+            end_idx = start_idx + window_days
+            window_dates = [d for d, _ in daily_groups[start_idx:end_idx]]
+            start_date = window_dates[0]
+            end_date = window_dates[-1]
+
+            # Slice all instruments to this window
+            window_data = {}
+            for inst, df in instrument_data.items():
+                wdf = df[(df.index.date >= start_date) & (df.index.date <= end_date)]
+                if len(wdf) > 0:
+                    window_data[inst] = wdf
+
+            if not window_data:
+                continue
+
+            result = self.run_multi(window_data)
             results.append(result)
 
         return results

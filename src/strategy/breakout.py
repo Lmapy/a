@@ -27,6 +27,16 @@ class BreakoutStrategy(BaseStrategy):
         self.max_range_points = p.get("max_range_points", 20.0)
         self.max_bars_after_or = p.get("max_bars_after_or", 18)  # 90 min window
         self.min_tick_profit = p.get("min_tick_profit", 0)  # min ticks for TP (MFF: 4)
+        self.session_open_hour = p.get("session_open_hour", 9)   # Default RTH open
+        self.session_open_minute = p.get("session_open_minute", 30)
+        # Per-instrument session open overrides (e.g., GC opens at 18:00 ET for ETH)
+        self.instrument_session_open: dict[str, tuple[int, int]] = p.get(
+            "instrument_session_open", {
+                "GC": (18, 0),   # Gold ETH opens 6 PM ET
+                "MGC": (18, 0),
+                "CL": (18, 0),   # Crude ETH opens 6 PM ET
+            }
+        )
 
         # Per-instrument daily state
         self._or_high: dict[str, float] = {}
@@ -35,6 +45,7 @@ class BreakoutStrategy(BaseStrategy):
         self._breakout_traded: dict[str, bool] = {}
         self._bar_count: dict[str, int] = {}
         self._bars_after_or: dict[str, int] = {}
+        self._session_started: dict[str, bool] = {}
 
     def reset_daily(self) -> None:
         """Reset opening range state at start of each day."""
@@ -44,6 +55,7 @@ class BreakoutStrategy(BaseStrategy):
         self._breakout_traded.clear()
         self._bar_count.clear()
         self._bars_after_or.clear()
+        self._session_started.clear()
 
     def on_bar(self, bar: Bar, indicators: pd.Series, regime: MarketRegime) -> Signal | None:
         if not self.is_regime_allowed(regime):
@@ -51,7 +63,30 @@ class BreakoutStrategy(BaseStrategy):
 
         inst = bar.instrument
 
-        # Track bar count for opening range calculation
+        # Wait for instrument's session open before building opening range
+        # ES/NQ use RTH open (9:30 AM), GC/CL use ETH open (6:00 PM)
+        bar_time = bar.timestamp.time() if hasattr(bar.timestamp, 'time') else None
+        if bar_time is not None and not self._session_started.get(inst, False):
+            from datetime import time as dt_time
+            if inst in self.instrument_session_open:
+                h, m = self.instrument_session_open[inst]
+            else:
+                h, m = self.session_open_hour, self.session_open_minute
+            session_open = dt_time(h, m)
+
+            # For ETH instruments (session opens in evening), session is "open"
+            # for bars >= 18:00 OR bars < 16:00. For RTH, bars must be >= 9:30.
+            if h >= 17:  # Evening session open (ETH)
+                if bar_time < session_open and bar_time >= dt_time(16, 0):
+                    return None  # In the maintenance break (4-6 PM)
+                # Otherwise session is active (evening or overnight/day)
+                self._session_started[inst] = True
+            else:  # Morning session open (RTH)
+                if bar_time < session_open:
+                    return None
+                self._session_started[inst] = True
+
+        # Track bar count for opening range calculation (from session open)
         self._bar_count[inst] = self._bar_count.get(inst, 0) + 1
 
         # Build opening range
