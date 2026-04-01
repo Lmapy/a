@@ -1,0 +1,19 @@
+strategy_name: "bos"
+enabled: true
+instruments: ["ES", "NQ", "GC"]
+timeframe: "5min"
+parameters:
+  swing_lookback: 4            # 4 bars each side = ~40min swing significance
+  agg_period: 1                # 1=raw 5min bars (no aggregation)
+  pullback_buffer_ticks: 4
+  stop_buffer_ticks: 4
+  default_rr: 3.0
+  max_setup_age_bars: 48       # 4 hours for pullback to arrive
+  max_history_bars: 150
+  min_swing_distance_ticks: 8
+  max_trades_per_day: 3
+  max_stop_ticks: 60           # cap stop at 60 ticks
+regime_filter:
+  allowed: ["high_volatility", "strong_trend_up", "strong_trend_down", "weak_trend", "ranging", "low_volatility"]
+risk:
+  max_risk_per_trade_pct: 15.0
