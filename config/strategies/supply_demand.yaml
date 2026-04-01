@@ -3,12 +3,12 @@ enabled: true
 instruments: ["ES", "NQ", "GC"]
 timeframe: "5min"
 parameters:
-  zone_atr_mult: 2.0
-  zone_body_pct: 0.75
-  stop_buffer_ticks: 12
+  zone_atr_mult: 1.0
+  zone_body_pct: 0.60
+  stop_buffer_ticks: 8
   take_profit_rr: 3.0
   max_zone_age_bars: 240
-  rejection_wick_pct: 0.55
+  rejection_wick_pct: 0.40
 regime_filter:
   allowed: ["ranging", "weak_trend", "low_volatility", "high_volatility", "strong_trend_up", "strong_trend_down"]
 risk:

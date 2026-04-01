@@ -58,14 +58,22 @@ class SupplyDemandStrategy(BaseStrategy):
         self._atr_values: dict[str, deque] = {}  # rolling ATR for zones
         self._current_date: dict[str, object] = {}
 
+    def reset(self) -> None:
+        """Reset all state for a new backtest run."""
+        self._bar_buffer.clear()
+        self._hourly_bars.clear()
+        self._zones.clear()
+        self._zone_traded.clear()
+        self._bar_count.clear()
+        self._atr_values.clear()
+        self._current_date.clear()
+
     def reset_daily(self) -> None:
         """Reset daily trade tracking. Zones persist across days."""
         self._zone_traded.clear()
 
-    def on_bar(self, bar: Bar, indicators: pd.Series, regime: MarketRegime) -> Signal | None:
-        if not self.is_regime_allowed(regime):
-            return None
-
+    def _update_state(self, bar: Bar) -> None:
+        """Track bar data and update zones (no signal generation)."""
         inst = bar.instrument
         spec = INSTRUMENT_SPECS.get(inst, {})
         tick_size = spec.get("tick_size", 0.25)
@@ -98,11 +106,26 @@ class SupplyDemandStrategy(BaseStrategy):
         # Expire old zones
         self._expire_zones(inst)
 
+    def on_bar(self, bar: Bar, indicators: pd.Series, regime: MarketRegime) -> Signal | None:
+        if not self.is_regime_allowed(regime):
+            self._update_state(bar)
+            return None
+
+        self._update_state(bar)
+
+        inst = bar.instrument
+        spec = INSTRUMENT_SPECS.get(inst, {})
+        tick_size = spec.get("tick_size", 0.25)
+
         # Check for entry signals at active zones
         if self._zone_traded.get(inst, 0) >= 2:
             return None
 
         return self._check_zone_entry(bar, inst, tick_size)
+
+    def track_bar(self, bar: Bar, indicators: pd.Series, regime: MarketRegime) -> None:
+        """Lightweight state tracking — just update zones without signal check."""
+        self._update_state(bar)
 
     def _aggregate_hourly(self, inst: str) -> dict | None:
         """Aggregate recent 5-min bars into one hourly bar."""

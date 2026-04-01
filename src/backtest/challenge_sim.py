@@ -104,7 +104,13 @@ class ChallengeSim:
 
     def run_multiple_multi(self, instrument_data: dict[str, pd.DataFrame],
                            n_runs: int = 1, window_days: int = 60) -> list[ChallengeResult]:
-        """Run multiple multi-instrument challenge simulations using rolling windows."""
+        """Run multiple multi-instrument challenge simulations using rolling windows.
+
+        Pre-computes indicators once on full dataset, then slices for each window.
+        """
+        from src.data.indicators import compute_indicators
+        from src.backtest.engine import BacktestEngine
+
         results = []
 
         # Use the first instrument's dates to define windows
@@ -114,6 +120,12 @@ class ChallengeSim:
 
         if len(daily_groups) < window_days:
             return [self.run_multi(instrument_data)]
+
+        # Pre-compute indicators on full datasets once
+        precomputed = {}
+        for inst, df in instrument_data.items():
+            session_starts = BacktestEngine._detect_session_starts(df)
+            precomputed[inst] = compute_indicators(df, session_starts)
 
         step = max(1, window_days // 4)
 
@@ -126,17 +138,19 @@ class ChallengeSim:
             start_date = window_dates[0]
             end_date = window_dates[-1]
 
-            # Slice all instruments to this window
+            # Slice pre-computed indicator DataFrames
             window_data = {}
-            for inst, df in instrument_data.items():
-                wdf = df[(df.index.date >= start_date) & (df.index.date <= end_date)]
+            for inst, idf in precomputed.items():
+                wdf = idf[(idf.index.date >= start_date) & (idf.index.date <= end_date)]
                 if len(wdf) > 0:
                     window_data[inst] = wdf
 
             if not window_data:
                 continue
 
-            result = self.run_multi(window_data)
+            result = self._run_result(
+                self.engine.run_multi_precomputed(window_data)
+            )
             results.append(result)
 
         return results

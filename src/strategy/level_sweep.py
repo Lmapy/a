@@ -48,6 +48,16 @@ class LevelSweepStrategy(BaseStrategy):
         self._sweep_traded: dict[str, bool] = {}
         self._current_date: dict[str, object] = {}
 
+    def reset(self) -> None:
+        """Reset all state for a new backtest run."""
+        self._prev_day_high.clear()
+        self._prev_day_low.clear()
+        self._today_high.clear()
+        self._today_low.clear()
+        self._bar_history.clear()
+        self._sweep_traded.clear()
+        self._current_date.clear()
+
     def reset_daily(self) -> None:
         """Called at start of each trading day."""
         # Move today's range to previous day
@@ -58,13 +68,9 @@ class LevelSweepStrategy(BaseStrategy):
         self._today_low.clear()
         self._sweep_traded.clear()
 
-    def on_bar(self, bar: Bar, indicators: pd.Series, regime: MarketRegime) -> Signal | None:
-        if not self.is_regime_allowed(regime):
-            return None
-
+    def _update_state(self, bar: Bar) -> None:
+        """Track bar data and update levels (no signal generation)."""
         inst = bar.instrument
-        spec = INSTRUMENT_SPECS.get(inst, {})
-        tick_size = spec.get("tick_size", 0.25)
 
         # Track current date for daily boundary detection
         bar_date = bar.timestamp.date() if hasattr(bar.timestamp, 'date') else None
@@ -84,6 +90,17 @@ class LevelSweepStrategy(BaseStrategy):
         if len(self._bar_history[inst]) > self.swing_lookback_bars * 2:
             self._bar_history[inst] = self._bar_history[inst][-self.swing_lookback_bars * 2:]
 
+    def on_bar(self, bar: Bar, indicators: pd.Series, regime: MarketRegime) -> Signal | None:
+        if not self.is_regime_allowed(regime):
+            self._update_state(bar)
+            return None
+
+        self._update_state(bar)
+
+        inst = bar.instrument
+        spec = INSTRUMENT_SPECS.get(inst, {})
+        tick_size = spec.get("tick_size", 0.25)
+
         # Max 2 sweep trades per day
         if self._sweep_traded.get(inst, 0) >= 2:
             return None
@@ -94,8 +111,11 @@ class LevelSweepStrategy(BaseStrategy):
             return None
 
         # Check for sweep + rejection on current bar
-        signal = self._check_sweep(bar, inst, levels, tick_size)
-        return signal
+        return self._check_sweep(bar, inst, levels, tick_size)
+
+    def track_bar(self, bar: Bar, indicators: pd.Series, regime: MarketRegime) -> None:
+        """Lightweight state tracking — just update levels without signal check."""
+        self._update_state(bar)
 
     def _get_key_levels(self, inst: str, tick_size: float) -> list[tuple[str, float, str]]:
         """Returns list of (level_name, price, direction_to_trade_on_sweep).

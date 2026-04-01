@@ -28,6 +28,7 @@ class BreakoutStrategy(BaseStrategy):
         self.max_bars_after_or = p.get("max_bars_after_or", 18)  # 90 min window
         self.min_tick_profit = p.get("min_tick_profit", 0)  # min ticks for TP (MFF: 4)
         self.session_open_hour = p.get("session_open_hour", 9)   # Default RTH open
+        self.use_trend_filter = p.get("use_trend_filter", False)  # EMA trend alignment
         self.session_open_minute = p.get("session_open_minute", 30)
         # Per-instrument session open overrides (e.g., GC opens at 18:00 ET for ETH)
         self.instrument_session_open: dict[str, tuple[int, int]] = p.get(
@@ -46,6 +47,10 @@ class BreakoutStrategy(BaseStrategy):
         self._bar_count: dict[str, int] = {}
         self._bars_after_or: dict[str, int] = {}
         self._session_started: dict[str, bool] = {}
+
+    def reset(self) -> None:
+        """Reset all state for a new backtest run."""
+        self.reset_daily()
 
     def reset_daily(self) -> None:
         """Reset opening range state at start of each day."""
@@ -119,8 +124,16 @@ class BreakoutStrategy(BaseStrategy):
         if or_range < self.min_range_points or or_range > self.max_range_points:
             return None
 
+        # Trend alignment filter: only take breakouts in EMA direction
+        trend_bias = 0  # 0 = no filter, 1 = bullish, -1 = bearish
+        if self.use_trend_filter:
+            ema20 = indicators.get("ema_20", None)
+            ema50 = indicators.get("ema_50", None)
+            if ema20 is not None and ema50 is not None and not (pd.isna(ema20) or pd.isna(ema50)):
+                trend_bias = 1 if ema20 > ema50 else -1
+
         # Breakout above opening range high
-        if bar.close > or_high:
+        if bar.close > or_high and trend_bias >= 0:
             stop = bar.close - or_range * self.stop_range_pct
             risk = bar.close - stop
             tp = bar.close + risk * self.take_profit_rr
@@ -146,7 +159,7 @@ class BreakoutStrategy(BaseStrategy):
             )
 
         # Breakout below opening range low
-        if bar.close < or_low:
+        if bar.close < or_low and trend_bias <= 0:
             stop = bar.close + or_range * self.stop_range_pct
             risk = stop - bar.close
             tp = bar.close - risk * self.take_profit_rr

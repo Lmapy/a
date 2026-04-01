@@ -54,16 +54,28 @@ class BacktestEngine:
         return self.run_multi({instrument: data})
 
     def run_multi(self, instrument_data: dict[str, pd.DataFrame]) -> BacktestResult:
-        """Run a multi-instrument backtest on OHLCV data.
+        """Run a multi-instrument backtest on OHLCV data."""
+        # Compute indicators for each instrument
+        indicator_dfs: dict[str, pd.DataFrame] = {}
+        for inst, df in instrument_data.items():
+            session_starts = self._detect_session_starts(df)
+            indicator_dfs[inst] = compute_indicators(df, session_starts)
+        return self.run_multi_precomputed(indicator_dfs)
+
+    def run_multi_precomputed(self, indicator_dfs: dict[str, pd.DataFrame]) -> BacktestResult:
+        """Run a multi-instrument backtest on pre-computed indicator DataFrames.
 
         Args:
-            instrument_data: Dict of instrument -> DataFrame with OHLCV + DatetimeIndex.
-                             Each instrument can have different trading hours.
+            indicator_dfs: Dict of instrument -> DataFrame with OHLCV + indicators + DatetimeIndex.
 
         Returns:
             BacktestResult with trades, daily P&L, and challenge outcome.
         """
         result = BacktestResult()
+
+        # Reset all strategy state for fresh run
+        for strat in self.strategies.values():
+            strat.reset()
 
         # Initialize components
         risk_engine = RiskEngine(self.config.firm, self.config.risk)
@@ -71,24 +83,29 @@ class BacktestEngine:
         regime_detector = RegimeDetector()
         selector = StrategySelector(self.strategies, cooldown_bars=self.config.meta.strategy_cooldown_bars)
 
-        # Compute indicators for each instrument
-        indicator_dfs: dict[str, pd.DataFrame] = {}
-        for inst, df in instrument_data.items():
-            session_starts = self._detect_session_starts(df)
-            indicator_dfs[inst] = compute_indicators(df, session_starts)
-
-        # Merge all instruments into a single timeline
-        # Each bar gets tagged with its instrument
-        all_bars = []
+        # Pre-extract OHLCV as numpy arrays for fast access
+        ohlcv_arrays: dict[str, tuple] = {}
         for inst, idf in indicator_dfs.items():
-            for idx, row in idf.iterrows():
-                all_bars.append((idx, inst, row))
+            ohlcv_arrays[inst] = (
+                idf["open"].values,
+                idf["high"].values,
+                idf["low"].values,
+                idf["close"].values,
+                idf["volume"].values.astype(int),
+                idf.index,
+            )
 
-        # Sort by timestamp
-        all_bars.sort(key=lambda x: x[0])
+        # Build merged timeline using (timestamp, instrument, row_index) refs
+        all_bar_refs = []
+        for inst, idf in indicator_dfs.items():
+            ts_arr = idf.index
+            for i in range(len(ts_arr)):
+                all_bar_refs.append((ts_arr[i], inst, i))
 
-        # Group by trading day (based on calendar date)
-        daily_groups = self._group_bars_by_day(all_bars)
+        all_bar_refs.sort(key=lambda x: x[0])
+
+        # Group by trading day
+        daily_groups = self._group_bars_by_day(all_bar_refs)
 
         # Per-instrument pending signals (filled on next bar for that instrument)
         pending_signals: dict[str, object] = {}  # inst -> Signal
@@ -108,18 +125,20 @@ class BacktestEngine:
             day_trades: list[TradeRecord] = []
             pending_signals.clear()
 
-            for timestamp, inst, row in day_bars:
+            for ts, inst, row_idx in day_bars:
+                o_arr, h_arr, l_arr, c_arr, v_arr, _ = ohlcv_arrays[inst]
+                timestamp = ts
                 bar = Bar(
                     timestamp=timestamp,
-                    open=row["open"],
-                    high=row["high"],
-                    low=row["low"],
-                    close=row["close"],
-                    volume=int(row["volume"]),
+                    open=float(o_arr[row_idx]),
+                    high=float(h_arr[row_idx]),
+                    low=float(l_arr[row_idx]),
+                    close=float(c_arr[row_idx]),
+                    volume=int(v_arr[row_idx]),
                     instrument=inst,
                 )
 
-                indicators = row
+                indicators = indicator_dfs[inst].iloc[row_idx]
                 spec = INSTRUMENT_SPECS.get(inst, INSTRUMENT_SPECS["ES"])
 
                 # 0. Fill pending entry for THIS instrument
@@ -204,15 +223,20 @@ class BacktestEngine:
                             break  # only check the strategy that owns this position
 
                 # 4. Generate entry signals for this instrument
-                #    Allow entry even if another instrument has a position
-                if not risk_engine.lockout.is_locked() and inst not in risk_engine.positions:
-                    if inst not in pending_signals:
-                        for strat_name, (strat, alloc_pct) in active.items():
+                #    Call on_bar for each strategy in priority order;
+                #    once one fires, call track_bar for the rest so they keep state.
+                if inst not in pending_signals:
+                    can_trade = not risk_engine.lockout.is_locked() and inst not in risk_engine.positions
+                    found_signal = False
+                    for strat_name, (strat, alloc_pct) in active.items():
+                        if found_signal:
+                            strat.track_bar(bar, indicators, regime)
+                        else:
                             signal = strat.on_bar(bar, indicators, regime)
-                            if signal:
+                            if signal and can_trade:
                                 signal.confidence = alloc_pct
                                 pending_signals[inst] = signal
-                                break
+                                found_signal = True
 
                 # 5. Update risk engine
                 risk_engine.on_bar(bar)
@@ -328,5 +352,18 @@ class BacktestEngine:
         from itertools import groupby
         groups = []
         for day_date, bars_iter in groupby(all_bars, key=lambda x: x[0].date()):
+            groups.append((day_date, list(bars_iter)))
+        return groups
+
+    @staticmethod
+    def _group_bar_refs_by_day(all_bar_refs: list) -> list[tuple]:
+        """Group (numpy_timestamp, instrument, row_idx) tuples by calendar date."""
+        import numpy as np
+        from itertools import groupby
+        groups = []
+        for day_date, bars_iter in groupby(
+            all_bar_refs,
+            key=lambda x: pd.Timestamp(x[0]).date()
+        ):
             groups.append((day_date, list(bars_iter)))
         return groups
