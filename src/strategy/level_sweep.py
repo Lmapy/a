@@ -84,8 +84,8 @@ class LevelSweepStrategy(BaseStrategy):
         if len(self._bar_history[inst]) > self.swing_lookback_bars * 2:
             self._bar_history[inst] = self._bar_history[inst][-self.swing_lookback_bars * 2:]
 
-        # Only one sweep trade per day
-        if self._sweep_traded.get(inst, False):
+        # Max 2 sweep trades per day
+        if self._sweep_traded.get(inst, 0) >= 2:
             return None
 
         # Collect key levels
@@ -195,7 +195,7 @@ class LevelSweepStrategy(BaseStrategy):
                             min_tp = bar.close - self.min_tick_profit * tick_size
                             tp = min(tp, min_tp)
 
-                        self._sweep_traded[inst] = True
+                        self._sweep_traded[inst] = self._sweep_traded.get(inst, 0) + 1
                         return Signal(
                             direction=SignalDirection.SHORT,
                             instrument=inst,
@@ -231,7 +231,7 @@ class LevelSweepStrategy(BaseStrategy):
                             min_tp = bar.close + self.min_tick_profit * tick_size
                             tp = max(tp, min_tp)
 
-                        self._sweep_traded[inst] = True
+                        self._sweep_traded[inst] = self._sweep_traded.get(inst, 0) + 1
                         return Signal(
                             direction=SignalDirection.LONG,
                             instrument=inst,

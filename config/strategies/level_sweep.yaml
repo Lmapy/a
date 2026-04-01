@@ -6,7 +6,7 @@ parameters:
   sweep_buffer_ticks: 2
   rejection_wick_pct: 0.40
   stop_buffer_ticks: 4
-  take_profit_rr: 2.0
+  take_profit_rr: 3.0
   max_sweep_ticks: 40
   use_pdh_pdl: true
   use_swing_levels: true

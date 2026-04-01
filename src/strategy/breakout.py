@@ -102,8 +102,8 @@ class BreakoutStrategy(BaseStrategy):
 
             return None
 
-        # Already traded a breakout today
-        if self._breakout_traded.get(inst, False):
+        # Limit to max 2 breakout trades per day (allow re-entry after first close)
+        if self._breakout_traded.get(inst, 0) >= 2:
             return None
 
         # Only look for breakouts within time window after OR
@@ -133,7 +133,7 @@ class BreakoutStrategy(BaseStrategy):
                 min_tp = bar.close + self.min_tick_profit * tick_size
                 tp = max(tp, min_tp)
 
-            self._breakout_traded[inst] = True
+            self._breakout_traded[inst] = self._breakout_traded.get(inst, 0) + 1
             return Signal(
                 direction=SignalDirection.LONG,
                 instrument=inst,
@@ -159,7 +159,7 @@ class BreakoutStrategy(BaseStrategy):
                 min_tp = bar.close - self.min_tick_profit * tick_size
                 tp = min(tp, min_tp)
 
-            self._breakout_traded[inst] = True
+            self._breakout_traded[inst] = self._breakout_traded.get(inst, 0) + 1
             return Signal(
                 direction=SignalDirection.SHORT,
                 instrument=inst,

@@ -99,7 +99,7 @@ class SupplyDemandStrategy(BaseStrategy):
         self._expire_zones(inst)
 
         # Check for entry signals at active zones
-        if self._zone_traded.get(inst, False):
+        if self._zone_traded.get(inst, 0) >= 2:
             return None
 
         return self._check_zone_entry(bar, inst, tick_size)
@@ -220,7 +220,7 @@ class SupplyDemandStrategy(BaseStrategy):
                     lower_wick = min(bar.open, bar.close) - bar.low
                     if lower_wick / candle_range >= self.rejection_wick_pct:
                         zone["touched"] = True
-                        self._zone_traded[inst] = True
+                        self._zone_traded[inst] = self._zone_traded.get(inst, 0) + 1
 
                         stop = zone["low"] - self.stop_buffer_ticks * tick_size
                         risk = bar.close - stop
@@ -252,7 +252,7 @@ class SupplyDemandStrategy(BaseStrategy):
                     upper_wick = bar.high - max(bar.open, bar.close)
                     if upper_wick / candle_range >= self.rejection_wick_pct:
                         zone["touched"] = True
-                        self._zone_traded[inst] = True
+                        self._zone_traded[inst] = self._zone_traded.get(inst, 0) + 1
 
                         stop = zone["high"] + self.stop_buffer_ticks * tick_size
                         risk = stop - bar.close

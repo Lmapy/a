@@ -1,17 +1,15 @@
 strategy_name: "breakout"
 enabled: true
-instruments: ["ES", "NQ"]
+instruments: ["ES", "NQ", "GC"]
 timeframe: "5min"
 parameters:
   opening_range_minutes: 60
   stop_range_pct: 0.5
-  take_profit_rr: 2.0
+  take_profit_rr: 3.0
   min_range_points: 0.5
   max_range_points: 20.0
   max_bars_after_or: 18
 regime_filter:
-  allowed_regimes: ["high_volatility", "strong_trend_up", "strong_trend_down", "weak_trend", "ranging"]
-  blocked_regimes: ["low_volatility"]
+  allowed: ["high_volatility", "strong_trend_up", "strong_trend_down", "weak_trend", "ranging", "low_volatility"]
 risk:
-  max_risk_per_trade_pct: 0.5
-  max_concurrent_positions: 1
+  max_risk_per_trade_pct: 15.0

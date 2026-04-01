@@ -135,8 +135,9 @@ class BacktestEngine:
 
                         if stop_ticks > 0:
                             size = risk_engine.get_position_size(inst, stop_ticks)
-                            alloc_pct = sig.confidence
-                            size = max(1, int(size * alloc_pct)) if size > 0 else 0
+                            # Don't reduce size by allocation — each strategy
+                            # trades at full position size. The selector determines
+                            # priority, not sizing.
 
                             if size > 0:
                                 order = create_order_from_signal(sig, size)
