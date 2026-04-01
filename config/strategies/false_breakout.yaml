@@ -1,0 +1,18 @@
+strategy_name: "false_breakout"
+enabled: true
+instruments: ["ES", "NQ", "GC"]
+timeframe: "5min"
+parameters:
+  opening_range_minutes: 60
+  max_bars_for_fade: 24         # 2 hours after OR
+  max_fail_bars: 3              # bars after breakout to detect failure
+  min_rr: 2.0                   # minimum R:R for entry
+  default_rr: 3.0               # fallback R:R if structural target too close
+  stop_buffer_ticks: 4
+  max_trades_per_day: 2
+  min_range_points: 0.5
+  max_range_points: 20.0
+regime_filter:
+  allowed: ["high_volatility", "strong_trend_up", "strong_trend_down", "weak_trend", "ranging", "low_volatility"]
+risk:
+  max_risk_per_trade_pct: 15.0
