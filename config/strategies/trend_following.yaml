@@ -1,0 +1,19 @@
+strategy_name: "trend_following"
+enabled: true
+instruments: ["ES", "NQ"]
+timeframe: "5min"
+parameters:
+  ema_fast: 20
+  ema_slow: 50
+  adx_period: 14
+  adx_threshold: 25
+  pullback_atr: 0.5
+  stop_loss_atr: 2.0
+  trailing_stop_atr: 2.0
+  atr_period: 14
+regime_filter:
+  allowed_regimes: ["strong_trend_up", "strong_trend_down", "weak_trend"]
+  blocked_regimes: ["ranging", "low_volatility"]
+risk:
+  max_risk_per_trade_pct: 0.75
+  max_concurrent_positions: 1
