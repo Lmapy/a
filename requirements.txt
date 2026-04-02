@@ -1,0 +1,7 @@
+tick-vault
+yfinance
+pandas
+numpy
+matplotlib
+tzdata
+pyarrow

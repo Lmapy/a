@@ -1,0 +1,8 @@
+__pycache__/
+*.pyc
+*.pyo
+data/cache/
+tick_vault_data/
+results/*.png
+*.parquet
+.env
