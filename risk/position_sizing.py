@@ -5,9 +5,12 @@ from config import CONTRACT, PARAMS, RULES
 
 def calculate_position_size(
     sl_distance_dollars: float,
-    risk_per_trade: float = PARAMS.risk_per_trade,
+    risk_per_trade: float | None = None,
 ) -> int:
     """Calculate the number of MGC contracts to trade."""
+    if risk_per_trade is None:
+        risk_per_trade = PARAMS.risk_per_trade
+
     if sl_distance_dollars <= 0:
         return 0
 
@@ -28,7 +31,7 @@ def calculate_adaptive_risk(
     cumulative_pnl: float,
     trading_days: int,
     max_trading_days: int = RULES.max_trading_days,
-    base_risk: float = PARAMS.risk_per_trade,
+    base_risk: float | None = None,
 ) -> float:
     """Adaptively scale risk based on progress toward profit target.
 
@@ -38,6 +41,11 @@ def calculate_adaptive_risk(
     - Never exceed $500 per trade (hard cap for safety)
     - In first 5 days: use base risk (build cushion)
     """
+    if base_risk is None:
+        base_risk = PARAMS.risk_per_trade
+    # Use flat risk for honest backtest (no adaptive scaling)
+    return base_risk
+
     if trading_days < 1:
         return base_risk
 

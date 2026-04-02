@@ -87,7 +87,7 @@ class StrategyParams:
     min_confluence_score: int = 4     # minimum score out of 6 to enter (optimized)
 
     # Risk
-    risk_per_trade: float = 300.0     # base dollar risk per trade (conservative after audit)
+    risk_per_trade: float = 200.0     # conservative base risk to avoid busts
     reward_risk_ratio: float = 2.5    # R:R target (optimized: higher reward)
     sl_buffer: float = 1.50           # SL buffer beyond zone in dollars
 
