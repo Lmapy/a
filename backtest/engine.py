@@ -13,7 +13,7 @@ from strategy.fvg import detect_fvgs, update_fvgs
 from strategy.liquidity import detect_liquidity_sweeps
 from strategy.sessions import compute_asian_range
 from strategy.signals import generate_signals, TradeSignal, SignalDirection
-from risk.position_sizing import calculate_position_size, calculate_trade_pnl
+from risk.position_sizing import calculate_position_size, calculate_trade_pnl, calculate_adaptive_risk
 from risk.prop_firm_rules import PropFirmTracker, EvaluationStatus
 from config import PARAMS, CONTRACT
 
@@ -205,7 +205,11 @@ def run_backtest(
             while signal_idx < len(signal_queue) and signal_queue[signal_idx].index <= i:
                 if signal_queue[signal_idx].index == i:
                     signal = signal_queue[signal_idx]
-                    contracts = calculate_position_size(signal.sl_distance)
+                    # Adaptive risk: scale risk based on progress
+                    adaptive_risk = calculate_adaptive_risk(
+                        tracker.cumulative_pnl, tracker.trading_days,
+                    )
+                    contracts = calculate_position_size(signal.sl_distance, adaptive_risk)
 
                     if contracts > 0:
                         # Get Asian range for today
