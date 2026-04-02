@@ -82,8 +82,6 @@ def calculate_adaptive_risk(
 
     return risk
 
-    return risk
-
 
 def calculate_trade_pnl(
     entry_price: float,
@@ -91,23 +89,28 @@ def calculate_trade_pnl(
     contracts: int,
     is_long: bool,
     exit_is_sl: bool = False,
+    entry_is_limit: bool = False,
     slippage_ticks: int = PARAMS.slippage_ticks,
 ) -> float:
     """Calculate P&L for a trade including slippage and commissions.
 
     Slippage model (realistic):
-    - Entry via market order: 1 tick slippage (adverse direction)
-    - SL via stop-market order: full slippage (adverse direction)
+    - Entry via limit order: 0 slippage
+    - Entry via market order: 1 tick slippage (adverse)
+    - SL via stop-market order: full slippage (adverse)
     - TP via limit order: 0 slippage
     """
     commission = PARAMS.commission_per_side * 2 * contracts
     tick = CONTRACT.tick_size
 
-    # Market order entry: 1 tick adverse slippage
-    if is_long:
-        effective_entry = entry_price + tick
+    if entry_is_limit:
+        effective_entry = entry_price  # limit order: no slippage
     else:
-        effective_entry = entry_price - tick
+        # Market order entry: 1 tick adverse slippage
+        if is_long:
+            effective_entry = entry_price + tick
+        else:
+            effective_entry = entry_price - tick
 
     if exit_is_sl:
         # Stop-loss is a market order - gets full slippage
