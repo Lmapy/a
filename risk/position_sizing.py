@@ -43,8 +43,25 @@ def calculate_adaptive_risk(
     """
     if base_risk is None:
         base_risk = PARAMS.risk_per_trade
-    # Use flat risk for honest backtest (no adaptive scaling)
-    return base_risk
+
+    # Ramp-up risk: start small, increase as we prove the edge is working
+    if trading_days <= 3:
+        return base_risk * 0.5  # First 3 days: half risk (probe phase)
+    elif trading_days <= 6:
+        if cumulative_pnl > 0:
+            return base_risk  # Profitable: full risk
+        else:
+            return base_risk * 0.6  # Behind: still conservative
+    else:
+        # After day 6: scale based on progress
+        if cumulative_pnl >= 1500:
+            return base_risk * 1.3  # Ahead: push
+        elif cumulative_pnl >= 500:
+            return base_risk  # On track
+        elif cumulative_pnl >= 0:
+            return base_risk * 1.2  # Slightly behind: moderate push
+        else:
+            return base_risk * 0.7  # Losing: reduce to survive
 
     if trading_days < 1:
         return base_risk
