@@ -22,6 +22,7 @@ from data.download_data import load_data
 from data.resample import build_multi_timeframe, tag_sessions
 from strategy.cbr import generate_cbr_signals, CBRSignal, CBRDirection
 from strategy.signals import generate_signals, TradeSignal, SignalDirection
+from strategy.mean_reversion import generate_mr_signals, MRSignal, MRDirection
 from strategy.market_structure import detect_swing_points, detect_structure_breaks
 from strategy.order_blocks import detect_order_blocks
 from strategy.fvg import detect_fvgs
@@ -70,7 +71,6 @@ def run_combined_backtest(
     print(f"[COMBINED] CBR: {len(cbr_signals)} signals")
 
     # ── Merge all signals into unified timeline ──
-    # Normalize signals to common format: (timestamp, index_in_source, signal_obj, source)
     all_signals = []
 
     for s in ms_signals:
