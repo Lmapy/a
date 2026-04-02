@@ -92,7 +92,7 @@ class StrategyParams:
     sl_buffer: float = 1.50           # SL buffer beyond zone in dollars
 
     # Daily gates (buffers inside prop firm limits)
-    daily_loss_gate: float = 700.0    # stop trading if daily loss >= this (optimized)
+    daily_loss_gate: float = 700.0    # stop trading if daily loss >= this
     daily_profit_gate: float = 1_200.0  # stop trading if daily profit >= this
 
     # Execution
