@@ -93,6 +93,11 @@ class PropFirmTracker:
         if self.daily_pnl >= PARAMS.daily_profit_gate:
             return False
 
+        # Early stop: if we've lost 3+ trades in a row and are deep negative,
+        # reduce trading to preserve capital
+        if self.cumulative_pnl < -1500:
+            return False  # stop trading to avoid bust
+
         return True
 
     def end_evaluation(self):

@@ -159,11 +159,11 @@ def generate_signals(
         if np.isnan(current_atr) or current_atr < 0.30 or current_atr > 4.0:
             continue
 
-        # ── REGIME FILTER (optional) ──
-        # Available but currently disabled for maximum trade frequency
-        # regime = regimes[i]
-        # if regime == 'ranging':
-        #     continue
+        # ── REGIME FILTER ──
+        # Skip ranging markets - strategy needs trends
+        regime = regimes[i]
+        if regime == 'ranging':
+            continue
 
         price = closes[i]
 
