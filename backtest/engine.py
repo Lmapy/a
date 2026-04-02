@@ -197,9 +197,19 @@ def run_backtest(
                 if lows[i] <= signal.take_profit:
                     hit_tp = True
 
-            # If both hit on same candle, assume SL hit first (conservative)
+            # When both SL and TP hit on same candle, use OHLC to determine order
             if hit_sl and hit_tp:
-                hit_tp = False
+                o = candles_5min["open"].iloc[i]
+                if is_long:
+                    if o <= signal.entry_price:
+                        hit_tp = False  # opened low -> went down first -> SL
+                    else:
+                        hit_sl = False  # opened high -> went up first -> TP
+                else:
+                    if o >= signal.entry_price:
+                        hit_tp = False  # opened high -> went up first -> SL
+                    else:
+                        hit_sl = False  # opened low -> went down first -> TP
 
             if hit_sl:
                 pnl = calculate_trade_pnl(

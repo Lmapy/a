@@ -38,46 +38,39 @@ class CBRSignal:
     details: dict
 
 
-def detect_expansion(closes, highs, lows, start_idx, min_bars=4, min_move=1.0):
-    """Detect one-sided price expansion (20+ min = 4+ bars on 5-min).
+def detect_expansion(closes, highs, lows, start_idx, min_bars=20, min_move=1.5):
+    """Detect one-sided price expansion.
+
+    Works on any timeframe. Looks at the net move over the last min_bars bars.
+    An expansion is when price moves significantly in one direction, with
+    the net move being at least 60% of the total range (directional).
 
     Returns (direction, expansion_high, expansion_low, end_idx) or None.
-    Expansion = price moves predominantly in one direction for min_bars+ bars.
     """
     if start_idx < min_bars:
         return None
 
-    # Check bullish expansion (price moving up)
-    bull_count = 0
-    exp_high = highs[start_idx]
-    exp_low = lows[start_idx]
+    lookback = min(min_bars, start_idx)
+    start = start_idx - lookback
 
-    for j in range(start_idx, max(start_idx - 20, 0), -1):
-        if closes[j] > closes[j - 1] if j > 0 else True:
-            bull_count += 1
-        exp_high = max(exp_high, highs[j])
-        exp_low = min(exp_low, lows[j])
+    window_high = max(highs[start:start_idx + 1])
+    window_low = min(lows[start:start_idx + 1])
+    total_range = window_high - window_low
 
-        if bull_count >= min_bars:
-            move = exp_high - exp_low
-            if move >= min_move:
-                return ("bullish_expansion", exp_high, exp_low, j)
+    if total_range < min_move:
+        return None
 
-    # Check bearish expansion
-    bear_count = 0
-    exp_high = highs[start_idx]
-    exp_low = lows[start_idx]
+    net_move = closes[start_idx] - closes[start]
+    directionality = abs(net_move) / total_range if total_range > 0 else 0
 
-    for j in range(start_idx, max(start_idx - 20, 0), -1):
-        if closes[j] < closes[j - 1] if j > 0 else True:
-            bear_count += 1
-        exp_high = max(exp_high, highs[j])
-        exp_low = min(exp_low, lows[j])
+    # Require at least 50% directionality (net move is majority of range)
+    if directionality < 0.50:
+        return None
 
-        if bear_count >= min_bars:
-            move = exp_high - exp_low
-            if move >= min_move:
-                return ("bearish_expansion", exp_high, exp_low, j)
+    if net_move > 0 and net_move >= min_move:
+        return ("bullish_expansion", window_high, window_low, start)
+    elif net_move < 0 and abs(net_move) >= min_move:
+        return ("bearish_expansion", window_high, window_low, start)
 
     return None
 
@@ -133,8 +126,8 @@ def generate_cbr_signals(
     asian_session_end_hour: int = 2,     # 2AM CT = end of Asian
     london_open_hour: int = 2,           # 2AM CT
     rr_ratio: float = 1.5,
-    min_expansion_bars: int = 3,         # 15 min on 5-min chart (relaxed)
-    min_expansion_move: float = 0.80,    # minimum $0.80 expansion (relaxed)
+    min_expansion_bars: int = 4,          # 20 min on 5-min chart
+    min_expansion_move: float = 1.00,    # minimum $1.00 expansion
 ) -> list[CBRSignal]:
     """Generate CBR signals based on TomTrades' methodology.
 

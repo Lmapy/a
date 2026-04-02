@@ -29,7 +29,7 @@ from backtest.engine import BacktestResult, TradeRecord
 
 
 def run_cbr_backtest(
-    candles_5min: pd.DataFrame,
+    candles_1min: pd.DataFrame,
     candles_1h: pd.DataFrame,
     max_days: int = 22,
 ) -> BacktestResult:
@@ -38,7 +38,7 @@ def run_cbr_backtest(
     tracker = result.tracker
 
     # Generate CBR signals
-    signals = generate_cbr_signals(candles_5min, candles_1h)
+    signals = generate_cbr_signals(candles_1min, candles_1h)
 
     if not signals:
         print("[CBR BACKTEST] No signals generated")
@@ -46,15 +46,16 @@ def run_cbr_backtest(
         return result
 
     # Simulate
-    closes = candles_5min["close"].values
-    highs = candles_5min["high"].values
-    lows = candles_5min["low"].values
-    timestamps = candles_5min.index
+    opens = candles_1min["open"].values
+    closes = candles_1min["close"].values
+    highs = candles_1min["high"].values
+    lows = candles_1min["low"].values
+    timestamps = candles_1min.index
 
-    if candles_5min.index.tz is None:
-        ct_idx = candles_5min.index.tz_localize("UTC").tz_convert("US/Central")
+    if candles_1min.index.tz is None:
+        ct_idx = candles_1min.index.tz_localize("UTC").tz_convert("US/Central")
     else:
-        ct_idx = candles_5min.index.tz_convert("US/Central")
+        ct_idx = candles_1min.index.tz_convert("US/Central")
     trading_dates = ct_idx.date
 
     current_date = None
@@ -63,7 +64,7 @@ def run_cbr_backtest(
 
     print(f"[CBR BACKTEST] Simulating {len(signals)} signals...")
 
-    for i in range(len(candles_5min)):
+    for i in range(len(candles_1min)):
         candle_date = trading_dates[i]
 
         if candle_date != current_date:
@@ -93,8 +94,27 @@ def run_cbr_backtest(
                 if lows[i] <= signal.take_profit:
                     hit_tp = True
 
+            # When both SL and TP hit on same candle, use OHLC sequence to determine which hit first
             if hit_sl and hit_tp:
-                hit_tp = False
+                o = opens[i]
+                if is_long:
+                    # Long: SL is below, TP is above
+                    # If open is closer to SL (opened low), SL likely hit first
+                    # If open is closer to TP (opened high), TP likely hit first
+                    if o <= signal.entry_price:
+                        # Opened near/below entry -> went down first -> SL
+                        hit_tp = False
+                    else:
+                        # Opened above entry -> went up first -> TP
+                        hit_sl = False
+                else:
+                    # Short: SL is above, TP is below
+                    if o >= signal.entry_price:
+                        # Opened near/above entry -> went up first -> SL
+                        hit_tp = False
+                    else:
+                        # Opened below entry -> went down first -> TP
+                        hit_sl = False
 
             if hit_sl:
                 pnl = calculate_trade_pnl(
@@ -159,7 +179,7 @@ def run_cbr_backtest(
 
 
 def run_cbr_walkforward(
-    candles_5min: pd.DataFrame,
+    candles_1min: pd.DataFrame,
     candles_1h: pd.DataFrame,
     window_days: int = 22,
     step_days: int = 5,
@@ -167,10 +187,10 @@ def run_cbr_walkforward(
     """Run CBR walkforward analysis."""
     results = []
 
-    if candles_5min.index.tz is None:
-        ct_idx = candles_5min.index.tz_localize("UTC").tz_convert("US/Central")
+    if candles_1min.index.tz is None:
+        ct_idx = candles_1min.index.tz_localize("UTC").tz_convert("US/Central")
     else:
-        ct_idx = candles_5min.index.tz_convert("US/Central")
+        ct_idx = candles_1min.index.tz_convert("US/Central")
 
     if candles_1h.index.tz is None:
         h1_ct = candles_1h.index.tz_localize("UTC").tz_convert("US/Central")
@@ -184,7 +204,7 @@ def run_cbr_walkforward(
         end_date = all_dates[min(start_idx + window_days, len(all_dates) - 1)]
 
         mask_5 = (ct_idx.date >= start_date) & (ct_idx.date <= end_date)
-        window_5 = candles_5min[mask_5]
+        window_5 = candles_1min[mask_5]
 
         mask_h1 = (h1_ct.date >= start_date) & (h1_ct.date <= end_date)
         window_h1 = candles_1h[mask_h1]
@@ -214,16 +234,16 @@ def main():
     raw = load_data()
     raw.attrs["_is_ohlcv"] = True
     candle_dict = build_multi_timeframe(raw)
-    c5 = candle_dict["5min"]
-    c1h = candle_dict["1H"]
+    c1m = candle_dict["5min"]   # 5-min execution timeframe
+    c1h = candle_dict["1H"]     # 1H bias timeframe
 
-    print(f"[DATA] 5-min: {len(c5):,} candles")
-    print(f"[DATA] 1H:    {len(c1h):,} candles")
+    print(f"[DATA] 5-min: {len(c1m):,} candles (execution)")
+    print(f"[DATA] 1H:    {len(c1h):,} candles (bias)")
 
     if args.walkforward:
         # Walkforward analysis
         print("\n[WALKFORWARD] Running CBR walkforward...")
-        results = run_cbr_walkforward(c5, c1h)
+        results = run_cbr_walkforward(c1m, c1h)
 
         passed = sum(1 for r in results if r.tracker.status == EvaluationStatus.PASSED)
         profitable = sum(1 for r in results if r.tracker.cumulative_pnl > 0)
@@ -249,7 +269,7 @@ def main():
             return
     else:
         # Single backtest
-        result = run_cbr_backtest(c5, c1h)
+        result = run_cbr_backtest(c1m, c1h)
 
     metrics = calculate_metrics(result)
     print_metrics(metrics)
