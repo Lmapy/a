@@ -60,7 +60,6 @@ def run_cbr_backtest(
 
     current_date = None
     open_position = None
-    pending_order = None  # limit order waiting for fill
     signal_idx = 0
 
     print(f"[CBR BACKTEST] Simulating {len(signals)} signals...")
@@ -71,37 +70,10 @@ def run_cbr_backtest(
         if candle_date != current_date:
             current_date = candle_date
             tracker.start_new_day()
-            # Cancel pending orders on new day
-            if pending_order is not None:
-                pending_order = None
             if tracker.status != EvaluationStatus.ACTIVE:
                 break
             if tracker.trading_days >= max_days:
                 break
-
-        # Check if pending limit order fills on this candle
-        if pending_order is not None and open_position is None:
-            signal, contracts, _ = pending_order
-            is_long = signal.direction == CBRDirection.LONG
-            # Check if price reaches entry level
-            if is_long:
-                # Long limit order fills if low <= entry_price
-                if lows[i] <= signal.entry_price:
-                    open_position = pending_order
-                    pending_order = None
-                # Cancel if price blows past SL before filling
-                elif lows[i] <= signal.stop_loss:
-                    pending_order = None
-            else:
-                # Short limit order fills if high >= entry_price
-                if highs[i] >= signal.entry_price:
-                    open_position = pending_order
-                    pending_order = None
-                elif highs[i] >= signal.stop_loss:
-                    pending_order = None
-            # Expire pending after 6 candles (30 min on 5-min)
-            if pending_order is not None and i - signal.index > 6:
-                pending_order = None
 
         # Manage open position
         if open_position is not None:
@@ -128,7 +100,8 @@ def run_cbr_backtest(
 
             if hit_sl:
                 pnl = calculate_trade_pnl(
-                    signal.entry_price, signal.stop_loss, contracts, is_long)
+                    signal.entry_price, signal.stop_loss, contracts, is_long,
+                    exit_is_sl=True)
                 result.trades.append(TradeRecord(
                     entry_time=signal.timestamp, exit_time=timestamps[i],
                     direction=signal.direction.value,
@@ -145,7 +118,8 @@ def run_cbr_backtest(
 
             elif hit_tp:
                 pnl = calculate_trade_pnl(
-                    signal.entry_price, signal.take_profit, contracts, is_long)
+                    signal.entry_price, signal.take_profit, contracts, is_long,
+                    exit_is_sl=False)
                 result.trades.append(TradeRecord(
                     entry_time=signal.timestamp, exit_time=timestamps[i],
                     direction=signal.direction.value,
@@ -164,8 +138,8 @@ def run_cbr_backtest(
                 result.equity_curve.append(tracker.balance)
                 continue
 
-        # Check for new signals -> place as pending limit order
-        if open_position is None and pending_order is None and tracker.can_trade():
+        # Check for new signals - market order at signal candle close
+        if open_position is None and tracker.can_trade():
             while signal_idx < len(signals) and signals[signal_idx].index <= i:
                 if signals[signal_idx].index == i:
                     signal = signals[signal_idx]
@@ -174,8 +148,8 @@ def run_cbr_backtest(
                     contracts = calculate_position_size(
                         abs(signal.entry_price - signal.stop_loss), adaptive_risk)
                     if contracts > 0:
-                        # Place limit order - will fill when price reaches entry
-                        pending_order = (signal, contracts, tracker.trading_days)
+                        # Market order entry at candle close
+                        open_position = (signal, contracts, tracker.trading_days)
                         signal_idx += 1
                         break
                 signal_idx += 1

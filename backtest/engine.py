@@ -204,6 +204,7 @@ def run_backtest(
             if hit_sl:
                 pnl = calculate_trade_pnl(
                     signal.entry_price, signal.stop_loss, contracts, is_long,
+                    exit_is_sl=True,
                 )
                 result.trades.append(TradeRecord(
                     entry_time=signal.timestamp, exit_time=timestamps[i],
@@ -223,6 +224,7 @@ def run_backtest(
             elif hit_tp:
                 pnl = calculate_trade_pnl(
                     signal.entry_price, signal.take_profit, contracts, is_long,
+                    exit_is_sl=False,
                 )
                 result.trades.append(TradeRecord(
                     entry_time=signal.timestamp, exit_time=timestamps[i],

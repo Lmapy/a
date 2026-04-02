@@ -87,7 +87,7 @@ class StrategyParams:
     min_confluence_score: int = 4     # minimum score out of 6 to enter (optimized)
 
     # Risk
-    risk_per_trade: float = 475.0     # base dollar risk per trade
+    risk_per_trade: float = 300.0     # base dollar risk per trade (conservative after audit)
     reward_risk_ratio: float = 2.5    # R:R target (optimized: higher reward)
     sl_buffer: float = 1.50           # SL buffer beyond zone in dollars
 
@@ -96,7 +96,7 @@ class StrategyParams:
     daily_profit_gate: float = 1_200.0  # stop trading if daily profit >= this
 
     # Execution
-    slippage_ticks: int = 3           # 3 ticks slippage (realistic for gold)
+    slippage_ticks: int = 2           # 2 ticks SL slippage (entry gets 1 tick separately)
     commission_per_side: float = 0.85 # commission per side per MGC contract (realistic)
     max_trades_per_day: int = 3       # allow up to 3 trades per day
 

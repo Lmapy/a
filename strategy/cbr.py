@@ -217,17 +217,17 @@ def generate_cbr_signals(
                 msb = detect_msb(opens, closes, highs, lows, i, msb_dir, lookback=8)
 
                 if msb is not None:
-                    # ── Step 4: Entry at 50% retracement ──
+                    # ── Step 4: Market order entry at MSB close ──
+                    # Enter at the close of the MSB candle (market order)
+                    # SL beyond the sweep extreme, TP at R:R ratio
                     if msb_dir == "bearish_msb":
-                        msb_range = msb["swing_extreme"] - msb["msb_level"]
-                        entry_price = msb["msb_level"] + msb_range * 0.5
+                        entry_price = closes[i]  # market order at candle close
                         sl_price = msb["swing_extreme"] + 0.50
                         sl_distance = sl_price - entry_price
                         tp_price = entry_price - (sl_distance * rr_ratio)
                         direction = CBRDirection.SHORT
                     else:
-                        msb_range = msb["msb_level"] - msb["swing_extreme"]
-                        entry_price = msb["msb_level"] - msb_range * 0.5
+                        entry_price = closes[i]
                         sl_price = msb["swing_extreme"] - 0.50
                         sl_distance = entry_price - sl_price
                         tp_price = entry_price + (sl_distance * rr_ratio)

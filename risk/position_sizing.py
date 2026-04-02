@@ -82,19 +82,39 @@ def calculate_trade_pnl(
     exit_price: float,
     contracts: int,
     is_long: bool,
+    exit_is_sl: bool = False,
     slippage_ticks: int = PARAMS.slippage_ticks,
 ) -> float:
-    """Calculate P&L for a trade including slippage and commissions."""
-    slippage = slippage_ticks * CONTRACT.tick_size
+    """Calculate P&L for a trade including slippage and commissions.
+
+    Slippage model (realistic):
+    - Entry via market order: 1 tick slippage (adverse direction)
+    - SL via stop-market order: full slippage (adverse direction)
+    - TP via limit order: 0 slippage
+    """
     commission = PARAMS.commission_per_side * 2 * contracts
+    tick = CONTRACT.tick_size
+
+    # Market order entry: 1 tick adverse slippage
+    if is_long:
+        effective_entry = entry_price + tick
+    else:
+        effective_entry = entry_price - tick
+
+    if exit_is_sl:
+        # Stop-loss is a market order - gets full slippage
+        sl_slip = slippage_ticks * tick
+        if is_long:
+            effective_exit = exit_price - sl_slip
+        else:
+            effective_exit = exit_price + sl_slip
+    else:
+        # Take-profit is a limit order - no slippage
+        effective_exit = exit_price
 
     if is_long:
-        effective_entry = entry_price + slippage
-        effective_exit = exit_price - slippage
         raw_pnl = (effective_exit - effective_entry) * CONTRACT.oz_per_contract * contracts
     else:
-        effective_entry = entry_price - slippage
-        effective_exit = exit_price + slippage
         raw_pnl = (effective_entry - effective_exit) * CONTRACT.oz_per_contract * contracts
 
     return raw_pnl - commission
