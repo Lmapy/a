@@ -1,4 +1,11 @@
-"""Signal generation: Structure-based entries with session and sweep confluence."""
+"""Signal generation: Structure-based entries with ATR, session, and sweep confluence.
+
+Optimized for prop firm pass rate with:
+- ATR-based dynamic SL sizing
+- Session/time-of-day filtering (NY open + London are best)
+- HTF trend alignment
+- Pullback entries after structure breaks
+"""
 
 import pandas as pd
 import numpy as np
@@ -36,6 +43,28 @@ class TradeSignal:
     tp_distance: float
 
 
+def compute_atr(highs, lows, closes, period=14):
+    """Compute ATR array aligned with input arrays."""
+    n = len(highs)
+    atr = np.full(n, np.nan)
+    if n < period + 1:
+        return atr
+
+    tr = np.zeros(n)
+    tr[0] = highs[0] - lows[0]
+    for i in range(1, n):
+        tr[i] = max(highs[i] - lows[i],
+                     abs(highs[i] - closes[i - 1]),
+                     abs(lows[i] - closes[i - 1]))
+
+    # EMA-style ATR
+    atr[period] = np.mean(tr[1:period + 1])
+    for i in range(period + 1, n):
+        atr[i] = (atr[i - 1] * (period - 1) + tr[i]) / period
+
+    return atr
+
+
 def generate_signals(
     candles_entry: pd.DataFrame,
     swings_htf: list[SwingPoint],
@@ -47,15 +76,7 @@ def generate_signals(
     asian_low: float | None = None,
     htf_candle_map: dict | None = None,
 ) -> list[TradeSignal]:
-    """Generate trade signals based on structure + confluence.
-
-    Core logic:
-    1. Wait for a structure break (BOS/CHoCH) to establish direction
-    2. Wait for price to pull back (retrace) after the break
-    3. Enter on a momentum candle in the direction of the break
-    4. SL below/above the swing that was just swept or the pullback low/high
-    5. TP at 2:1 R:R targeting the next swing level
-    """
+    """Generate trade signals with ATR-based risk management."""
     signals = []
     closes = candles_entry["close"].values
     opens = candles_entry["open"].values
@@ -65,17 +86,25 @@ def generate_signals(
     timestamps = candles_entry.index
     n = len(candles_entry)
 
-    # Pre-index structure events
-    event_map = {}  # index -> event
+    # Compute ATR for dynamic SL sizing
+    atr = compute_atr(highs, lows, closes, period=14)
+
+    # Get CT hours for time-of-day filter
+    if candles_entry.index.tz is None:
+        ct_idx = candles_entry.index.tz_localize("UTC").tz_convert("US/Central")
+    else:
+        ct_idx = candles_entry.index.tz_convert("US/Central")
+    ct_hours = ct_idx.hour
+
+    # Pre-index structure events and sweeps
+    event_map = {}
     for e in structure_events:
         event_map[e.index] = e
 
-    # Pre-index sweeps
     sweep_map = {}
     for s in sweeps:
         sweep_map.setdefault(s.index, []).append(s)
 
-    # Pre-index OBs and FVGs by index for proximity checks
     ob_by_idx = {}
     for ob in order_blocks:
         ob_by_idx.setdefault(ob.index, []).append(ob)
@@ -84,11 +113,10 @@ def generate_signals(
     for f in fvgs:
         fvg_by_idx.setdefault(f.index, []).append(f)
 
-    # Swing highs and lows for SL/TP references
     swing_highs = [s for s in swings_htf if s.swing_type == SwingType.HIGH]
     swing_lows = [s for s in swings_htf if s.swing_type == SwingType.LOW]
 
-    print(f"[SIGNALS] Processing {n:,} candles...")
+    print(f"[SIGNALS] Processing {n:,} candles with ATR-based sizing...")
 
     last_signal_index = -20
     last_structure_event = None
@@ -96,103 +124,84 @@ def generate_signals(
     pullback_started = False
     pullback_extreme = 0.0
 
-    for i in range(10, n):
-        # Track the most recent structure event
+    for i in range(20, n):
+        # Track structure events
         if i in event_map:
             last_structure_event = event_map[i]
             last_structure_index = i
             pullback_started = False
 
         # Skip if no recent structure event
-        if last_structure_event is None or (i - last_structure_index) > 60:
+        if last_structure_event is None or (i - last_structure_index) > 120:
             continue
 
         # Skip if too close to last signal
-        if i - last_signal_index < 8:
+        if i - last_signal_index < 4:
             continue
 
-        # Session filter
-        if sessions is not None and not is_tradeable_session(sessions[i]):
+        # ── TIME-OF-DAY FILTER ──
+        # Trade during London + NY session hours (highest probability)
+        # London: 2-8 AM CT, NY: 7-14 PM CT
+        hour = ct_hours[i]
+        if not (2 <= hour <= 14):
+            continue
+
+        # ── SESSION FILTER ──
+        if sessions is not None and sessions[i] == "asian":
+            continue
+
+        # ── ATR FILTER ──
+        # Skip when volatility is too low (choppy/dead market)
+        # or too high (erratic, news-driven)
+        current_atr = atr[i]
+        if np.isnan(current_atr) or current_atr < 0.30 or current_atr > 4.0:
             continue
 
         price = closes[i]
 
-        # ── BULLISH SETUP: After bullish BOS/CHoCH ──
+        # ── BULLISH SETUP ──
         if last_structure_event.break_type in (
             StructureBreak.BOS_BULLISH, StructureBreak.CHOCH_BULLISH
         ):
-            # Wait for pullback: price retraces below the break level
             if not pullback_started:
                 if price < last_structure_event.level_broken:
                     pullback_started = True
                     pullback_extreme = lows[i]
                 continue
 
-            # Track pullback low
             if lows[i] < pullback_extreme:
                 pullback_extreme = lows[i]
 
-            # Entry: momentum candle after pullback
             direction = _check_momentum(opens, closes, highs, lows, i)
             if direction != "bullish":
                 continue
 
-            # Build confluence score
-            score = 1  # structure break is already 1 point
-            details = {"structure": last_structure_event.break_type.value}
-
-            # Check if pullback went into an OB zone
-            ob_hit = _check_ob_proximity(ob_by_idx, pullback_extreme, i,
-                                         OBType.BULLISH, max_age=40)
-            if ob_hit:
-                score += 1
-                details["ob"] = f"{ob_hit.low:.1f}-{ob_hit.high:.1f}"
-
-            # Check if pullback filled into an FVG
-            fvg_hit = _check_fvg_proximity(fvg_by_idx, pullback_extreme, i,
-                                           FVGType.BULLISH, max_age=30)
-            if fvg_hit:
-                score += 1
-                details["fvg"] = f"{fvg_hit.bottom:.1f}-{fvg_hit.top:.1f}"
-
-            # Check for sweep during pullback
-            has_sweep = _check_sweep_in_range(sweep_map, SweepType.BULLISH,
-                                              last_structure_index, i)
-            if has_sweep:
-                score += 1
-                details["sweep"] = "bullish"
-
-            # Session bonus
-            if sessions is not None and sessions[i] == "ny":
-                score += 1
-                details["session"] = "ny"
-            elif sessions is not None and sessions[i] == "london":
-                score += 1
-                details["session"] = "london"
+            score, details, sl_ref = _evaluate_long(
+                i, price, pullback_extreme, last_structure_index,
+                swings_htf, ob_by_idx, fvg_by_idx, sweep_map,
+                sessions, hour,
+            )
 
             if score >= PARAMS.min_confluence_score:
-                # SL: below pullback low (or OB/FVG bottom)
-                sl_ref = pullback_extreme
-                if ob_hit:
-                    sl_ref = min(sl_ref, ob_hit.low)
-                if fvg_hit:
-                    sl_ref = min(sl_ref, fvg_hit.bottom)
-
-                sl_price = sl_ref - PARAMS.sl_buffer
+                # ATR-based SL: use max(zone-based, 2x ATR)
+                zone_sl = sl_ref - PARAMS.sl_buffer
+                atr_sl = price - (current_atr * 2.5)
+                sl_price = min(zone_sl, atr_sl)  # wider of the two
                 sl_distance = price - sl_price
 
-                if 1.0 < sl_distance <= 20.0:
+                if 0.8 < sl_distance <= 15.0:
                     tp_distance = sl_distance * PARAMS.reward_risk_ratio
-
-                    # TP target: look for next swing high above entry
                     tp_price = price + tp_distance
+
+                    # Look for structural TP target
                     for sh in swing_highs:
                         if sh.index > last_structure_index and sh.price > price + sl_distance:
-                            tp_price = min(tp_price, sh.price)
-                            tp_distance = tp_price - price
+                            if sh.price < tp_price:
+                                tp_price = sh.price
+                                tp_distance = tp_price - price
                             break
 
-                    if tp_distance >= sl_distance * 1.5:  # at least 1.5:1 R:R
+                    if tp_distance >= sl_distance * 1.5:
                         signals.append(TradeSignal(
                             direction=SignalDirection.LONG, index=i,
                             timestamp=timestamps[i], entry_price=price,
@@ -201,71 +210,46 @@ def generate_signals(
                             sl_distance=sl_distance, tp_distance=tp_distance,
                         ))
                         last_signal_index = i
-                        last_structure_event = None  # consumed
+                        last_structure_event = None
 
-        # ── BEARISH SETUP: After bearish BOS/CHoCH ──
+        # ── BEARISH SETUP ──
         elif last_structure_event.break_type in (
             StructureBreak.BOS_BEARISH, StructureBreak.CHOCH_BEARISH
         ):
-            # Wait for pullback: price retraces above the break level
             if not pullback_started:
                 if price > last_structure_event.level_broken:
                     pullback_started = True
                     pullback_extreme = highs[i]
                 continue
 
-            # Track pullback high
             if highs[i] > pullback_extreme:
                 pullback_extreme = highs[i]
 
-            # Entry: momentum candle after pullback
             direction = _check_momentum(opens, closes, highs, lows, i)
             if direction != "bearish":
                 continue
 
-            score = 1
-            details = {"structure": last_structure_event.break_type.value}
-
-            ob_hit = _check_ob_proximity(ob_by_idx, pullback_extreme, i,
-                                         OBType.BEARISH, max_age=40)
-            if ob_hit:
-                score += 1
-                details["ob"] = f"{ob_hit.low:.1f}-{ob_hit.high:.1f}"
-
-            fvg_hit = _check_fvg_proximity(fvg_by_idx, pullback_extreme, i,
-                                           FVGType.BEARISH, max_age=30)
-            if fvg_hit:
-                score += 1
-                details["fvg"] = f"{fvg_hit.bottom:.1f}-{fvg_hit.top:.1f}"
-
-            has_sweep = _check_sweep_in_range(sweep_map, SweepType.BEARISH,
-                                              last_structure_index, i)
-            if has_sweep:
-                score += 1
-                details["sweep"] = "bearish"
-
-            if sessions is not None and sessions[i] in ("ny", "london"):
-                score += 1
-                details["session"] = sessions[i]
+            score, details, sl_ref = _evaluate_short(
+                i, price, pullback_extreme, last_structure_index,
+                swings_htf, ob_by_idx, fvg_by_idx, sweep_map,
+                sessions, hour,
+            )
 
             if score >= PARAMS.min_confluence_score:
-                sl_ref = pullback_extreme
-                if ob_hit:
-                    sl_ref = max(sl_ref, ob_hit.high)
-                if fvg_hit:
-                    sl_ref = max(sl_ref, fvg_hit.top)
-
-                sl_price = sl_ref + PARAMS.sl_buffer
+                zone_sl = sl_ref + PARAMS.sl_buffer
+                atr_sl = price + (current_atr * 2.5)
+                sl_price = max(zone_sl, atr_sl)
                 sl_distance = sl_price - price
 
-                if 1.0 < sl_distance <= 20.0:
+                if 0.8 < sl_distance <= 15.0:
                     tp_distance = sl_distance * PARAMS.reward_risk_ratio
-
                     tp_price = price - tp_distance
+
                     for sl in swing_lows:
                         if sl.index > last_structure_index and sl.price < price - sl_distance:
-                            tp_price = max(tp_price, sl.price)
-                            tp_distance = price - tp_price
+                            if sl.price > tp_price:
+                                tp_price = sl.price
+                                tp_distance = price - tp_price
                             break
 
                     if tp_distance >= sl_distance * 1.5:
@@ -283,13 +267,13 @@ def generate_signals(
 
 
 def _check_momentum(opens, closes, highs, lows, i: int) -> str | None:
-    """Fast check for momentum/engulfing candle."""
+    """Check for momentum/engulfing candle."""
     if i < 1:
         return None
 
     o, c, h, l = opens[i], closes[i], highs[i], lows[i]
     rng = h - l
-    if rng < 0.30:
+    if rng < 0.20:
         return None
 
     body = abs(c - o)
@@ -305,8 +289,8 @@ def _check_momentum(opens, closes, highs, lows, i: int) -> str | None:
         if c < o_prev and o >= c_prev and body > abs(c_prev - o_prev):
             return "bearish"
 
-    # Strong momentum
-    if body_ratio >= 0.60:
+    # Strong momentum (body > 55% of range, small opposing wick)
+    if body_ratio >= 0.55:
         if c > o and (h - c) / rng < 0.25:
             return "bullish"
         if c < o and (c - l) / rng < 0.25:
@@ -315,10 +299,86 @@ def _check_momentum(opens, closes, highs, lows, i: int) -> str | None:
     return None
 
 
-def _check_ob_proximity(ob_by_idx: dict, extreme_price: float,
-                        current_index: int, ob_type: OBType,
-                        max_age: int = 40) -> OrderBlock | None:
-    """Check if the pullback extreme touched an order block zone."""
+def _evaluate_long(i, price, pullback_low, struct_idx,
+                   swings, ob_by_idx, fvg_by_idx, sweep_map,
+                   sessions, hour):
+    """Evaluate confluence for a long entry."""
+    score = 1  # structure break already counts
+    details = {"structure": "bullish_break"}
+    sl_ref = pullback_low
+
+    # Trend alignment from swings
+    trend = get_current_trend_at(i, swings)
+    if trend == Trend.BULLISH:
+        score += 1
+        details["trend"] = "bullish"
+
+    # OB proximity
+    ob = _check_ob_proximity(ob_by_idx, pullback_low, i, OBType.BULLISH)
+    if ob:
+        score += 1
+        details["ob"] = f"{ob.low:.1f}-{ob.high:.1f}"
+        sl_ref = min(sl_ref, ob.low)
+
+    # FVG proximity
+    fvg = _check_fvg_proximity(fvg_by_idx, pullback_low, i, FVGType.BULLISH)
+    if fvg:
+        score += 1
+        details["fvg"] = f"{fvg.bottom:.1f}-{fvg.top:.1f}"
+        sl_ref = min(sl_ref, fvg.bottom)
+
+    # Sweep
+    if _check_sweep_in_range(sweep_map, SweepType.BULLISH, struct_idx, i):
+        score += 1
+        details["sweep"] = "bullish"
+
+    # Time bonus: NY open (7-10 AM CT) gets extra point
+    if 7 <= hour <= 10:
+        score += 1
+        details["time"] = f"{hour}:00CT_NYopen"
+
+    return score, details, sl_ref
+
+
+def _evaluate_short(i, price, pullback_high, struct_idx,
+                    swings, ob_by_idx, fvg_by_idx, sweep_map,
+                    sessions, hour):
+    """Evaluate confluence for a short entry."""
+    score = 1
+    details = {"structure": "bearish_break"}
+    sl_ref = pullback_high
+
+    trend = get_current_trend_at(i, swings)
+    if trend == Trend.BEARISH:
+        score += 1
+        details["trend"] = "bearish"
+
+    ob = _check_ob_proximity(ob_by_idx, pullback_high, i, OBType.BEARISH)
+    if ob:
+        score += 1
+        details["ob"] = f"{ob.low:.1f}-{ob.high:.1f}"
+        sl_ref = max(sl_ref, ob.high)
+
+    fvg = _check_fvg_proximity(fvg_by_idx, pullback_high, i, FVGType.BEARISH)
+    if fvg:
+        score += 1
+        details["fvg"] = f"{fvg.bottom:.1f}-{fvg.top:.1f}"
+        sl_ref = max(sl_ref, fvg.top)
+
+    if _check_sweep_in_range(sweep_map, SweepType.BEARISH, struct_idx, i):
+        score += 1
+        details["sweep"] = "bearish"
+
+    if 7 <= hour <= 10:
+        score += 1
+        details["time"] = f"{hour}:00CT_NYopen"
+
+    return score, details, sl_ref
+
+
+def _check_ob_proximity(ob_by_idx, extreme_price, current_index,
+                        ob_type, max_age=40):
+    """Check if pullback extreme touched an OB zone."""
     for idx in range(current_index - 1, max(current_index - max_age, 0), -1):
         if idx not in ob_by_idx:
             continue
@@ -326,20 +386,17 @@ def _check_ob_proximity(ob_by_idx: dict, extreme_price: float,
             if ob.ob_type != ob_type or not ob.is_valid:
                 continue
             if ob_type == OBType.BULLISH:
-                # Bullish OB: pullback low should touch the OB zone
                 if extreme_price <= ob.high and extreme_price >= ob.low * 0.998:
                     return ob
             else:
-                # Bearish OB: pullback high should touch the OB zone
                 if extreme_price >= ob.low and extreme_price <= ob.high * 1.002:
                     return ob
     return None
 
 
-def _check_fvg_proximity(fvg_by_idx: dict, extreme_price: float,
-                         current_index: int, fvg_type: FVGType,
-                         max_age: int = 30) -> FairValueGap | None:
-    """Check if the pullback filled into an FVG zone."""
+def _check_fvg_proximity(fvg_by_idx, extreme_price, current_index,
+                         fvg_type, max_age=30):
+    """Check if pullback filled into an FVG zone."""
     for idx in range(current_index - 1, max(current_index - max_age, 0), -1):
         if idx not in fvg_by_idx:
             continue
@@ -355,9 +412,8 @@ def _check_fvg_proximity(fvg_by_idx: dict, extreme_price: float,
     return None
 
 
-def _check_sweep_in_range(sweep_map: dict, sweep_type: SweepType,
-                          start_idx: int, end_idx: int) -> bool:
-    """Check if there was a sweep of the given type in the index range."""
+def _check_sweep_in_range(sweep_map, sweep_type, start_idx, end_idx):
+    """Check if there was a sweep of the given type in the range."""
     for idx in range(start_idx, end_idx):
         if idx in sweep_map:
             for s in sweep_map[idx]:

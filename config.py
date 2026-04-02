@@ -69,7 +69,7 @@ RULES = TOPSTEP_50K
 @dataclass
 class StrategyParams:
     # Swing detection
-    swing_lookback: int = 3           # candles on each side to confirm swing
+    swing_lookback: int = 3           # candles on each side to confirm swing (optimized)
     htf_timeframe: str = "15min"      # higher-timeframe for structure
     entry_timeframe: str = "5min"     # entry timeframe (5min with 1-min data)
 
@@ -84,15 +84,15 @@ class StrategyParams:
     sweep_lookback_candles: int = 30      # how far back to look for sweeps
 
     # Signal confluence
-    min_confluence_score: int = 3     # minimum score out of 5 to enter
+    min_confluence_score: int = 4     # minimum score out of 6 to enter (optimized)
 
     # Risk
-    risk_per_trade: float = 300.0     # max dollar risk per trade
-    reward_risk_ratio: float = 2.0    # R:R target
+    risk_per_trade: float = 250.0     # max dollar risk per trade (optimized)
+    reward_risk_ratio: float = 2.5    # R:R target (optimized: higher reward)
     sl_buffer: float = 1.50           # SL buffer beyond zone in dollars
 
     # Daily gates (buffers inside prop firm limits)
-    daily_loss_gate: float = 600.0    # stop trading if daily loss >= this
+    daily_loss_gate: float = 700.0    # stop trading if daily loss >= this (optimized)
     daily_profit_gate: float = 1_200.0  # stop trading if daily profit >= this
 
     # Execution
