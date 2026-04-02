@@ -60,6 +60,7 @@ def run_cbr_backtest(
 
     current_date = None
     open_position = None
+    pending_order = None  # limit order waiting for fill
     signal_idx = 0
 
     print(f"[CBR BACKTEST] Simulating {len(signals)} signals...")
@@ -70,10 +71,37 @@ def run_cbr_backtest(
         if candle_date != current_date:
             current_date = candle_date
             tracker.start_new_day()
+            # Cancel pending orders on new day
+            if pending_order is not None:
+                pending_order = None
             if tracker.status != EvaluationStatus.ACTIVE:
                 break
             if tracker.trading_days >= max_days:
                 break
+
+        # Check if pending limit order fills on this candle
+        if pending_order is not None and open_position is None:
+            signal, contracts, _ = pending_order
+            is_long = signal.direction == CBRDirection.LONG
+            # Check if price reaches entry level
+            if is_long:
+                # Long limit order fills if low <= entry_price
+                if lows[i] <= signal.entry_price:
+                    open_position = pending_order
+                    pending_order = None
+                # Cancel if price blows past SL before filling
+                elif lows[i] <= signal.stop_loss:
+                    pending_order = None
+            else:
+                # Short limit order fills if high >= entry_price
+                if highs[i] >= signal.entry_price:
+                    open_position = pending_order
+                    pending_order = None
+                elif highs[i] >= signal.stop_loss:
+                    pending_order = None
+            # Expire pending after 6 candles (30 min on 5-min)
+            if pending_order is not None and i - signal.index > 6:
+                pending_order = None
 
         # Manage open position
         if open_position is not None:
@@ -94,27 +122,9 @@ def run_cbr_backtest(
                 if lows[i] <= signal.take_profit:
                     hit_tp = True
 
-            # When both SL and TP hit on same candle, use OHLC sequence to determine which hit first
+            # Conservative: when both SL and TP hit on same candle, assume SL first
             if hit_sl and hit_tp:
-                o = opens[i]
-                if is_long:
-                    # Long: SL is below, TP is above
-                    # If open is closer to SL (opened low), SL likely hit first
-                    # If open is closer to TP (opened high), TP likely hit first
-                    if o <= signal.entry_price:
-                        # Opened near/below entry -> went down first -> SL
-                        hit_tp = False
-                    else:
-                        # Opened above entry -> went up first -> TP
-                        hit_sl = False
-                else:
-                    # Short: SL is above, TP is below
-                    if o >= signal.entry_price:
-                        # Opened near/above entry -> went up first -> SL
-                        hit_tp = False
-                    else:
-                        # Opened below entry -> went down first -> TP
-                        hit_sl = False
+                hit_tp = False
 
             if hit_sl:
                 pnl = calculate_trade_pnl(
@@ -154,8 +164,8 @@ def run_cbr_backtest(
                 result.equity_curve.append(tracker.balance)
                 continue
 
-        # Check for new signals
-        if open_position is None and tracker.can_trade():
+        # Check for new signals -> place as pending limit order
+        if open_position is None and pending_order is None and tracker.can_trade():
             while signal_idx < len(signals) and signals[signal_idx].index <= i:
                 if signals[signal_idx].index == i:
                     signal = signals[signal_idx]
@@ -164,7 +174,8 @@ def run_cbr_backtest(
                     contracts = calculate_position_size(
                         abs(signal.entry_price - signal.stop_loss), adaptive_risk)
                     if contracts > 0:
-                        open_position = (signal, contracts, tracker.trading_days)
+                        # Place limit order - will fill when price reaches entry
+                        pending_order = (signal, contracts, tracker.trading_days)
                         signal_idx += 1
                         break
                 signal_idx += 1
@@ -182,7 +193,7 @@ def run_cbr_walkforward(
     candles_1min: pd.DataFrame,
     candles_1h: pd.DataFrame,
     window_days: int = 22,
-    step_days: int = 5,
+    step_days: int = 22,  # non-overlapping windows for honest results
 ) -> list[BacktestResult]:
     """Run CBR walkforward analysis."""
     results = []

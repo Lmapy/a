@@ -62,10 +62,9 @@ class PropFirmTracker:
             self.status = EvaluationStatus.FAILED_DRAWDOWN
             return False
 
-        # Check if passed
+        # Check if passed (must also meet consistency rule)
         if self.cumulative_pnl >= RULES.profit_target:
-            self._check_consistency()
-            if self.status == EvaluationStatus.ACTIVE:
+            if self._check_consistency():
                 self.status = EvaluationStatus.PASSED
             return False
 
@@ -107,19 +106,25 @@ class PropFirmTracker:
 
         if self.status == EvaluationStatus.ACTIVE:
             if self.cumulative_pnl >= RULES.profit_target:
-                self._check_consistency()
-                if self.status == EvaluationStatus.ACTIVE:
+                if self._check_consistency():
                     self.status = EvaluationStatus.PASSED
             elif self.trading_days >= RULES.max_trading_days:
                 self.status = EvaluationStatus.FAILED_TIME
 
-    def _check_consistency(self):
-        """Check the consistency rule: best day <= 50% of profit target."""
+    def _check_consistency(self) -> bool:
+        """Check the consistency rule: best day <= 50% of profit target.
+
+        Returns True if consistency is met, False if violated.
+        In real evals, you must keep trading until best day < 50% of total profit.
+        """
         max_allowed = RULES.profit_target * RULES.consistency_pct
         if self.best_day_pnl > max_allowed:
-            # Don't immediately fail; in real eval you keep trading
-            # until best day is < 50% of total profit
-            pass  # tracked but not a hard fail in this sim
+            # Consistency violated - need to keep trading
+            # Check if best day is < 50% of total accumulated profit
+            if self.cumulative_pnl > 0:
+                return self.best_day_pnl <= self.cumulative_pnl * 0.5
+            return False
+        return True
 
     def get_summary(self) -> dict:
         """Get evaluation summary."""

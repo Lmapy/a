@@ -103,17 +103,18 @@ def detect_msb(opens, closes, highs, lows, i, direction, lookback=6):
         return None
 
     if direction == "bullish_msb":
-        # Find recent swing high in the last lookback bars
+        # Find recent swing high in the last lookback bars (excluding current)
         recent_high = max(highs[i - lookback:i])
         if closes[i] > recent_high:
-            # MSB confirmed - find the swing low for retracement calc
-            swing_low = min(lows[i - lookback:i + 1])
+            # MSB confirmed - swing low excludes current bar (no look-ahead)
+            swing_low = min(lows[i - lookback:i])
             return {"msb_level": recent_high, "swing_extreme": swing_low}
 
     elif direction == "bearish_msb":
         recent_low = min(lows[i - lookback:i])
         if closes[i] < recent_low:
-            swing_high = max(highs[i - lookback:i + 1])
+            # Exclude current bar from swing_extreme
+            swing_high = max(highs[i - lookback:i])
             return {"msb_level": recent_low, "swing_extreme": swing_high}
 
     return None

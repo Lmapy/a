@@ -96,8 +96,8 @@ class StrategyParams:
     daily_profit_gate: float = 1_200.0  # stop trading if daily profit >= this
 
     # Execution
-    slippage_ticks: int = 1           # ticks of slippage per trade
-    commission_per_side: float = 0.62 # commission per side per MGC contract
+    slippage_ticks: int = 3           # 3 ticks slippage (realistic for gold)
+    commission_per_side: float = 0.85 # commission per side per MGC contract (realistic)
     max_trades_per_day: int = 3       # allow up to 3 trades per day
 
 PARAMS = StrategyParams()
