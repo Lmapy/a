@@ -173,7 +173,8 @@ def generate_cbr_signals(
     in_asian = False
 
     last_signal_idx = -20
-    expansion_state = None  # track detected expansion
+    expansion_state = None
+    sweep_state = None  # track detected sweep waiting for MSB
 
     print(f"[CBR] Processing {n:,} candles for CBR signals...")
 
@@ -186,12 +187,12 @@ def generate_cbr_signals(
 
         if is_asian:
             if not in_asian or date_key != current_asian_date:
-                # New Asian session
                 asian_high = highs[i]
                 asian_low = lows[i]
                 current_asian_date = date_key
                 in_asian = True
                 expansion_state = None
+                sweep_state = None
             else:
                 asian_high = max(asian_high, highs[i])
                 asian_low = min(asian_low, lows[i])
@@ -199,14 +200,61 @@ def generate_cbr_signals(
             in_asian = False
 
         # ── Trade during expanded CBR window ──
-        # Asian session + London open + early NY for more opportunities
-        # Asian: 7PM-2AM CT, London: 2-8AM CT, Early NY: 8-10AM CT
         trade_window = (19 <= hour <= 23) or (0 <= hour <= 10)
         if not trade_window:
             expansion_state = None
+            sweep_state = None
             continue
 
         if i - last_signal_idx < 6:
+            continue
+
+        # ── Step 3: If we have a sweep, look for MSB in next candles ──
+        if sweep_state is not None:
+            sw = sweep_state
+            bars_since_sweep = i - sw["sweep_idx"]
+
+            if bars_since_sweep > 12:
+                # Timeout - no MSB found
+                sweep_state = None
+                expansion_state = None
+            else:
+                msb_dir = "bearish_msb" if sw["exp_dir"] == "bullish_expansion" else "bullish_msb"
+                msb = detect_msb(opens, closes, highs, lows, i, msb_dir, lookback=8)
+
+                if msb is not None:
+                    # ── Step 4: Entry at 50% retracement ──
+                    if msb_dir == "bearish_msb":
+                        msb_range = msb["swing_extreme"] - msb["msb_level"]
+                        entry_price = msb["msb_level"] + msb_range * 0.5
+                        sl_price = msb["swing_extreme"] + 0.50
+                        sl_distance = sl_price - entry_price
+                        tp_price = entry_price - (sl_distance * rr_ratio)
+                        direction = CBRDirection.SHORT
+                    else:
+                        msb_range = msb["msb_level"] - msb["swing_extreme"]
+                        entry_price = msb["msb_level"] - msb_range * 0.5
+                        sl_price = msb["swing_extreme"] - 0.50
+                        sl_distance = entry_price - sl_price
+                        tp_price = entry_price + (sl_distance * rr_ratio)
+                        direction = CBRDirection.LONG
+
+                    if 0.5 < sl_distance < 15.0:
+                        signals.append(CBRSignal(
+                            direction=direction,
+                            index=i, timestamp=timestamps[i],
+                            entry_price=entry_price,
+                            stop_loss=sl_price,
+                            take_profit=tp_price,
+                            expansion_size=sw["exp_high"] - sw["exp_low"],
+                            sweep_level=sw["sweep_level"],
+                            details={"expansion": sw["exp_dir"], "msb": msb,
+                                     "asian_high": asian_high, "asian_low": asian_low},
+                        ))
+                        last_signal_idx = i
+                        sweep_state = None
+                        expansion_state = None
+                        continue
             continue
 
         # ── Step 1: Detect one-sided expansion ──
@@ -229,71 +277,37 @@ def generate_cbr_signals(
         exp = expansion_state
 
         if exp["direction"] == "bullish_expansion":
-            # After bullish expansion, look for HIGH sweep (price overshoots then reverses)
-            # Also check Asian high sweep
             sweep_level = exp["high"]
             if asian_high is not None:
                 sweep_level = max(sweep_level, asian_high)
 
             if detect_sweep(highs, lows, closes, i, sweep_level, "sweep_highs"):
-                # ── Step 3: Look for bearish MSB (reversal down) ──
-                msb = detect_msb(opens, closes, highs, lows, i, "bearish_msb", lookback=8)
-                if msb is not None:
-                    # ── Step 4: Entry at 50% retracement of MSB move ──
-                    msb_range = msb["swing_extreme"] - msb["msb_level"]
-                    entry_price = msb["msb_level"] + msb_range * 0.5
-                    sl_price = msb["swing_extreme"] + 0.50  # SL above the sweep high
-                    sl_distance = sl_price - entry_price
-                    tp_price = entry_price - (sl_distance * rr_ratio)
-
-                    if 0.5 < sl_distance < 15.0:
-                        signals.append(CBRSignal(
-                            direction=CBRDirection.SHORT,
-                            index=i, timestamp=timestamps[i],
-                            entry_price=entry_price,
-                            stop_loss=sl_price,
-                            take_profit=tp_price,
-                            expansion_size=exp["high"] - exp["low"],
-                            sweep_level=sweep_level,
-                            details={"expansion": exp["direction"], "msb": msb,
-                                     "asian_high": asian_high, "asian_low": asian_low},
-                        ))
-                        last_signal_idx = i
-                        expansion_state = None
-                        continue
+                sweep_state = {
+                    "exp_dir": exp["direction"],
+                    "exp_high": exp["high"],
+                    "exp_low": exp["low"],
+                    "sweep_level": sweep_level,
+                    "sweep_idx": i,
+                }
+                # Also check MSB on same candle
+                continue
 
         elif exp["direction"] == "bearish_expansion":
-            # After bearish expansion, look for LOW sweep then bullish reversal
             sweep_level = exp["low"]
             if asian_low is not None:
                 sweep_level = min(sweep_level, asian_low)
 
             if detect_sweep(highs, lows, closes, i, sweep_level, "sweep_lows"):
-                msb = detect_msb(opens, closes, highs, lows, i, "bullish_msb", lookback=8)
-                if msb is not None:
-                    msb_range = msb["msb_level"] - msb["swing_extreme"]
-                    entry_price = msb["msb_level"] - msb_range * 0.5
-                    sl_price = msb["swing_extreme"] - 0.50
-                    sl_distance = entry_price - sl_price
-                    tp_price = entry_price + (sl_distance * rr_ratio)
+                sweep_state = {
+                    "exp_dir": exp["direction"],
+                    "exp_high": exp["high"],
+                    "exp_low": exp["low"],
+                    "sweep_level": sweep_level,
+                    "sweep_idx": i,
+                }
+                continue
 
-                    if 0.5 < sl_distance < 15.0:
-                        signals.append(CBRSignal(
-                            direction=CBRDirection.LONG,
-                            index=i, timestamp=timestamps[i],
-                            entry_price=entry_price,
-                            stop_loss=sl_price,
-                            take_profit=tp_price,
-                            expansion_size=exp["high"] - exp["low"],
-                            sweep_level=sweep_level,
-                            details={"expansion": exp["direction"], "msb": msb,
-                                     "asian_high": asian_high, "asian_low": asian_low},
-                        ))
-                        last_signal_idx = i
-                        expansion_state = None
-                        continue
-
-        # Expire expansion after 30 bars if no sweep found
+        # Expire expansion after 30 bars
         if i - exp["detected_at"] > 30:
             expansion_state = None
 
