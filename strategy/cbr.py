@@ -200,7 +200,7 @@ def generate_cbr_signals(
             in_asian = False
 
         # ── Trade during expanded CBR window ──
-        trade_window = (19 <= hour <= 23) or (0 <= hour <= 10)
+        trade_window = (18 <= hour <= 23) or (0 <= hour <= 13)
         if not trade_window:
             expansion_state = None
             sweep_state = None
