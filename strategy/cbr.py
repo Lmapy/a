@@ -219,12 +219,14 @@ def generate_cbr_signals(
 
             if msb is not None:
                 # ── Check 1H bias alignment ──
+                # STRICT: only trade when 1H bias is STRONG and aligned
+                # This is the key filter TomTrades uses
                 bias = get_1h_bias(candles_1h, utc_idx[i])
-                if msb_dir == "bullish" and bias == "bearish":
+                if msb_dir == "bullish" and bias != "bullish":
                     state = "looking"
                     sweep_data = None
                     continue
-                if msb_dir == "bearish" and bias == "bullish":
+                if msb_dir == "bearish" and bias != "bearish":
                     state = "looking"
                     sweep_data = None
                     continue
