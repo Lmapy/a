@@ -114,20 +114,54 @@ async def download_dukascopy(
     return df
 
 
-def load_data() -> pd.DataFrame:
-    """Load XAUUSD data, using the best available source.
+def load_1min_data(start_year: int = 2018, end_year: int = 2020) -> pd.DataFrame:
+    """Load 1-minute XAUUSD data from FutureSharks/financial-data (Oanda source).
 
-    Returns OHLCV DataFrame with dollar prices.
+    Returns OHLCV DataFrame with real 1-min candles.
+    Default range 2018-2020 for best performance (~815K candles).
+    Full dataset has ~4.9M candles (2006-2020).
     """
     _ensure_dir()
 
-    # Check for Dukascopy tick data first
+    subset_cache = DATA_DIR / "XAUUSD_1min_subset.parquet"
+    full_cache = DATA_DIR / "XAUUSD_1min.parquet"
+
+    if subset_cache.exists():
+        print(f"[DATA] Loading 1-min subset from {subset_cache}")
+        return pd.read_parquet(subset_cache)
+
+    if full_cache.exists():
+        print(f"[DATA] Loading full 1-min data, filtering to {start_year}-{end_year}")
+        df = pd.read_parquet(full_cache)
+        df = df[f"{start_year}-01-01":f"{end_year}-12-31"]
+        df.to_parquet(subset_cache)
+        return df
+
+    raise FileNotFoundError(
+        f"1-min data not found. Clone FutureSharks/financial-data and run merge script."
+    )
+
+
+def load_data() -> pd.DataFrame:
+    """Load XAUUSD data, using the best available source.
+
+    Priority: 1-min data > Dukascopy ticks > 15-min GitHub data.
+    """
+    _ensure_dir()
+
+    # Check for 1-min data first (best resolution)
+    for path in [DATA_DIR / "XAUUSD_1min_subset.parquet", DATA_DIR / "XAUUSD_1min.parquet"]:
+        if path.exists():
+            print(f"[DATA] Using 1-minute XAUUSD data (FutureSharks/Oanda)")
+            return load_1min_data()
+
+    # Check for Dukascopy tick data
     tick_cache = DATA_DIR / "XAUUSD_ticks.parquet"
     if tick_cache.exists():
         print("[DATA] Using cached Dukascopy tick data")
         return pd.read_parquet(tick_cache)
 
-    # Use GitHub real data (15-min candles)
+    # Fallback to 15-min GitHub data
     return download_github_data("15min")
 
 

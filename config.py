@@ -70,8 +70,8 @@ RULES = TOPSTEP_50K
 class StrategyParams:
     # Swing detection
     swing_lookback: int = 3           # candles on each side to confirm swing
-    htf_timeframe: str = "15min"      # higher-timeframe for structure (15min)
-    entry_timeframe: str = "15min"    # entry timeframe
+    htf_timeframe: str = "15min"      # higher-timeframe for structure
+    entry_timeframe: str = "5min"     # entry timeframe (5min with 1-min data)
 
     # Fair Value Gap
     fvg_min_size: float = 1.00        # minimum FVG gap in dollars

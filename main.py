@@ -128,22 +128,29 @@ def main():
     print("  STEP 1: DATA PIPELINE")
     print("=" * 60)
 
-    # Load real XAUUSD data from ejtraderLabs GitHub (or Dukascopy if available)
-    # Primary: 15-min real OHLCV candles (2012-2022, ~230K candles)
-    # For HTF structure: 1-hour candles
-    candles_15min = load_data()
-    candles_15min = tag_sessions(candles_15min)
+    # Load real XAUUSD data - prefer 1-min data for best entry precision
+    raw_data = load_data()
+    raw_data.attrs["_is_ohlcv"] = True
 
-    # Build 1H candles for higher-timeframe structure analysis
-    candles_1h = download_github_data("1H")
-    candles_1h = tag_sessions(candles_1h)
+    # Build multi-timeframe candles from the raw data
+    candle_dict = build_multi_timeframe(raw_data)
 
-    # Use 15-min as entry timeframe, 1H as higher timeframe for structure
-    candles_entry = candles_15min
-    candles_htf = candles_1h
+    # Select entry and HTF candles
+    if "5min" in candle_dict:
+        candles_entry = candle_dict["5min"]
+        candles_htf = candle_dict["15min"] if "15min" in candle_dict else candle_dict["1H"]
+        entry_tf = "5min"
+    elif "15min" in candle_dict:
+        candles_entry = candle_dict["15min"]
+        candles_htf = candle_dict["1H"] if "1H" in candle_dict else candle_dict["15min"]
+        entry_tf = "15min"
+    else:
+        candles_entry = list(candle_dict.values())[0]
+        candles_htf = candles_entry
+        entry_tf = list(candle_dict.keys())[0]
 
-    print(f"[DATA] Entry candles (15min): {len(candles_entry):,}")
-    print(f"[DATA] HTF candles (1H):      {len(candles_htf):,}")
+    print(f"[DATA] Entry candles ({entry_tf}): {len(candles_entry):,}")
+    print(f"[DATA] HTF candles:              {len(candles_htf):,}")
     print(f"[DATA] Date range: {candles_entry.index.min()} to {candles_entry.index.max()}")
     print(f"[DATA] Price range: ${candles_entry['close'].min():.2f} to ${candles_entry['close'].max():.2f}")
 
