@@ -99,7 +99,7 @@ def run_cbr_backtest(
                     pending_order = None
 
             # Expire after 24 bars (2 hours on 5-min)
-            if pending_order is not None and i - signal.index > 24:
+            if pending_order is not None and i - signal.index > 120:  # 2 hours on 1-min
                 pending_order = None
 
         # Manage open position
@@ -242,14 +242,18 @@ def main():
     print("  TOMTRADES CBR STRATEGY - GOLD SCALPING")
     print("=" * 60)
 
-    # Load data
+    # Load data - raw 1-min for CBR execution (as TomTrades does)
     raw = load_data()
     raw.attrs["_is_ohlcv"] = True
     candle_dict = build_multi_timeframe(raw)
-    c1m = candle_dict["5min"]   # 5-min execution timeframe
-    c1h = candle_dict["1H"]     # 1H bias timeframe
+    c1h = candle_dict["1H"]
 
-    print(f"[DATA] 5-min: {len(c1m):,} candles (execution)")
+    # Use raw 1-min data for execution
+    c1m = raw.copy()
+    if "session" not in c1m.columns:
+        c1m = tag_sessions(c1m)
+
+    print(f"[DATA] 1-min: {len(c1m):,} candles (execution)")
     print(f"[DATA] 1H:    {len(c1h):,} candles (bias)")
 
     if args.walkforward:

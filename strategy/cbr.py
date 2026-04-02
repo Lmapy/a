@@ -53,23 +53,19 @@ def compute_asian_range_for_cbr(candles: pd.DataFrame) -> dict:
     else:
         utc_idx = candles.index.tz_convert("UTC")
 
-    hours = utc_idx.hour
     highs = candles["high"].values
     lows = candles["low"].values
+    hours_arr = np.array(utc_idx.hour)
+    dates_arr = np.array(utc_idx.date)
 
     # Asian session: 22:00-08:00 UTC
-    asian_mask = (hours >= 22) | (hours < 8)
+    asian_mask = (hours_arr >= 22) | (hours_arr < 8)
 
-    # Group by trading date (Asian session starting at 22:00 belongs to next day)
-    dates = utc_idx.date
-    trading_dates = pd.Series(dates, index=candles.index)
-    evening = hours >= 22
     # Shift evening dates forward one day
-    td_vals = trading_dates.values.copy()
+    td_vals = dates_arr.copy()
     for i in range(len(td_vals)):
-        if evening.iloc[i] if hasattr(evening, 'iloc') else evening[i]:
-            td_vals[i] = pd.Timestamp(td_vals[i]) + pd.Timedelta(days=1)
-            td_vals[i] = td_vals[i].date()
+        if hours_arr[i] >= 22:
+            td_vals[i] = (pd.Timestamp(td_vals[i]) + pd.Timedelta(days=1)).date()
 
     ranges = {}
     current_date = None
@@ -106,16 +102,32 @@ def compute_asian_range_for_cbr(candles: pd.DataFrame) -> dict:
     return ranges
 
 
-def detect_sweep_of_level(highs, lows, closes, i, level, direction, tolerance=0.10):
-    """Detect if candle i sweeps a level and closes back inside.
+def detect_sweep_of_level(highs, lows, closes, i, level, direction, tolerance=0.10, lookback=10):
+    """Detect if price swept a level and then closed back inside.
 
-    Bullish sweep (of lows): wick below level, close above level
-    Bearish sweep (of highs): wick above level, close below level
+    Multi-bar sweep: checks if any bar in the last `lookback` bars
+    wicked beyond the level, AND the current bar closes back inside.
+    This handles 1-min bars where the sweep and close-back happen
+    on different candles.
     """
     if direction == "sweep_low":
-        return lows[i] < level - tolerance and closes[i] > level
+        # Was the level swept recently? (any recent bar wicked below)
+        swept = False
+        for j in range(max(0, i - lookback), i + 1):
+            if lows[j] < level - tolerance:
+                swept = True
+                break
+        # And current bar closes back above the level
+        return swept and closes[i] > level
+
     elif direction == "sweep_high":
-        return highs[i] > level + tolerance and closes[i] < level
+        swept = False
+        for j in range(max(0, i - lookback), i + 1):
+            if highs[j] > level + tolerance:
+                swept = True
+                break
+        return swept and closes[i] < level
+
     return False
 
 
@@ -142,8 +154,9 @@ def detect_bos(closes, highs, lows, i, direction, lookback=5):
 def generate_cbr_signals(
     candles: pd.DataFrame,
     candles_1h: pd.DataFrame,
-    min_range_size: float = 1.50,   # min Asian range to trade ($1.50)
+    min_range_size: float = 2.00,   # min Asian range to trade ($2.00)
     rr_ratio: float = 2.0,         # R:R ratio
+    bos_lookback: int = 20,        # bars to look back for BOS (20 min on 1-min)
 ) -> list[CBRSignal]:
     """Generate AMD Type 3 signals.
 
@@ -177,7 +190,7 @@ def generate_cbr_signals(
     print(f"[CBR] {len(asian_ranges)} Asian ranges computed")
     print(f"[CBR] Processing {n:,} candles for AMD Type 3 signals...")
 
-    last_signal_idx = -30
+    last_signal_idx = -200
     sweep_state = None  # tracks detected sweep waiting for BOS + midline entry
 
     for i in range(10, n):
@@ -206,17 +219,15 @@ def generate_cbr_signals(
         asian_low = ar["low"]
         midline = ar["midline"]
 
-        # ── KILL ZONE: Only trade during these windows ──
-        # Window 1: Second hour of Asia (01:00-02:00 UTC) - SGE open
-        # Window 2: London open (07:00-10:00 UTC) - sweeps Asian range
-        in_kill_zone = (1 <= hour <= 2) or (7 <= hour <= 10)
+        # ── KILL ZONE ──
+        # Window 1: Asia 2nd hour + London open (00:00-12:00 UTC)
+        # Extended to allow sweep+BOS sequence to complete
+        in_kill_zone = (0 <= hour <= 12)
         if not in_kill_zone:
-            # Reset sweep state when leaving kill zone
-            if sweep_state is not None and hour > 12:
-                sweep_state = None
+            sweep_state = None
             continue
 
-        if i - last_signal_idx < 10:
+        if i - last_signal_idx < 120:  # 2 hour cooldown
             continue
 
         price = closes[i]
@@ -233,7 +244,7 @@ def generate_cbr_signals(
 
             if sw["direction"] == "bullish":
                 # After sweeping Asian low, look for bullish BOS
-                bos = detect_bos(closes, highs, lows, i, "bullish_bos", lookback=8)
+                bos = detect_bos(closes, highs, lows, i, "bullish_bos", lookback=bos_lookback)
                 if bos is not None:
                     # Entry at Asian midline (limit order)
                     entry_price = midline
@@ -271,7 +282,7 @@ def generate_cbr_signals(
 
             elif sw["direction"] == "bearish":
                 # After sweeping Asian high, look for bearish BOS
-                bos = detect_bos(closes, highs, lows, i, "bearish_bos", lookback=8)
+                bos = detect_bos(closes, highs, lows, i, "bearish_bos", lookback=bos_lookback)
                 if bos is not None:
                     entry_price = midline
                     sl_price = sw["sweep_extreme"] + 0.50
@@ -309,7 +320,10 @@ def generate_cbr_signals(
 
         # ── DETECT SWEEP OF ASIAN RANGE ──
         # Bullish setup: price sweeps Asian LOW then reverses up
-        if detect_sweep_of_level(highs, lows, closes, i, asian_low, "sweep_low"):
+        swept_low = detect_sweep_of_level(highs, lows, closes, i, asian_low, "sweep_low")
+        swept_high = detect_sweep_of_level(highs, lows, closes, i, asian_high, "sweep_high")
+
+        if swept_low:
             sweep_state = {
                 "direction": "bullish",
                 "sweep_level": asian_low,
@@ -319,7 +333,7 @@ def generate_cbr_signals(
             continue
 
         # Bearish setup: price sweeps Asian HIGH then reverses down
-        if detect_sweep_of_level(highs, lows, closes, i, asian_high, "sweep_high"):
+        if swept_high:
             sweep_state = {
                 "direction": "bearish",
                 "sweep_level": asian_high,
