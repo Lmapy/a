@@ -21,6 +21,7 @@ from strategy.order_blocks import OrderBlock, OBType
 from strategy.fvg import FairValueGap, FVGType
 from strategy.liquidity import LiquiditySweep, SweepType
 from strategy.sessions import is_tradeable_session
+from strategy.regime import classify_regime
 from config import PARAMS
 
 
@@ -74,7 +75,7 @@ def generate_signals(
     sweeps: list[LiquiditySweep],
     asian_high: float | None = None,
     asian_low: float | None = None,
-    htf_candle_map: dict | None = None,
+    htf_trend_map: dict | None = None,
 ) -> list[TradeSignal]:
     """Generate trade signals with ATR-based risk management."""
     signals = []
@@ -88,6 +89,9 @@ def generate_signals(
 
     # Compute ATR for dynamic SL sizing
     atr = compute_atr(highs, lows, closes, period=14)
+
+    # Compute market regime
+    regimes, adx_arr, ema_arr = classify_regime(highs, lows, closes)
 
     # Get CT hours for time-of-day filter
     if candles_entry.index.tz is None:
@@ -151,11 +155,15 @@ def generate_signals(
             continue
 
         # ── ATR FILTER ──
-        # Skip when volatility is too low (choppy/dead market)
-        # or too high (erratic, news-driven)
         current_atr = atr[i]
         if np.isnan(current_atr) or current_atr < 0.30 or current_atr > 4.0:
             continue
+
+        # ── REGIME FILTER (optional) ──
+        # Available but currently disabled for maximum trade frequency
+        # regime = regimes[i]
+        # if regime == 'ranging':
+        #     continue
 
         price = closes[i]
 

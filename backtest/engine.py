@@ -6,7 +6,8 @@ from dataclasses import dataclass, field
 from datetime import date
 
 from strategy.market_structure import (
-    detect_swing_points, detect_structure_breaks, SwingType,
+    detect_swing_points, detect_structure_breaks, SwingType, Trend,
+    identify_trend, SwingPoint,
 )
 from strategy.order_blocks import detect_order_blocks, update_order_blocks
 from strategy.fvg import detect_fvgs, update_fvgs
@@ -42,6 +43,47 @@ class BacktestResult:
     equity_curve: list = field(default_factory=list)
 
 
+def _build_htf_trend_map(
+    candles_entry: pd.DataFrame,
+    candles_htf: pd.DataFrame,
+    swings_htf: list,
+) -> dict[int, str]:
+    """Build a map from entry candle index -> HTF trend ('bullish'/'bearish'/'neutral').
+
+    For each entry candle, finds the corresponding HTF candle and determines
+    the trend based on HTF swing points confirmed by that time.
+    """
+    trend_map = {}
+
+    # Get HTF timestamps for mapping
+    htf_times = candles_htf.index
+    entry_times = candles_entry.index
+
+    sh = [s for s in swings_htf if s.swing_type == SwingType.HIGH]
+    sl = [s for s in swings_htf if s.swing_type == SwingType.LOW]
+
+    # Pre-compute trend at each HTF candle index
+    htf_trends = {}
+    for htf_idx in range(len(candles_htf)):
+        available_sh = [s for s in sh if s.index <= htf_idx]
+        available_sl = [s for s in sl if s.index <= htf_idx]
+        htf_trends[htf_idx] = identify_trend(available_sh, available_sl)
+
+    # Map entry candles to HTF trend
+    htf_ptr = 0
+    for i in range(len(candles_entry)):
+        # Advance HTF pointer to match entry time
+        while htf_ptr < len(htf_times) - 1 and htf_times[htf_ptr + 1] <= entry_times[i]:
+            htf_ptr += 1
+
+        if htf_ptr in htf_trends:
+            trend_map[i] = htf_trends[htf_ptr].value
+        else:
+            trend_map[i] = "neutral"
+
+    return trend_map
+
+
 def run_backtest(
     candles_5min: pd.DataFrame,
     candles_htf: pd.DataFrame,
@@ -61,13 +103,15 @@ def run_backtest(
     tracker = result.tracker
 
     # ── Pre-compute structure on entry timeframe ──
-    # Use the entry candles directly for all analysis
-    # This ensures swing points, OBs, FVGs are all in the same index space
     print("[BACKTEST] Detecting market structure...")
     swings = detect_swing_points(candles_5min, lookback=PARAMS.swing_lookback)
 
-    # Also detect on HTF for trend confirmation
+    # HTF swings for trend confirmation
     swings_htf_raw = detect_swing_points(candles_htf, lookback=PARAMS.swing_lookback)
+
+    # Build HTF trend map: for each entry candle, what's the HTF trend?
+    # Map entry timestamps to nearest HTF candle index
+    htf_trend_map = _build_htf_trend_map(candles_5min, candles_htf, swings_htf_raw)
 
     structure_events = detect_structure_breaks(candles_5min, swings)
     order_blocks = detect_order_blocks(candles_5min, structure_events, PARAMS.ob_max_age_candles)
@@ -97,6 +141,7 @@ def run_backtest(
         order_blocks=order_blocks,
         fvgs=fvgs,
         sweeps=sweeps,
+        htf_trend_map=htf_trend_map,
     )
     print(f"[BACKTEST] Generated {len(signals)} raw signals")
 

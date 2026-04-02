@@ -44,50 +44,35 @@ def calculate_adaptive_risk(
     days_remaining = max(1, max_trading_days - trading_days)
     target = RULES.profit_target
     pnl_needed = target - cumulative_pnl
+
+    if pnl_needed <= 0:
+        return base_risk  # already passed
+
     daily_rate_needed = pnl_needed / days_remaining
+    expected_daily = base_risk * 0.09  # ~9% of risk per day
+    pace_ratio = daily_rate_needed / max(expected_daily, 1)
 
-    # Expected daily profit at base risk (based on strategy stats: ~$22/day per $250 risk)
-    # PF 1.54, 1.4 trades/day, 47% WR, 2.5:1 R:R
-    expected_daily_at_base = base_risk * 0.09  # ~9% of risk per day expected
-
-    # First 5 days: use base risk, establish a track record
+    # First 5 days: base risk
     if trading_days <= 5:
         return base_risk
 
-    # Calculate risk multiplier
-    if cumulative_pnl >= target:
-        return base_risk  # already passed
-
-    if pnl_needed <= 0:
-        return base_risk
-
-    # How aggressive do we need to be?
-    pace_ratio = daily_rate_needed / max(expected_daily_at_base, 1)
-
-    if pace_ratio <= 1.0:
-        # On pace or ahead - maintain base risk
+    # Scale based on pace
+    if pace_ratio <= 1.5:
         risk = base_risk
-    elif pace_ratio <= 2.0:
-        # Slightly behind - increase by 10-25%
-        risk = base_risk * (1.0 + (pace_ratio - 1.0) * 0.25)
-    elif pace_ratio <= 4.0:
-        # Behind - increase by 25-40%
-        risk = base_risk * 1.25 + (pace_ratio - 2.0) * base_risk * 0.075
+    elif pace_ratio <= 3.0:
+        risk = base_risk * (1.0 + (pace_ratio - 1.5) * 0.33)
     else:
-        # Far behind - moderate aggression, capped at 1.5x
         risk = base_risk * 1.5
 
-    # Safety caps
-    risk = min(risk, base_risk * 1.5)  # never exceed 1.5x base risk
-    risk = max(risk, base_risk * 0.75)  # never go below 75% base risk
+    # Caps
+    risk = min(risk, base_risk * 1.5)
+    risk = max(risk, base_risk * 0.75)
 
-    # If in drawdown (negative P&L), DON'T increase risk - reduce it
-    if cumulative_pnl < -500:
-        risk = base_risk * 0.8  # reduce when deep in the hole
-
-    # If we have profit cushion, allow slightly more
+    # Cushion bonus
     if cumulative_pnl > 1500:
         risk = min(risk * 1.15, base_risk * 1.5)
+
+    return risk
 
     return risk
 
