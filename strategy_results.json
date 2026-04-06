@@ -1,0 +1,58 @@
+{
+  "config": {
+    "lookahead": 20,
+    "min_move_pct": 0.3,
+    "confidence": 0.5,
+    "min_agreement": 2,
+    "risk_pct": 2.0,
+    "atr_sl_mult": 1.5,
+    "atr_tp_mult": 3.0
+  },
+  "data_source": "ejtraderLabs/historical-data REAL XAU/USD 2012-2022",
+  "timeframe": "H1 (1 hour)",
+  "methodology": {
+    "model": "Ensemble (XGBoost + LightGBM + RandomForest)",
+    "labeling": "Trend-based with min move threshold",
+    "validation": "Walk-forward (60/20/20 split)",
+    "position_sizing": "ATR-based with fixed risk per trade"
+  },
+  "anti_inflation": [
+    "Real XAU/USD market data from ejtraderLabs",
+    "Walk-forward validation - train on past only",
+    "Out-of-sample test on completely unseen future data",
+    "Cross-timeframe validation (H4, D1)",
+    "Realistic costs: $0.30 spread, $7/lot commission, $0.05 slippage",
+    "No look-ahead bias in simulation",
+    "Ensemble requires multiple model agreement"
+  ],
+  "val_result": {
+    "passed": true,
+    "reason": "target_hit",
+    "days_taken": 8,
+    "final_balance": 108860.33,
+    "total_pnl": 8860.33,
+    "total_pnl_pct": 8.86,
+    "max_daily_dd": 2092.27,
+    "max_total_dd": 3100.27,
+    "total_trades": 10,
+    "win_rate": 70.0,
+    "avg_win": 2006.41,
+    "avg_loss": 1728.17,
+    "profit_factor": 2.71
+  },
+  "test_result": {
+    "passed": true,
+    "reason": "target_hit",
+    "days_taken": 21,
+    "final_balance": 109253.1,
+    "total_pnl": 9253.1,
+    "total_pnl_pct": 9.25,
+    "max_daily_dd": 3504.64,
+    "max_total_dd": 4061.64,
+    "total_trades": 28,
+    "win_rate": 64.3,
+    "avg_win": 1229.74,
+    "avg_loss": 1288.23,
+    "profit_factor": 1.72
+  }
+}
