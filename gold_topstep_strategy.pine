@@ -1,0 +1,281 @@
+// =============================================================================
+// Gold XAU/USD ML Ensemble Proxy Strategy - TopStep 1-Lot Adapted
+// =============================================================================
+// This replicates the ML ensemble strategy logic using pure technical indicators
+// since TradingView doesn't support ML models directly. The key signals that
+// the ML models learned are approximated with rule-based confluence.
+//
+// RULES:
+// - Only trade when 2+ of 3 signal systems agree (mimics ensemble agreement)
+// - Fixed 1 contract (TopStep rule)
+// - SL capped at $750 (7.5 points on GC)
+// - TP at 2:1 R:R
+// - Max daily loss: $1,000
+// - Skip trades when ATR > $10 (too volatile)
+// - Trailing drawdown: $2,500
+// =============================================================================
+
+//@version=5
+strategy("Gold ML Ensemble Proxy - TopStep",
+     overlay=true,
+     initial_capital=50000,
+     default_qty_type=strategy.fixed,
+     default_qty_value=1,
+     commission_type=strategy.commission.cash_per_contract,
+     commission_value=7.0,
+     slippage=5,
+     currency=currency.USD,
+     calc_on_every_tick=false)
+
+// =============================================================================
+// INPUTS
+// =============================================================================
+grp_risk = "Risk Management"
+max_sl_dollars   = input.float(750,  "Max SL per trade ($)", group=grp_risk)
+rr_ratio         = input.float(2.0,  "Reward:Risk Ratio", group=grp_risk, minval=1.0)
+max_daily_loss   = input.float(1000, "Max Daily Loss ($)", group=grp_risk)
+max_trailing_dd  = input.float(2500, "Max Trailing Drawdown ($)", group=grp_risk)
+max_atr_filter   = input.float(10.0, "Skip trade if ATR >", group=grp_risk)
+
+grp_sig = "Signal Settings"
+atr_len          = input.int(14,   "ATR Length", group=grp_sig)
+rsi_len          = input.int(14,   "RSI Length", group=grp_sig)
+rsi_ob           = input.float(65, "RSI Overbought", group=grp_sig)
+rsi_os           = input.float(35, "RSI Oversold", group=grp_sig)
+macd_fast        = input.int(12,   "MACD Fast", group=grp_sig)
+macd_slow        = input.int(26,   "MACD Slow", group=grp_sig)
+macd_signal      = input.int(9,    "MACD Signal", group=grp_sig)
+bb_len           = input.int(20,   "Bollinger Length", group=grp_sig)
+bb_mult          = input.float(2.0,"Bollinger Mult", group=grp_sig)
+adx_len          = input.int(14,   "ADX Length", group=grp_sig)
+adx_threshold    = input.float(20, "ADX Trend Threshold", group=grp_sig)
+ema_fast         = input.int(10,   "EMA Fast", group=grp_sig)
+ema_mid          = input.int(20,   "EMA Mid", group=grp_sig)
+ema_slow_len     = input.int(50,   "EMA Slow", group=grp_sig)
+stoch_k          = input.int(14,   "Stochastic K", group=grp_sig)
+stoch_d          = input.int(3,    "Stochastic D", group=grp_sig)
+stoch_ob         = input.float(80, "Stochastic OB", group=grp_sig)
+stoch_os         = input.float(20, "Stochastic OS", group=grp_sig)
+min_agreement    = input.int(2,    "Min Signal Agreement (2 or 3)", group=grp_sig, minval=2, maxval=3)
+
+grp_session = "Session Filter"
+use_session      = input.bool(true, "Filter by session", group=grp_session)
+session_start    = input.int(8,     "Session start hour (UTC)", group=grp_session)
+session_end      = input.int(20,    "Session end hour (UTC)", group=grp_session)
+
+// =============================================================================
+// INDICATORS
+// =============================================================================
+
+// ATR
+atr_val = ta.atr(atr_len)
+
+// EMAs
+ema_f = ta.ema(close, ema_fast)
+ema_m = ta.ema(close, ema_mid)
+ema_s = ta.ema(close, ema_slow_len)
+
+// RSI
+rsi_val = ta.rsi(close, rsi_len)
+
+// MACD
+[macd_line, signal_line, hist_line] = ta.macd(close, macd_fast, macd_slow, macd_signal)
+
+// Bollinger Bands
+bb_basis = ta.sma(close, bb_len)
+bb_dev   = bb_mult * ta.stdev(close, bb_len)
+bb_upper = bb_basis + bb_dev
+bb_lower = bb_basis - bb_dev
+bb_pos   = (close - bb_lower) / (bb_upper - bb_lower)
+
+// ADX
+[plus_di, minus_di, adx_val] = ta.dmi(adx_len, adx_len)
+
+// Stochastic
+k_val = ta.stoch(close, high, low, stoch_k)
+d_val = ta.sma(k_val, stoch_d)
+
+// =============================================================================
+// SIGNAL SYSTEM 1: Trend-Following (mimics XGBoost model)
+// EMA alignment + ADX strength + MACD confirmation
+// =============================================================================
+trend_bull_1 = ema_f > ema_m and ema_m > ema_s
+trend_bear_1 = ema_f < ema_m and ema_m < ema_s
+adx_strong   = adx_val > adx_threshold
+macd_bull    = macd_line > signal_line and hist_line > 0
+macd_bear    = macd_line < signal_line and hist_line < 0
+
+sig1_long  = trend_bull_1 and adx_strong and macd_bull
+sig1_short = trend_bear_1 and adx_strong and macd_bear
+
+// =============================================================================
+// SIGNAL SYSTEM 2: Mean-Reversion + Momentum (mimics LightGBM model)
+// RSI extremes + Bollinger position + Stochastic cross
+// =============================================================================
+rsi_bull     = rsi_val < rsi_os or (rsi_val > 50 and rsi_val < rsi_ob and rsi_val > rsi_val[1])
+rsi_bear     = rsi_val > rsi_ob or (rsi_val < 50 and rsi_val > rsi_os and rsi_val < rsi_val[1])
+stoch_bull   = k_val > d_val and k_val[1] <= d_val[1]  // bullish cross
+stoch_bear   = k_val < d_val and k_val[1] >= d_val[1]  // bearish cross
+bb_bull      = close < bb_basis and bb_pos < 0.3
+bb_bear      = close > bb_basis and bb_pos > 0.7
+
+// For mean reversion: oversold bounce or momentum continuation
+sig2_long  = (rsi_bull and stoch_bull) or (rsi_bull and bb_bull)
+sig2_short = (rsi_bear and stoch_bear) or (rsi_bear and bb_bear)
+
+// =============================================================================
+// SIGNAL SYSTEM 3: Price Action + Volatility (mimics RandomForest model)
+// Candle patterns + volume + support/resistance proximity
+// =============================================================================
+body        = math.abs(close - open)
+range_hl    = high - low
+body_ratio  = range_hl > 0 ? body / range_hl : 0
+
+// Strong candles
+bull_candle = close > open and body_ratio > 0.6 and close > high[1]
+bear_candle = close < open and body_ratio > 0.6 and close < low[1]
+
+// DI crossover
+di_bull = plus_di > minus_di and plus_di[1] <= minus_di[1]
+di_bear = minus_di > plus_di and minus_di[1] <= plus_di[1]
+
+// Breakout: close above/below recent range
+highest_20 = ta.highest(high, 20)
+lowest_20  = ta.lowest(low, 20)
+range_pos  = (close - lowest_20) / (highest_20 - lowest_20)
+
+sig3_long  = (bull_candle and plus_di > minus_di) or (di_bull and range_pos > 0.7)
+sig3_short = (bear_candle and minus_di > plus_di) or (di_bear and range_pos < 0.3)
+
+// =============================================================================
+// ENSEMBLE AGREEMENT
+// =============================================================================
+long_votes  = (sig1_long  ? 1 : 0) + (sig2_long  ? 1 : 0) + (sig3_long  ? 1 : 0)
+short_votes = (sig1_short ? 1 : 0) + (sig2_short ? 1 : 0) + (sig3_short ? 1 : 0)
+
+ensemble_long  = long_votes  >= min_agreement
+ensemble_short = short_votes >= min_agreement
+
+// If both trigger, pick stronger
+final_long  = ensemble_long  and not ensemble_short
+final_short = ensemble_short and not ensemble_long
+// If both, pick the one with more votes
+final_long  := ensemble_long and ensemble_short ? long_votes > short_votes : final_long
+final_short := ensemble_long and ensemble_short ? short_votes > long_votes : final_short
+
+// =============================================================================
+// FILTERS
+// =============================================================================
+
+// Session filter
+in_session = true
+if use_session
+    h = hour(time, "UTC")
+    in_session := h >= session_start and h < session_end
+
+// ATR filter - skip when too volatile
+atr_ok = atr_val <= max_atr_filter
+
+// =============================================================================
+// DAILY P&L TRACKING
+// =============================================================================
+var float daily_pnl       = 0.0
+var float peak_equity      = 50000.0
+var float trailing_dd      = 0.0
+var int   last_trade_day   = 0
+
+current_day = dayofmonth(time)
+if current_day != last_trade_day
+    daily_pnl := 0.0
+    last_trade_day := current_day
+
+// Update trailing drawdown
+current_equity = strategy.equity
+if current_equity > peak_equity
+    peak_equity := current_equity
+trailing_dd := peak_equity - current_equity
+
+daily_ok     = daily_pnl > -max_daily_loss
+trailing_ok  = trailing_dd < max_trailing_dd
+
+// =============================================================================
+// STOP LOSS / TAKE PROFIT CALCULATION
+// =============================================================================
+sl_atr = math.min(atr_val * 1.5, max_sl_dollars / 100.0)  // Cap SL at max dollars (100 oz per contract)
+tp_atr = sl_atr * rr_ratio
+
+// =============================================================================
+// ENTRY / EXIT LOGIC
+// =============================================================================
+can_trade = in_session and atr_ok and daily_ok and trailing_ok and barstate.isconfirmed
+
+// Long Entry
+if final_long and can_trade and strategy.position_size == 0
+    sl_price = close - sl_atr
+    tp_price = close + tp_atr
+    strategy.entry("Long", strategy.long)
+    strategy.exit("Long Exit", "Long", stop=sl_price, limit=tp_price)
+    label.new(bar_index, low, "L", color=color.green, textcolor=color.white, size=size.tiny, style=label.style_label_up)
+
+// Short Entry
+if final_short and can_trade and strategy.position_size == 0
+    sl_price = close + sl_atr
+    tp_price = close - tp_atr
+    strategy.entry("Short", strategy.short)
+    strategy.exit("Short Exit", "Short", stop=sl_price, limit=tp_price)
+    label.new(bar_index, high, "S", color=color.red, textcolor=color.white, size=size.tiny, style=label.style_label_down)
+
+// Close on opposite signal
+if strategy.position_size > 0 and final_short
+    strategy.close("Long", comment="Reverse")
+if strategy.position_size < 0 and final_long
+    strategy.close("Short", comment="Reverse")
+
+// Track daily P&L (approximate)
+if strategy.closedtrades > 0
+    last_pnl = strategy.closedtrades.profit(strategy.closedtrades - 1)
+    if current_day == last_trade_day
+        daily_pnl += last_pnl
+
+// =============================================================================
+// PLOTS
+// =============================================================================
+// EMAs
+plot(ema_f, "EMA Fast", color=color.new(color.green, 60), linewidth=1)
+plot(ema_m, "EMA Mid",  color=color.new(color.orange, 60), linewidth=1)
+plot(ema_s, "EMA Slow", color=color.new(color.red, 60), linewidth=1)
+
+// Bollinger Bands
+p_bb_upper = plot(bb_upper, "BB Upper", color=color.new(color.gray, 70))
+p_bb_lower = plot(bb_lower, "BB Lower", color=color.new(color.gray, 70))
+fill(p_bb_upper, p_bb_lower, color=color.new(color.blue, 95))
+
+// Signal votes panel
+plotchar(long_votes  >= min_agreement, "Long Signal",  "▲", location.belowbar, color=color.new(color.green, long_votes == 3 ? 0 : 50), size=size.tiny)
+plotchar(short_votes >= min_agreement, "Short Signal", "▼", location.abovebar, color=color.new(color.red, short_votes == 3 ? 0 : 50), size=size.tiny)
+
+// Info table
+var table info = table.new(position.top_right, 2, 8, bgcolor=color.new(color.black, 80))
+if barstate.islast
+    table.cell(info, 0, 0, "Metric", text_color=color.white, text_size=size.small)
+    table.cell(info, 1, 0, "Value",  text_color=color.white, text_size=size.small)
+    table.cell(info, 0, 1, "ATR(14)", text_color=color.gray, text_size=size.small)
+    table.cell(info, 1, 1, str.tostring(atr_val, "#.##"), text_color=atr_ok ? color.green : color.red, text_size=size.small)
+    table.cell(info, 0, 2, "SL ($)", text_color=color.gray, text_size=size.small)
+    table.cell(info, 1, 2, str.tostring(sl_atr * 100, "#"), text_color=color.white, text_size=size.small)
+    table.cell(info, 0, 3, "TP ($)", text_color=color.gray, text_size=size.small)
+    table.cell(info, 1, 3, str.tostring(tp_atr * 100, "#"), text_color=color.white, text_size=size.small)
+    table.cell(info, 0, 4, "Long Votes", text_color=color.gray, text_size=size.small)
+    table.cell(info, 1, 4, str.tostring(long_votes) + "/3", text_color=long_votes >= min_agreement ? color.green : color.gray, text_size=size.small)
+    table.cell(info, 0, 5, "Short Votes", text_color=color.gray, text_size=size.small)
+    table.cell(info, 1, 5, str.tostring(short_votes) + "/3", text_color=short_votes >= min_agreement ? color.red : color.gray, text_size=size.small)
+    table.cell(info, 0, 6, "Daily P&L", text_color=color.gray, text_size=size.small)
+    table.cell(info, 1, 6, "$" + str.tostring(daily_pnl, "#.##"), text_color=daily_pnl >= 0 ? color.green : color.red, text_size=size.small)
+    table.cell(info, 0, 7, "Trail DD", text_color=color.gray, text_size=size.small)
+    table.cell(info, 1, 7, "$" + str.tostring(trailing_dd, "#"), text_color=trailing_dd < max_trailing_dd * 0.8 ? color.green : color.red, text_size=size.small)
+
+// =============================================================================
+// ALERTS
+// =============================================================================
+alertcondition(final_long  and can_trade, "Long Signal",  "GOLD LONG - {{close}} | SL: {{plot_0}} | Votes: " + str.tostring(long_votes))
+alertcondition(final_short and can_trade, "Short Signal", "GOLD SHORT - {{close}} | SL: {{plot_0}} | Votes: " + str.tostring(short_votes))
