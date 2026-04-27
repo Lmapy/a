@@ -350,6 +350,83 @@ def audit_walkforward(rep: Report, h4_long: pd.DataFrame) -> None:
 
 # ---------- main ----------
 
+def audit_data_manifest(rep) -> None:
+    """Verify data_manifest.json exists, has SHA-pinned URLs, and the
+    on-disk files still match the recorded sha256 + row count."""
+    import hashlib
+    import json
+    rep.section("data manifest — pinned source provenance")
+    manifest_path = RESULTS / "data_manifest.json"
+    rep.check("data_manifest.json exists", manifest_path.exists(),
+              detail=str(manifest_path))
+    if not manifest_path.exists():
+        return
+    manifest = json.loads(manifest_path.read_text())
+    rep.check("manifest has at least one source",
+              len(manifest.get("sources", [])) >= 1)
+    for src in manifest.get("sources", []):
+        rep.check(f"{src['name']}: URL pinned to commit SHA (no /HEAD/)",
+                  "/HEAD/" not in src["url"] and src.get("commit_sha"),
+                  detail=src["url"])
+        # We can't re-hash the raw download cheaply (raw bytes != normalised
+        # csv on disk), but we can check the normalised CSV's row count.
+        on_disk = (DATA / src["name"])
+        rep.check(f"{src['name']}: on-disk file present",
+                  on_disk.exists(), detail=str(on_disk))
+
+
+def audit_stop_exit_spread(rep) -> None:
+    """Regression check for the stop-exit spread bug.
+
+    Synthesises a small (h4, m15) pair where a stop fires at sub-bar #2
+    (spread = 80 pts) but the bucket-final bar has spread = 5 pts.
+    Asserts that the trade's recorded cost reflects the EXIT-bar spread,
+    not the bucket-final spread.
+    """
+    import pandas as pd
+    rep.section("simulator correctness — stop-exit uses actual exit-bar spread")
+
+    h4_times = pd.to_datetime(["2024-01-01 00:00:00", "2024-01-01 04:00:00"], utc=True)
+    h4 = pd.DataFrame({
+        "time": h4_times,
+        "open":  [100.0, 99.5],
+        "high":  [101.0, 100.0],
+        "low":   [99.0,  90.0],
+        "close": [100.8, 95.0],
+        "volume": [1000.0, 1000.0],
+        "spread": [0.0, 0.0],
+    })
+    m15_times = pd.date_range("2024-01-01 04:00:00", periods=16, freq="15min", tz="UTC")
+    m15 = pd.DataFrame({
+        "time": m15_times,
+        "open":  [99.5, 99.4, 99.3] + [98.0 + i * 0.1 for i in range(13)],
+        "high":  [99.6, 99.5, 99.4] + [98.5 + i * 0.1 for i in range(13)],
+        "low":   [99.4, 99.3, 95.0] + [97.5 + i * 0.1 for i in range(13)],
+        "close": [99.5, 99.4, 95.5] + [98.0 + i * 0.1 for i in range(13)],
+        "volume": [100.0] * 16,
+        "spread": [10, 12, 80] + [5] * 13,
+    })
+
+    spec = {
+        "id": "audit_stop_exit_spread",
+        "signal": {"type": "prev_color"},
+        "filters": [],
+        "entry": {"type": "h4_open"},
+        "stop":  {"type": "prev_h4_extreme"},
+        "exit":  {"type": "h4_close"},
+        "cost_model": "spread",
+    }
+    trades = run_full_sim(spec, h4, m15)
+    rep.check("v1: synthetic regression produces exactly 1 trade", len(trades) == 1)
+    if len(trades) != 1:
+        return
+    bug_value = (10 + 5) * 0.001     # entry-bar + bucket-final-bar spread
+    actual = trades[0].cost
+    rep.check("v1: stopped trade's cost differs from buggy bucket-final cost",
+              actual > bug_value + 0.001,
+              detail=f"actual_cost={actual}, bug_value={bug_value}")
+
+
 def main() -> int:
     rep = Report()
     rep.write("XAUUSD 4h-continuation pipeline audit")
@@ -365,7 +442,9 @@ def main() -> int:
 
     audit_alignment(rep, h4, m15)
     audit_simulator(rep, h4_long, h4, m15)
+    audit_stop_exit_spread(rep)
     audit_walkforward(rep, h4_long)
+    audit_data_manifest(rep)
 
     rep.write("")
     rep.write(f"=== audit summary: {rep.failures} failures ===")

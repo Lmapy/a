@@ -99,11 +99,25 @@ XAUUSD 4h-continuation pipeline audit
 === simulator correctness — look-ahead probes ===
   [PASS] perturbing close[i] does not change sig[i] (no current-bar leak)   (before=1, after=1)
 
+=== simulator correctness — stop-exit uses actual exit-bar spread ===
+  [PASS] v1: synthetic regression produces exactly 1 trade
+  [PASS] v1: stopped trade's cost differs from buggy bucket-final cost   (actual_cost=0.09, bug_value=0.015)
+
 === walk-forward harness — folds ===
   [PASS] at least 10 folds   (folds=27)
   [PASS] test windows are non-overlapping   (overlaps=0)
   [PASS] each fold: train_end == test_start   (misaligned=0)
   certified-spec walk-forward: folds=27, median_sharpe=1.042, pct_pos=0.5926
   [PASS] certified spec produces trades in ≥80% of folds   (folds with trades=27/27)
+
+=== data manifest — pinned source provenance ===
+  [PASS] data_manifest.json exists   (/home/user/a/results/data_manifest.json)
+  [PASS] manifest has at least one source
+  [PASS] XAUUSD_H4_long.csv: URL pinned to commit SHA (no /HEAD/)   (https://raw.githubusercontent.com/142f/inv-cry/c9307060289ad47b7f184b206344edc7ad08c2cd/data_2015_xau_btc/processed/mt5/H4/XAUUSDc.csv)
+  [PASS] XAUUSD_H4_long.csv: on-disk file present   (/home/user/a/data/XAUUSD_H4_long.csv)
+  [PASS] XAUUSD_H4_matched.csv: URL pinned to commit SHA (no /HEAD/)   (https://raw.githubusercontent.com/tiumbj/Bot_Data_Basese/bf8cc14e17ba8f40783144c3030c5dec3c93d812/Local_LLM/dataset/tf/XAUUSD_H4.csv)
+  [PASS] XAUUSD_H4_matched.csv: on-disk file present   (/home/user/a/data/XAUUSD_H4_matched.csv)
+  [PASS] XAUUSD_M15_matched.csv: URL pinned to commit SHA (no /HEAD/)   (https://raw.githubusercontent.com/tiumbj/Bot_Data_Basese/bf8cc14e17ba8f40783144c3030c5dec3c93d812/Local_LLM/dataset/tf/XAUUSD_M15.csv)
+  [PASS] XAUUSD_M15_matched.csv: on-disk file present   (/home/user/a/data/XAUUSD_M15_matched.csv)
 
 === audit summary: 0 failures ===

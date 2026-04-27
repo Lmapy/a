@@ -248,6 +248,10 @@ def run(spec, h4: pd.DataFrame, m15: pd.DataFrame,
         exit_time = future["time"].iloc[-1]
         exit_price = float(h4.iloc[i]["close"])  # default exit at H4 close
         exit_reason = "h4_close"
+        # Default exit sub-bar is the bucket's last bar (time exit at H4 close).
+        # When a stop or TP fires we update this so the exit-leg spread is
+        # taken from the bar where the exit actually happened.
+        exit_sub_idx_in_bucket = len(sub) - 1
         time_to_tp = None
         time_to_sl = None
         near_miss_tp = False
@@ -277,12 +281,14 @@ def run(spec, h4: pd.DataFrame, m15: pd.DataFrame,
                     exit_time = future["time"].iloc[j]
                     exit_price = stop
                     exit_reason = "stop"
+                    exit_sub_idx_in_bucket = fill.sub_idx + j
                     time_to_sl = (exit_time - fill_to_ts(future, 0, sub, fill)).total_seconds() / 60
                     break
                 if s < 0 and hi >= stop:
                     exit_time = future["time"].iloc[j]
                     exit_price = stop
                     exit_reason = "stop"
+                    exit_sub_idx_in_bucket = fill.sub_idx + j
                     time_to_sl = (exit_time - fill_to_ts(future, 0, sub, fill)).total_seconds() / 60
                     break
 
@@ -292,12 +298,14 @@ def run(spec, h4: pd.DataFrame, m15: pd.DataFrame,
                     exit_time = future["time"].iloc[j]
                     exit_price = target
                     exit_reason = "tp"
+                    exit_sub_idx_in_bucket = fill.sub_idx + j
                     time_to_tp = (exit_time - fill_to_ts(future, 0, sub, fill)).total_seconds() / 60
                     break
                 if s < 0 and lo <= target:
                     exit_time = future["time"].iloc[j]
                     exit_price = target
                     exit_reason = "tp"
+                    exit_sub_idx_in_bucket = fill.sub_idx + j
                     time_to_tp = (exit_time - fill_to_ts(future, 0, sub, fill)).total_seconds() / 60
                     break
 
@@ -308,11 +316,14 @@ def run(spec, h4: pd.DataFrame, m15: pd.DataFrame,
                 if s < 0 and abs(target - lo) <= tol:
                     near_miss_tp = True
 
-        # --- spread paid on exit (always, since we're closing position) ---
-        exit_price_filled = exit_price - s * spread_one_leg
+        # --- spread paid on exit (from the actual exit bar, not the
+        # bucket-final bar; matters when stop/TP fires intra-bucket) ---
+        exit_sp_pts = float(sub["spread"].iloc[exit_sub_idx_in_bucket]) * execution.spread_mult
+        exit_spread_one_leg = exit_sp_pts * POINT_SIZE
+        exit_price_filled = exit_price - s * exit_spread_one_leg
 
         gross = s * (exit_price_filled - entry_price_filled)
-        cost = 2 * spread_one_leg + slip_price  # bookkeeping only
+        cost = spread_one_leg + exit_spread_one_leg + slip_price  # bookkeeping
         pnl = gross  # spreads & slip already in entry/exit prices
         ret = pnl / entry_price_filled
 
@@ -332,7 +343,7 @@ def run(spec, h4: pd.DataFrame, m15: pd.DataFrame,
             near_miss_tp=bool(near_miss_tp),
             fill_kind=fill.kind,
             slippage=float(slip_price),
-            spread_paid=float(spread_one_leg),
+            spread_paid=float(spread_one_leg + exit_spread_one_leg),
             h4_bucket=bucket,
             extras={"exit_reason": exit_reason, "entry_notes": fill.notes,
                     "stop": stop, "target": target},

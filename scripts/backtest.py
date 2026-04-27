@@ -190,6 +190,9 @@ def simulate(
         # Exit logic: scan M15 bars at/after entry; check stop hits, else H4 close.
         exit_time = sub.iloc[-1]["time"]
         exit_price = float(row["close"])
+        # Track which sub-bar the exit fires on so the exit-leg spread comes
+        # from the actual exit bar (default = bucket-final bar for time exits).
+        exit_row = sub.iloc[-1]
         if stop_price is not None:
             future = sub[sub["time"] >= entry_time]
             for _, b in future.iterrows():
@@ -197,16 +200,20 @@ def simulate(
                 if sig > 0 and lo <= stop_price:
                     exit_time = b["time"]
                     exit_price = stop_price
+                    exit_row = b
                     break
                 if sig < 0 and hi >= stop_price:
                     exit_time = b["time"]
                     exit_price = stop_price
+                    exit_row = b
                     break
 
         # Cost: round-trip spread (price units) summed at entry & exit.
+        # Use the spread from the actual EXIT bar -- when a stop fires intra-
+        # bucket the bucket-final spread is the wrong one to charge.
         cost_price = 0.0
         if use_costs:
-            sp = float(entry_row.get("spread", 0.0)) + float(sub.iloc[-1].get("spread", 0.0))
+            sp = float(entry_row.get("spread", 0.0)) + float(exit_row.get("spread", 0.0))
             point = 0.001  # XAUUSDc point size from broker spec; spread is in points
             cost_price = sp * point
 

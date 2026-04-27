@@ -445,6 +445,10 @@ def run_full_sim(spec: dict, h4: pd.DataFrame, m15: pd.DataFrame,
 
         exit_time = sub["time"].iloc[-1]
         exit_price = float(h4_close[i])
+        # Track which sub-bar the exit actually fires on so the exit-leg
+        # spread comes from THAT bar, not blindly from the bucket's last bar.
+        # Default to the bucket-final bar (time exit at H4 close).
+        exit_sub_idx = len(sub) - 1
 
         first_stop = None
         if stop_price is not None:
@@ -467,15 +471,20 @@ def run_full_sim(spec: dict, h4: pd.DataFrame, m15: pd.DataFrame,
         if first_stop is not None and (first_tp is None or first_stop <= first_tp):
             exit_time = future_t.iloc[first_stop]
             exit_price = float(stop_price)
+            exit_sub_idx = entry_idx + first_stop
         elif first_tp is not None:
             exit_time = future_t.iloc[first_tp]
             exit_price = float(target_price)
+            exit_sub_idx = entry_idx + first_tp
 
         # ----- cost -----
         if cost_model == "bps":
             cost_price = entry_price * (cost_bps / 10_000.0)
         else:  # 'spread'
-            sp = float(sub["spread"].iloc[entry_idx]) + float(sub["spread"].iloc[-1])
+            # Use the spread from the actual EXIT sub-bar, not the bucket's
+            # last bar. This matters when a stop or TP fires intra-bucket --
+            # spreads can shift materially during the H4 window.
+            sp = float(sub["spread"].iloc[entry_idx]) + float(sub["spread"].iloc[exit_sub_idx])
             cost_price = sp * POINT_SIZE
 
         gross = s * (exit_price - entry_price)
