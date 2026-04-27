@@ -1,4 +1,4 @@
-.PHONY: all data audit fib backtest search skeptic clean
+.PHONY: all data audit fib backtest search skeptic pdf clean
 
 all: data audit backtest
 
@@ -19,6 +19,9 @@ search:
 
 skeptic:
 	python3 scripts/skeptic.py
+
+pdf:
+	python3 scripts/build_pdf.py
 
 clean:
 	rm -f data/*.csv results/*.csv results/*.png results/*.txt
