@@ -383,23 +383,30 @@ def run_full_sim(spec: dict, h4: pd.DataFrame, m15: pd.DataFrame,
             entry_idx = int(mhits[0])
             entry_price = float(sub["close"].iloc[entry_idx])
             entry_time = sub["time"].iloc[entry_idx]
-        elif entry_mode == "m15_retrace_50":
-            mid = float(prev_mid[i])
-            if math.isnan(mid):
+        elif entry_mode in ("m15_retrace_50", "m15_retrace_fib"):
+            # m15_retrace_50 is the convenience alias for level = 0.5.
+            level = 0.5 if entry_mode == "m15_retrace_50" else float(spec["entry"].get("level", 0.5))
+            ph = float(prev_high[i]); pl = float(prev_low[i])
+            if math.isnan(ph) or math.isnan(pl) or ph == pl:
                 diag["missing_prev_levels"] += 1
                 continue
-            sub_lo = sub["low"].values
-            sub_hi = sub["high"].values
+            rng = ph - pl
+            # For a long (continuation after green), retrace is from prev_high
+            # downward; level=0.5 -> prev mid; deeper level -> closer to prev_low.
+            # For a short (after red), retrace is from prev_low upward.
             if s > 0:
-                hits = np.where(sub_lo <= mid)[0]
+                target = ph - level * rng
+                sub_lo = sub["low"].values
+                hits = np.where(sub_lo <= target)[0]
             else:
-                hits = np.where(sub_hi >= mid)[0]
+                target = pl + level * rng
+                sub_hi = sub["high"].values
+                hits = np.where(sub_hi >= target)[0]
             if len(hits) == 0:
                 diag["no_retrace"] += 1
                 continue
             entry_idx = int(hits[0])
-            # Fill at the midpoint (limit-style).
-            entry_price = mid
+            entry_price = float(target)
             entry_time = sub["time"].iloc[entry_idx]
         else:
             raise ValueError(f"unknown entry mode: {entry_mode}")
@@ -500,7 +507,11 @@ def spec_id(spec: dict) -> str:
             parts.append(f"streak{f.get('k', 2)}")
         elif f["type"] == "candle_class":
             parts.append("cls" + "-".join(f.get("classes", ["trend"])))
-    parts.append(spec["entry"]["type"])
+    e_type = spec["entry"]["type"]
+    if e_type == "m15_retrace_fib":
+        parts.append(f"fib{spec['entry'].get('level', 0.5)}")
+    else:
+        parts.append(e_type)
     s = spec["stop"]
     if s["type"] != "none":
         if "mult" in s:

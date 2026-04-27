@@ -127,10 +127,12 @@ def _retracement_grid() -> list[dict]:
         {"type": "prev_h4_extreme"},
     ]
     exits = [{"type": "prev_h4_extreme_tp"}, {"type": "h4_close"}]
+    # Fib retracement levels searched (0.5 = midpoint = the user's original idea).
+    fib_levels = [0.382, 0.5, 0.618, 0.786]
 
     out: list[dict] = []
-    for bt, sess, reg, cls, stop, ex in product(
-        body_thresholds, sessions, regimes, classes, stops, exits,
+    for bt, sess, reg, cls, stop, ex, lvl in product(
+        body_thresholds, sessions, regimes, classes, stops, exits, fib_levels,
     ):
         filters: list[dict] = []
         if bt is not None:
@@ -144,7 +146,7 @@ def _retracement_grid() -> list[dict]:
         out.append({
             "signal": {"type": "prev_color"},
             "filters": filters,
-            "entry": {"type": "m15_retrace_50"},
+            "entry": {"type": "m15_retrace_fib", "level": lvl},
             "stop": stop,
             "exit": ex,
             "cost_model": "spread",

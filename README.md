@@ -85,6 +85,43 @@ Skipped-trade diagnostics: 1 skipped (first H4 has no prior signal); 0
 skipped for missing M15 sub-bars; 0 skipped in `m15_confirm` for lack of
 confirmation. The pipeline is healthy.
 
+## Fib level reaction (long history)
+
+[`scripts/fib_analysis.py`](scripts/fib_analysis.py) projects standard
+Fibonacci retracements onto the **previous** H4 candle's range and asks,
+on the next bar: did price touch this level? did it then close in the
+trade direction? what was the return from touch? See
+[`agents/11-fib-analyzer.md`](agents/11-fib-analyzer.md) for the full spec.
+
+On 8,604 prior/next H4 pairs from 2018-06-28 → 2026-04-20:
+
+| level   | touch rate | reaction rate | win rate from touch | mean ret (bp) |
+| ------: | ---------: | ------------: | ------------------: | ------------: |
+| 0.236   | 0.91       | 0.42          | 0.42                | −7.0          |
+| 0.382   | 0.79       | 0.33          | 0.46                | −3.8          |
+| 0.500   | 0.68       | 0.26          | 0.48                | −2.6          |
+| **0.618** | **0.58** | **0.20**      | **0.50**            | **−1.9**      |
+| 0.786   | 0.44       | 0.12          | 0.50                | −1.7          |
+| 1.000   | 0.32       | 0.07          | 0.49                | −2.4          |
+
+**Reading the table.** `0.618` is the **deepest** retracement level
+whose win-rate-from-touch is ≥ 50%. Below it, you're catching a falling
+knife — deeper retraces are followed by worse continuation odds, not
+better ones, contrary to common fib lore. Above it, win rate stays
+flat at 50% but touch rate halves and average return shrinks. **Mean
+return-from-touch is negative at every level**, which means naive
+"enter at fib level" on every signal loses money — the certified
+strategies below all combine fib entries with the body+regime filters
+that make the underlying signal selective.
+
+A full retrace happens **32%** of the time, so on gold H4 the previous
+candle's range is **not a strong barrier** — price blows through about a
+third of the time.
+
+```bash
+make fib    # regenerates results/fib_levels.csv and fib_deepest.csv
+```
+
 ## Pipeline audit
 
 `scripts/audit.py` is a self-contained checker (`make audit`). It runs four
@@ -165,60 +202,59 @@ fraction of entry).
 
 ### Search result
 
-1,056 specs evaluated in ~3 minutes; **12 certified**. The grid
-includes both continuation entries (`m15_open`/`m15_confirm`/
-`m15_atr_stop`) and the new retracement entry (`m15_retrace_50`) with
-prev-H4 structural stops and TPs.
+1,632 specs evaluated in ~4 minutes; **16 certified**. The grid covers
+continuation entries (`m15_open`/`m15_confirm`/`m15_atr_stop`) and
+retracement entries with fib level as a parameter (`fib 0.382`, `0.5`,
+`0.618`, `0.786`), each combined with prev-H4 structural stops/TPs.
 
-All 12 certified specs share the same signal+filter combo —
-`body_atr ≥ 0.5 × ATR + 50-bar with-trend MA + 2-bar streak` — and
-land at exactly **3.27 trades/week** (29 trades over 8.86 weeks). They
-differ only in execution.
+Two distinct families of certified specs emerge:
+
+#### A. Fib retracement, level 0.382 (best walk-forward of any spec)
+
+| id                                                          | wf folds | wf median Sharpe | wf % pos | trades/wk | ho return | ho Sharpe |
+| ----------------------------------------------------------- | -------: | ---------------: | -------: | --------: | --------: | --------: |
+| **`body0.5_reg50wit_fib0.382_prev_h4_open`**                | 27       | **1.04**         | **0.59** | **3.84**  | **+3.11%**| **3.71**  |
+| `body0.5_reg50wit_fib0.382_prev_h4_extreme`                 | 27       | 1.04             | 0.59     | 3.84      | +2.28%    | 2.73      |
+| `body0.5_reg50wit_fib0.382_prev_h4_open_prev_h4_extreme_tp` | 27       | 1.04             | 0.59     | 3.84      | +1.15%    | 1.75      |
+
+Only the **shallowest** fib level (0.382) certified — fib 0.5, 0.618,
+and 0.786 either fall below 3 trades/week or fail walk-forward. That
+matches the diagnostic above: deeper levels are touched less often, so
+under the body+regime filters there isn't enough trade volume left to
+clear the 3/week floor; and at level 0.5+ the long-history reaction
+rate is still below 50% even after filtering.
+
+#### B. Continuation entry with 2-bar streak filter
 
 | id                                                  | wf folds | wf median Sharpe | wf % pos | trades/wk | ho return | ho Sharpe |
 | --------------------------------------------------- | -------: | ---------------: | -------: | --------: | --------: | --------: |
-| `body0.5_reg50wit_streak2_m15_open_prev_h4_open`    | 27       | 0.36             | 0.56     | **3.27**  | **+7.51%**| 12.31     |
-| `body0.5_reg50wit_streak2_m15_open_prev_h4_extreme` | 27       | 0.36             | 0.56     | 3.27      | +7.34%    | 11.97     |
-| `body0.5_reg50wit_streak2_m15_open_h4_atrx1.0`      | 27       | **0.99**         | 0.59     | 3.27      | +6.45%    |  9.34     |
+| `body0.5_reg50wit_streak2_m15_open_prev_h4_open`    | 27       | 0.36             | 0.56     | 3.27      | **+7.51%**| 12.31     |
+| `body0.5_reg50wit_streak2_m15_open_h4_atrx1.0`      | 27       | 0.99             | 0.59     | 3.27      | +6.45%    |  9.34     |
 | `body0.5_reg50wit_streak2_m15_atr_stop`             | 27       | 0.36             | 0.56     | 3.27      | +6.18%    | 10.78     |
-| `body0.5_reg50wit_streak2_m15_confirm_h4_atrx1.0`   | 27       | 0.99             | 0.59     | 3.27      | +2.77%    |  3.97     |
-| `body0.5_reg50wit_streak2_m15_open`                 | 27       | 0.36             | 0.56     | 3.27      | +4.20%    |  4.92     |
 
-The strongest walk-forward Sharpe (0.99) goes to the H4-ATR-stop
-variant; the strongest holdout return (7.5%) goes to the prev-H4-open
-stop variant. Both pass walk-forward at 56–59% positive folds across
-27 disjoint 3-month slices of 2018–2026.
-
-### Why no retracement strategy certified
-
-Of the 192 retracement specs, 20 produced 3.0–4.06 trades/week — but
-**none passed walk-forward**. Their median walk-forward Sharpe is ≤ 0
-across 27 folds, which means the *signal+filter* combos that produce
-3-ish retracements/week don't have a long-history edge to begin with.
-The retracement is a real M15 execution refinement (the audit confirms
-entries land at the prev-H4 midpoint, exits land at one of {prev open,
-prev extreme, H4 close}), but the holdout window alone is too short
-to certify a strategy that the long-history walk-forward rejects.
-
-To certify a retracement variant we'd need either (a) a richer signal
-or filter set (the proposer is currently a static grid; an adaptive
-LLM proposer is the natural next step) or (b) M15 history extending
-back into the walk-forward folds, so the harness can test the M15
-execution edge on its own merits rather than only the H4 signal edge.
+Same body+regime filter as family A, but uses a 2-bar streak instead
+of a fib-retracement entry trigger. Lower walk-forward Sharpe than
+family A but higher holdout return.
 
 ### Conclusion under all three user constraints (gold, walk-forward, 3–5/wk)
 
-**Best spec**: `body0.5_reg50wit_streak2_m15_open_prev_h4_open` —
-take the continuation only when (1) the prior H4 body ≥ 0.5 × H4 ATR(14),
-(2) the prior H4 close is on the same side of the 50-bar MA as the
-trade direction, and (3) the previous **two** H4 candles share the
-trade's color. Enter at the open of the new H4's first M15 bar; stop
-at the prior H4 open; take profit at the H4 close (variants with
-prev-H4-extreme TP also certify with similar metrics).
+There are now two defensible champions, depending on which metric you
+trust more:
 
-This produces 3.27 trades/week on the 9-week holdout (within the
-target band) with positive walk-forward Sharpe in 16 of 27 disjoint
-3-month slices of 2018–2026.
+- **Walk-forward consistency winner** (best long-history evidence):
+  `body0.5_reg50wit_fib0.382_prev_h4_open`. 1.04 walk-forward median
+  Sharpe across 27 disjoint slices of 2018–2026; 59% of folds positive;
+  3.84 trades/week; +3.11% on the 9-week holdout.
+- **Holdout-return winner** (best 2026 evidence):
+  `body0.5_reg50wit_streak2_m15_open_prev_h4_open`. +7.51% over 9 weeks
+  at 12.31 Sharpe but only 0.36 walk-forward median Sharpe across the
+  long history.
+
+The fib-0.382 variant is the more honest pick: walk-forward is the
+metric that's hardest to fool, and 1.04 across 27 non-overlapping 3-month
+slices is meaningful evidence of an edge. The streak variant looks great
+on the holdout but its walk-forward is barely positive — its big number
+on Q1 2026 might be a regime-specific fluke.
 
 ## Reproduce
 

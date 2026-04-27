@@ -226,9 +226,39 @@ def audit_simulator(rep: Report, h4_long: pd.DataFrame, h4: pd.DataFrame, m15: p
                       abs(manual_ret - found.ret) < 1e-9,
                       detail=f"diff={manual_ret - found.ret:.2e}")
 
-    # 3.5 Retracement entry sanity: trade only fires when M15 retraces to mid;
-    # entry price equals prev-H4 mid; stop and TP land on prev-H4 levels.
-    rep.section("simulator correctness — retracement strategy")
+    # 3.5 Retracement entry sanity: at level=0.5 entry must equal prev-H4 mid;
+    # at level=0.618 entry must equal prev_high - 0.618*range (long) /
+    # prev_low + 0.618*range (short); deeper levels strictly reduce fill rate.
+    rep.section("simulator correctness — fib retracement entries")
+    fill_counts: dict[float, int] = {}
+    for lvl in (0.382, 0.5, 0.618, 0.786):
+        spec_l = {
+            "signal": {"type": "prev_color"},
+            "filters": [],
+            "entry": {"type": "m15_retrace_fib", "level": lvl},
+            "stop": {"type": "none"},
+            "exit": {"type": "h4_close"},
+            "cost_model": "bps",
+            "cost_bps": 0.0,
+        }
+        trades_l, _ = run_full_sim(spec_l, h4, m15, return_diag=True)
+        fill_counts[lvl] = len(trades_l)
+        if trades_l:
+            t = trades_l[0]
+            bucket = pd.Timestamp(t.entry_time).floor("4h")
+            h4_row_idx = int(h4.index[h4["time"] == bucket][0])
+            prev = h4.iloc[h4_row_idx - 1]
+            ph, pl = float(prev["high"]), float(prev["low"])
+            expected = ph - lvl * (ph - pl) if t.direction > 0 else pl + lvl * (ph - pl)
+            rep.check(f"fib level {lvl}: entry equals expected level price",
+                      abs(t.entry - expected) < 1e-6,
+                      detail=f"entry={t.entry} expected={expected:.6f}")
+    rep.write(f"  fill counts by level: {fill_counts}")
+    monotone = (fill_counts[0.382] >= fill_counts[0.5] >= fill_counts[0.618] >= fill_counts[0.786])
+    rep.check("fill count is monotone non-increasing in fib level",
+              monotone, detail=f"counts={fill_counts}")
+
+    # 3.6 Existing midpoint replay: trade only fires when M15 retraces to mid;
     spec_r = {
         "signal": {"type": "prev_color"},
         "filters": [],

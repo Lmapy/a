@@ -1,4 +1,4 @@
-.PHONY: all data audit backtest search clean
+.PHONY: all data audit fib backtest search clean
 
 all: data audit backtest
 
@@ -7,6 +7,9 @@ data:
 
 audit:
 	python3 scripts/audit.py
+
+fib:
+	python3 scripts/fib_analysis.py
 
 backtest:
 	python3 scripts/backtest.py

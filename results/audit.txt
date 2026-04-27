@@ -83,7 +83,13 @@ XAUUSD 4h-continuation pipeline audit
   [PASS] manual trade exit == sim exit   (diff=0.000000)
   [PASS] manual trade ret == sim ret (within 1e-9)   (diff=0.00e+00)
 
-=== simulator correctness — retracement strategy ===
+=== simulator correctness — fib retracement entries ===
+  [PASS] fib level 0.382: entry equals expected level price   (entry=5188.53494 expected=5188.534940)
+  [PASS] fib level 0.5: entry equals expected level price   (entry=5073.885 expected=5073.885000)
+  [PASS] fib level 0.618: entry equals expected level price   (entry=5104.931979999999 expected=5104.931980)
+  [PASS] fib level 0.786: entry equals expected level price   (entry=5024.889 expected=5024.889000)
+  fill counts by level: {0.382: 218, 0.5: 183, 0.618: 149, 0.786: 118}
+  [PASS] fill count is monotone non-increasing in fib level   (counts={0.382: 218, 0.5: 183, 0.618: 149, 0.786: 118})
   diag: {'h4_bars': 261, 'signal_zero': 1, 'no_subbars': 0, 'no_confirm': 0, 'no_retrace': 77, 'missing_prev_levels': 0}
   [PASS] retracement: at least one trade fires
   [PASS] retracement: entry price equals prev H4 midpoint   (entry=5073.885 mid=5073.885)
