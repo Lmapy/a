@@ -1,0 +1,103 @@
+XAUUSD 4h-continuation pipeline audit
+============================================================
+
+=== data integrity — H4 long ===
+  rows=8607  span=2018-06-28 00:00:00+00:00 -> 2026-04-20 00:00:00+00:00
+  [PASS] non-empty
+  [PASS] monotonic time   (duplicates=0)
+  [PASS] no duplicate timestamps
+  [PASS] tz-aware UTC   (tz=UTC)
+  [PASS] open: no NaN   (nan=0)
+  [PASS] open: positive   (non-positive=0)
+  [PASS] high: no NaN   (nan=0)
+  [PASS] high: positive   (non-positive=0)
+  [PASS] low: no NaN   (nan=0)
+  [PASS] low: positive   (non-positive=0)
+  [PASS] close: no NaN   (nan=0)
+  [PASS] close: positive   (non-positive=0)
+  [PASS] OHLC consistent (high is highest)   (bad rows=0)
+  [PASS] OHLC consistent (low is lowest)   (bad rows=0)
+  step minutes: on-step=7410, > step (gaps incl. weekends)=1196, <= 0=0
+  [PASS] no backwards or zero time deltas
+  [PASS] ≥ 80% of bars on the 240-minute grid   (on-step share=0.861)
+
+=== data integrity — H4 matched ===
+  rows=261  span=2026-01-30 00:00:00+00:00 -> 2026-04-01 08:00:00+00:00
+  [PASS] non-empty
+  [PASS] monotonic time   (duplicates=0)
+  [PASS] no duplicate timestamps
+  [PASS] tz-aware UTC   (tz=UTC)
+  [PASS] open: no NaN   (nan=0)
+  [PASS] open: positive   (non-positive=0)
+  [PASS] high: no NaN   (nan=0)
+  [PASS] high: positive   (non-positive=0)
+  [PASS] low: no NaN   (nan=0)
+  [PASS] low: positive   (non-positive=0)
+  [PASS] close: no NaN   (nan=0)
+  [PASS] close: positive   (non-positive=0)
+  [PASS] OHLC consistent (high is highest)   (bad rows=0)
+  [PASS] OHLC consistent (low is lowest)   (bad rows=0)
+  step minutes: on-step=251, > step (gaps incl. weekends)=9, <= 0=0
+  [PASS] no backwards or zero time deltas
+  [PASS] ≥ 80% of bars on the 240-minute grid   (on-step share=0.965)
+
+=== data integrity — M15 matched ===
+  rows=3977  span=2026-01-30 02:30:00+00:00 -> 2026-04-01 10:00:00+00:00
+  [PASS] non-empty
+  [PASS] monotonic time   (duplicates=0)
+  [PASS] no duplicate timestamps
+  [PASS] tz-aware UTC   (tz=UTC)
+  [PASS] open: no NaN   (nan=0)
+  [PASS] open: positive   (non-positive=0)
+  [PASS] high: no NaN   (nan=0)
+  [PASS] high: positive   (non-positive=0)
+  [PASS] low: no NaN   (nan=0)
+  [PASS] low: positive   (non-positive=0)
+  [PASS] close: no NaN   (nan=0)
+  [PASS] close: positive   (non-positive=0)
+  [PASS] OHLC consistent (high is highest)   (bad rows=0)
+  [PASS] OHLC consistent (low is lowest)   (bad rows=0)
+  step minutes: on-step=3933, > step (gaps incl. weekends)=43, <= 0=0
+  [PASS] no backwards or zero time deltas
+  [PASS] ≥ 80% of bars on the 15-minute grid   (on-step share=0.989)
+
+=== cross-dataset alignment — H4 matched ↔ M15 matched ===
+  [PASS] every H4 matched bar has ≥1 M15 sub-bar   (missing buckets=0)
+  [PASS] no orphan M15 buckets outside the H4 matched range   (orphan buckets=0)
+  M15 bars per H4 bucket: min=6, p25=16, median=16, max=16
+  [PASS] median M15 bars per H4 bucket is 16
+  [PASS] no bucket has fewer than 4 sub-bars (smoke threshold)   (min=6)
+
+=== simulator correctness — H4 sim ===
+  [PASS] compute_signal: bar 0 has no signal
+  [PASS] compute_signal: sig[i] == color[i-1] for i>=1
+  total ret (real prev-color signal) = -0.0572
+  total ret if signal leaked current bar = +1.8607
+  [PASS] real signal much weaker than a leaked oracle   (leaked - real = 1.9179)
+
+=== simulator correctness — manual M15 replay ===
+  [PASS] run_full_sim returns at least one trade
+  [PASS] manual replay finds matching trade in run_full_sim
+  [PASS] manual trade direction == sim direction   (manual=-1 sim=-1)
+  [PASS] manual trade entry == sim entry   (diff=0.000000)
+  [PASS] manual trade exit == sim exit   (diff=0.000000)
+  [PASS] manual trade ret == sim ret (within 1e-9)   (diff=0.00e+00)
+
+=== simulator correctness — retracement strategy ===
+  diag: {'h4_bars': 261, 'signal_zero': 1, 'no_subbars': 0, 'no_confirm': 0, 'no_retrace': 77, 'missing_prev_levels': 0}
+  [PASS] retracement: at least one trade fires
+  [PASS] retracement: entry price equals prev H4 midpoint   (entry=5073.885 mid=5073.885)
+  [PASS] retracement: direction matches prev H4 color   (dir=-1 prev_color=-1)
+  [PASS] retracement: exit is one of {prev open, prev extreme, h4 close}   (exit=5019.29 valid=[5185.2, 4942.33, 5019.29])
+
+=== simulator correctness — look-ahead probes ===
+  [PASS] perturbing close[i] does not change sig[i] (no current-bar leak)   (before=1, after=1)
+
+=== walk-forward harness — folds ===
+  [PASS] at least 10 folds   (folds=27)
+  [PASS] test windows are non-overlapping   (overlaps=0)
+  [PASS] each fold: train_end == test_start   (misaligned=0)
+  certified-spec walk-forward: folds=27, median_sharpe=1.042, pct_pos=0.5926
+  [PASS] certified spec produces trades in ≥80% of folds   (folds with trades=27/27)
+
+=== audit summary: 0 failures ===

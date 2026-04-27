@@ -1,18 +1,27 @@
-"""Agentic search loop with walk-forward gating.
+"""Agentic search loop with walk-forward gating + 3-5 trades/week constraint.
 
 Pipeline:
-    propose()  ->  walk_forward(spec, h4_long)  ->  holdout(spec, h4 + m15)
-                                                    ->  certify()  ->  leaderboard.csv
+    propose() -> walk_forward(spec, h4_long) -> holdout(spec, h4 + m15)
+              -> certify() -> leaderboard.csv
 
 The proposer here is a deterministic grid stub. Replace it later with a
 Claude API call that reads `results/leaderboard.csv` and proposes the
 next spec to try. The downstream pipeline does not change.
 
-Certification rules (set in code below):
-    median_sharpe         > 0
-    pct_positive_folds   >= 0.55
-    holdout_total_return  > 0
-    holdout trades        >= 30   (refuse to certify on too few samples)
+The grid covers two strategy families:
+
+  A. CONTINUATION (existing) -- enter on the new H4 candle, in the
+     direction of the previous H4 candle, with M15 timing variants.
+  B. RETRACEMENT (new) -- as A, but wait for price to pull back into
+     the previous H4 candle (50% midpoint), with structural stops at
+     prev-H4 open or low/high, and TP at the opposite prev-H4 extreme.
+
+Certification rule (set in code below):
+    walk-forward folds       >= 10
+    walk-forward median Sharpe > 0
+    walk-forward pct positive folds >= 0.55
+    3.0 <= holdout trades-per-week <= 5.0
+    holdout total return > 0
 """
 from __future__ import annotations
 
@@ -43,40 +52,44 @@ HOLDOUT_TRADES = OUT / "search_holdout_trades.csv"
 SEARCH_FOLDS = OUT / "search_folds.csv"
 
 
+# Holdout window: 2026-01-30 -> 2026-04-01 = 62 days ≈ 8.86 weeks.
+HOLDOUT_WEEKS = 8.86
+
+
 # ---------- proposer (placeholder grid) ----------
 
-def propose() -> list[dict]:
-    """Return a list of strategy specs to evaluate.
-
-    This is a deterministic grid. Swap with an LLM proposer that reads
-    the leaderboard and adapts; the rest of the pipeline is unchanged.
-    """
-    body_thresholds = [0.0, 0.5, 1.0]
+def _continuation_grid() -> list[dict]:
+    body_thresholds = [None, 0.5, 1.0]
     sessions: list[list[int] | None] = [
         None,
-        [12, 16],            # NY hours UTC
-        [8, 12, 16],         # London/NY
-        [0, 4, 20],          # Asia/late
+        [12, 16],
+        [8, 12, 16],
+        [0, 4],
     ]
     regimes: list[dict | None] = [
         None,
         {"type": "regime", "ma_n": 50, "side": "with"},
-        {"type": "regime", "ma_n": 50, "side": "against"},
     ]
     streaks = [None, 2]
     stops: list[dict] = [
         {"type": "none"},
         {"type": "h4_atr", "mult": 1.0, "atr_n": 14},
-        {"type": "h4_atr", "mult": 2.0, "atr_n": 14},
+        {"type": "prev_h4_open"},
+        {"type": "prev_h4_extreme"},
     ]
     entries = ["m15_open", "m15_confirm", "m15_atr_stop"]
+    exits = [{"type": "h4_close"}, {"type": "prev_h4_extreme_tp"}]
 
-    specs: list[dict] = []
-    for bt, sess, reg, k, stop, entry in product(
-        body_thresholds, sessions, regimes, streaks, stops, entries
+    out: list[dict] = []
+    for bt, sess, reg, k, stop, entry, ex in product(
+        body_thresholds, sessions, regimes, streaks, stops, entries, exits,
     ):
+        # Skip senseless combo: m15_atr_stop entry already implies its own stop
+        # so pair only with stop=none to keep semantics clean.
+        if entry == "m15_atr_stop" and stop["type"] != "none":
+            continue
         filters: list[dict] = []
-        if bt > 0:
+        if bt is not None:
             filters.append({"type": "body_atr", "min": bt, "atr_n": 14})
         if sess is not None:
             filters.append({"type": "session", "hours_utc": sess})
@@ -84,22 +97,68 @@ def propose() -> list[dict]:
             filters.append(reg)
         if k is not None:
             filters.append({"type": "min_streak", "k": k})
-
-        spec = {
+        out.append({
             "signal": {"type": "prev_color"},
             "filters": filters,
             "entry": {"type": entry},
             "stop": stop,
-            "exit": {"type": "h4_close"},
+            "exit": ex,
+            "cost_model": "spread",
             "cost_bps": 1.5,
-        }
-        spec["id"] = spec_id(spec)
-        specs.append(spec)
+        })
+    return out
 
-    # de-dup by id
+
+def _retracement_grid() -> list[dict]:
+    body_thresholds = [None, 0.5]
+    sessions: list[list[int] | None] = [
+        None,
+        [12, 16],
+        [8, 12, 16],
+        [0, 4],
+    ]
+    regimes: list[dict | None] = [
+        None,
+        {"type": "regime", "ma_n": 50, "side": "with"},
+    ]
+    classes: list[list[str] | None] = [None, ["trend"], ["trend", "rotation"]]
+    stops: list[dict] = [
+        {"type": "prev_h4_open"},
+        {"type": "prev_h4_extreme"},
+    ]
+    exits = [{"type": "prev_h4_extreme_tp"}, {"type": "h4_close"}]
+
+    out: list[dict] = []
+    for bt, sess, reg, cls, stop, ex in product(
+        body_thresholds, sessions, regimes, classes, stops, exits,
+    ):
+        filters: list[dict] = []
+        if bt is not None:
+            filters.append({"type": "body_atr", "min": bt, "atr_n": 14})
+        if sess is not None:
+            filters.append({"type": "session", "hours_utc": sess})
+        if reg is not None:
+            filters.append(reg)
+        if cls is not None:
+            filters.append({"type": "candle_class", "classes": cls})
+        out.append({
+            "signal": {"type": "prev_color"},
+            "filters": filters,
+            "entry": {"type": "m15_retrace_50"},
+            "stop": stop,
+            "exit": ex,
+            "cost_model": "spread",
+            "cost_bps": 1.5,
+        })
+    return out
+
+
+def propose() -> list[dict]:
+    specs = _continuation_grid() + _retracement_grid()
     seen = set()
     unique: list[dict] = []
     for s in specs:
+        s["id"] = spec_id(s)
         if s["id"] in seen:
             continue
         seen.add(s["id"])
@@ -109,12 +168,12 @@ def propose() -> list[dict]:
 
 # ---------- critic ----------
 
-def certify(wf: dict, ho: dict) -> bool:
+def certify(wf: dict, ho: dict, tpw: float) -> bool:
     return (
         wf.get("folds", 0) >= 10
         and wf["median_sharpe"] > 0
         and wf["pct_positive_folds"] >= 0.55
-        and ho["trades"] >= 30
+        and 3.0 <= tpw <= 5.0
         and ho["total_return"] > 0
     )
 
@@ -132,17 +191,19 @@ def run_search() -> None:
     m15 = load_csv(M15_MATCHED)
 
     specs = propose()
-    print(f"proposing {len(specs)} candidate strategies")
+    print(f"proposing {len(specs)} candidate strategies "
+          f"({len(_continuation_grid())} continuation + {len(_retracement_grid())} retracement)")
 
     rows = []
     fold_rows = []
     holdout_trade_rows = []
     for i, spec in enumerate(specs, 1):
         wf = walk_forward(spec, h4_long)
-        ho_trades = run_full_sim(spec, h4, m15)
+        ho_trades, ho_diag = run_full_sim(spec, h4, m15, return_diag=True)
         ho = trades_to_metrics(spec["id"], ho_trades)
+        tpw = ho["trades"] / HOLDOUT_WEEKS
 
-        ok = certify(wf, ho)
+        ok = certify(wf, ho, tpw)
         rows.append({
             "id": spec["id"],
             "spec": json.dumps({k: v for k, v in spec.items() if k != "id"}),
@@ -152,10 +213,16 @@ def run_search() -> None:
             "wf_avg_total_return": wf["avg_total_return"],
             "wf_worst_fold_dd": wf["worst_fold_dd"],
             "ho_trades": ho["trades"],
+            "ho_trades_per_week": round(tpw, 2),
             "ho_win_rate": ho["win_rate"],
             "ho_total_return": ho["total_return"],
             "ho_sharpe_ann": ho["sharpe_ann"],
             "ho_max_drawdown": ho["max_drawdown"],
+            "ho_diag_signal_zero": ho_diag.get("signal_zero", 0),
+            "ho_diag_no_retrace": ho_diag.get("no_retrace", 0),
+            "ho_diag_no_confirm": ho_diag.get("no_confirm", 0),
+            "ho_diag_no_subbars": ho_diag.get("no_subbars", 0),
+            "ho_diag_missing_prev_levels": ho_diag.get("missing_prev_levels", 0),
             "certified": ok,
         })
         if isinstance(wf.get("fold_table"), pd.DataFrame) and not wf["fold_table"].empty:
@@ -171,7 +238,7 @@ def run_search() -> None:
             } for t in ho_trades])
             holdout_trade_rows.append(tdf)
 
-        if i % 10 == 0 or i == len(specs):
+        if i % 25 == 0 or i == len(specs):
             print(f"  evaluated {i}/{len(specs)}")
 
     df = pd.DataFrame(rows).sort_values(
@@ -189,8 +256,9 @@ def run_search() -> None:
     print()
     print(f"=== search complete: {n_cert} certified out of {len(df)} ===")
     show_cols = ["id", "wf_folds", "wf_median_sharpe", "wf_pct_positive_folds",
-                 "ho_trades", "ho_total_return", "ho_sharpe_ann", "certified"]
-    print(df[show_cols].head(15).to_string(index=False))
+                 "ho_trades", "ho_trades_per_week", "ho_total_return",
+                 "ho_sharpe_ann", "certified"]
+    print(df[show_cols].head(20).to_string(index=False))
     print(f"\nWrote: {LEADERBOARD}")
 
 

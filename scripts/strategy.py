@@ -39,9 +39,14 @@ DEFAULT_SPEC: dict = {
     "id": "baseline",
     "signal": {"type": "prev_color"},
     "filters": [],
-    "entry": {"type": "h4_open"},       # h4_open | m15_open | m15_confirm | m15_atr_stop
-    "stop": {"type": "none"},           # none | h4_atr | m15_atr
+    # entry types: h4_open, m15_open, m15_confirm, m15_atr_stop, m15_retrace_50
+    "entry": {"type": "h4_open"},
+    # stop types: none, h4_atr, m15_atr, prev_h4_open, prev_h4_extreme
+    "stop": {"type": "none"},
+    # exit types: h4_close, prev_h4_extreme_tp (TP at prev H4 hi/lo, else H4 close)
     "exit": {"type": "h4_close"},
+    # cost_model: 'spread' uses M15 broker spread; 'bps' uses cost_bps regardless.
+    "cost_model": "spread",
     "cost_bps": 1.5,
 }
 
@@ -185,6 +190,30 @@ def apply_filters_np(h4: pd.DataFrame, sig: np.ndarray, filters: Iterable[dict])
                 ok &= (shifted == sig)
             ok[:k] = False
             mask &= ok
+        elif t == "candle_class":
+            # classify the *previous* H4 candle as trend / rotation / exhaustion.
+            cls = f.get("classes", ["trend"])
+            body_min = float(f.get("body_min", 0.6))      # body/range threshold for "trend"
+            close_pct = float(f.get("close_pct", 0.20))   # close in top/bottom this fraction of range
+            wick_min = float(f.get("wick_min", 0.6))      # max wick/range threshold for "exhaustion"
+            rng = (hi - lo)
+            body = np.abs(c - o)
+            with np.errstate(divide="ignore", invalid="ignore"):
+                body_ratio = np.where(rng > 0, body / rng, 0.0)
+                upper_wick = (hi - np.maximum(o, c)) / np.where(rng > 0, rng, 1.0)
+                lower_wick = (np.minimum(o, c) - lo) / np.where(rng > 0, rng, 1.0)
+                close_in_range = np.where(rng > 0, (c - lo) / rng, 0.5)
+            is_trend_up = (body_ratio >= body_min) & (close_in_range >= 1.0 - close_pct)
+            is_trend_dn = (body_ratio >= body_min) & (close_in_range <= close_pct)
+            is_trend = is_trend_up | is_trend_dn
+            is_rotation = (body_ratio < 0.4) & (np.abs(close_in_range - 0.5) < 0.20)
+            is_exhaustion = (np.maximum(upper_wick, lower_wick) >= wick_min)
+            tag = np.where(is_trend, "trend",
+                  np.where(is_exhaustion, "exhaustion",
+                  np.where(is_rotation, "rotation", "other")))
+            tag_prev = np.empty(n, dtype=object); tag_prev[0] = "other"
+            tag_prev[1:] = tag[:-1]
+            mask &= np.isin(tag_prev, list(cls))
         else:
             raise ValueError(f"unknown filter: {t}")
     return np.where(mask, sig, 0)
@@ -192,12 +221,21 @@ def apply_filters_np(h4: pd.DataFrame, sig: np.ndarray, filters: Iterable[dict])
 
 # ---------- H4-only simulation (used by walk-forward) ----------
 
-def run_h4_sim(spec: dict, h4: pd.DataFrame) -> list[Trade]:
+def run_h4_sim(spec: dict, h4: pd.DataFrame, return_diag: bool = False):
+    """H4-only whole-bar simulation.
+
+    Used for walk-forward where M15 is unavailable. The retracement and
+    structural-stop entry types are M15-specific and are *skipped here*;
+    that is the right behaviour because the walk-forward gates the
+    *signal* edge, not the M15 execution refinement.
+
+    If return_diag is True, returns (trades, diag) with skip counters.
+    """
     spec = merge_spec(spec)
     h4 = h4.sort_values("time").reset_index(drop=True)
     n = len(h4)
     if n < 2:
-        return []
+        return ([], {"h4_bars": n, "signal_zero": n}) if return_diag else []
 
     o = h4["open"].values.astype(float)
     cl = h4["close"].values.astype(float)
@@ -249,6 +287,10 @@ def run_h4_sim(spec: dict, h4: pd.DataFrame) -> list[Trade]:
             pnl=float(pnl[k]),
             ret=float(ret[k]),
         ))
+    if return_diag:
+        diag = {"h4_bars": n, "signal_zero": int(n - take.sum()),
+                "trades": int(take.sum())}
+        return out, diag
     return out
 
 
@@ -258,7 +300,14 @@ def _bucket(t: pd.Series) -> pd.Series:
     return t.dt.floor(f"{H4_HOURS}h")
 
 
-def run_full_sim(spec: dict, h4: pd.DataFrame, m15: pd.DataFrame) -> list[Trade]:
+def run_full_sim(spec: dict, h4: pd.DataFrame, m15: pd.DataFrame,
+                 return_diag: bool = False):
+    """Run the spec on matched M15 + H4 data.
+
+    If return_diag is True, returns (trades, diag) where diag is a dict
+    of skip-reason counters useful for the audit and for reproducible
+    pipeline observability.
+    """
     spec = merge_spec(spec)
     h4 = h4.sort_values("time").reset_index(drop=True)
     m15 = m15.sort_values("time").reset_index(drop=True).copy()
@@ -266,10 +315,11 @@ def run_full_sim(spec: dict, h4: pd.DataFrame, m15: pd.DataFrame) -> list[Trade]
     sig = compute_signal_np(h4, spec)
     sig = apply_filters_np(h4, sig, spec["filters"])
     h4_open = h4["open"].values.astype(float)
+    h4_high = h4["high"].values.astype(float)
+    h4_low = h4["low"].values.astype(float)
     h4_close = h4["close"].values.astype(float)
     h4_time_series = h4["time"].reset_index(drop=True)
 
-    # Sub-bar index for each H4 bar
     m15["bucket"] = _bucket(m15["time"])
     atr_n = int(spec.get("stop", {}).get("atr_n", 14))
     m15["m15_atr"] = atr_np(
@@ -285,26 +335,41 @@ def run_full_sim(spec: dict, h4: pd.DataFrame, m15: pd.DataFrame) -> list[Trade]
     entry_mode = spec["entry"]["type"]
     stop_mode = spec["stop"]["type"]
     stop_mult = float(spec["stop"].get("mult", 1.0))
+    exit_mode = spec["exit"]["type"]
+    cost_model = spec.get("cost_model", "spread")
+    cost_bps = float(spec.get("cost_bps", 1.5))
 
-    h4_atr_arr = atr_np(
-        h4["high"].values.astype(float),
-        h4["low"].values.astype(float),
-        h4_close,
-        int(spec["stop"].get("atr_n", 14)),
-    )
-    h4_atr_prev = np.empty(len(h4))
-    h4_atr_prev[0] = np.nan
+    # Previous H4 levels (for retracement entries / structural stops / TPs).
+    prev_open = np.empty(len(h4)); prev_open[0] = np.nan; prev_open[1:] = h4_open[:-1]
+    prev_high = np.empty(len(h4)); prev_high[0] = np.nan; prev_high[1:] = h4_high[:-1]
+    prev_low  = np.empty(len(h4)); prev_low[0]  = np.nan; prev_low[1:]  = h4_low[:-1]
+    prev_mid = (prev_high + prev_low) / 2.0
+
+    h4_atr_arr = atr_np(h4_high, h4_low, h4_close, int(spec["stop"].get("atr_n", 14)))
+    h4_atr_prev = np.empty(len(h4)); h4_atr_prev[0] = np.nan
     h4_atr_prev[1:] = h4_atr_arr[:-1]
+
+    diag = {
+        "h4_bars": len(h4),
+        "signal_zero": 0,
+        "no_subbars": 0,
+        "no_confirm": 0,
+        "no_retrace": 0,
+        "missing_prev_levels": 0,
+    }
 
     out: list[Trade] = []
     for i in range(len(h4)):
         s = int(sig[i])
         if s == 0:
+            diag["signal_zero"] += 1
             continue
         sub = by_bucket.get(h4_time_series.iloc[i])
         if sub is None or len(sub) == 0:
+            diag["no_subbars"] += 1
             continue
 
+        # ----- entry -----
         if entry_mode in ("h4_open", "m15_open", "m15_atr_stop"):
             entry_idx = 0
             entry_price = float(sub["open"].iloc[0])
@@ -313,14 +378,33 @@ def run_full_sim(spec: dict, h4: pd.DataFrame, m15: pd.DataFrame) -> list[Trade]
             sub_color = np.sign(sub["close"].values - sub["open"].values).astype(int)
             mhits = np.where(sub_color == s)[0]
             if len(mhits) == 0:
+                diag["no_confirm"] += 1
                 continue
             entry_idx = int(mhits[0])
             entry_price = float(sub["close"].iloc[entry_idx])
             entry_time = sub["time"].iloc[entry_idx]
+        elif entry_mode == "m15_retrace_50":
+            mid = float(prev_mid[i])
+            if math.isnan(mid):
+                diag["missing_prev_levels"] += 1
+                continue
+            sub_lo = sub["low"].values
+            sub_hi = sub["high"].values
+            if s > 0:
+                hits = np.where(sub_lo <= mid)[0]
+            else:
+                hits = np.where(sub_hi >= mid)[0]
+            if len(hits) == 0:
+                diag["no_retrace"] += 1
+                continue
+            entry_idx = int(hits[0])
+            # Fill at the midpoint (limit-style).
+            entry_price = mid
+            entry_time = sub["time"].iloc[entry_idx]
         else:
             raise ValueError(f"unknown entry mode: {entry_mode}")
 
-        # Stop selection
+        # ----- stop -----
         stop_price: float | None = None
         if stop_mode == "m15_atr" or entry_mode == "m15_atr_stop":
             a = float(sub["m15_atr"].iloc[entry_idx])
@@ -331,25 +415,62 @@ def run_full_sim(spec: dict, h4: pd.DataFrame, m15: pd.DataFrame) -> list[Trade]
             a = h4_atr_prev[i]
             if not math.isnan(a):
                 stop_price = entry_price - s * stop_mult * a
+        elif stop_mode == "prev_h4_open":
+            po = float(prev_open[i])
+            if not math.isnan(po):
+                stop_price = po
+        elif stop_mode == "prev_h4_extreme":
+            ext = float(prev_low[i]) if s > 0 else float(prev_high[i])
+            if not math.isnan(ext):
+                stop_price = ext
 
-        # Exit
+        # ----- target (exit) -----
+        target_price: float | None = None
+        if exit_mode == "prev_h4_extreme_tp":
+            ext = float(prev_high[i]) if s > 0 else float(prev_low[i])
+            if not math.isnan(ext):
+                target_price = ext
+
+        # ----- forward scan: stop / target / time exit -----
+        future_hi = sub["high"].values[entry_idx:]
+        future_lo = sub["low"].values[entry_idx:]
+        future_t = sub["time"].iloc[entry_idx:].reset_index(drop=True)
+
         exit_time = sub["time"].iloc[-1]
         exit_price = float(h4_close[i])
-        if stop_price is not None:
-            future_hi = sub["high"].values[entry_idx:]
-            future_lo = sub["low"].values[entry_idx:]
-            future_t = sub["time"].iloc[entry_idx:].reset_index(drop=True)
-            if s > 0:
-                hits = np.where(future_lo <= stop_price)[0]
-            else:
-                hits = np.where(future_hi >= stop_price)[0]
-            if len(hits) > 0:
-                k = int(hits[0])
-                exit_time = future_t.iloc[k]
-                exit_price = float(stop_price)
 
-        sp = float(sub["spread"].iloc[entry_idx]) + float(sub["spread"].iloc[-1])
-        cost_price = sp * POINT_SIZE
+        first_stop = None
+        if stop_price is not None:
+            if s > 0:
+                idxs = np.where(future_lo <= stop_price)[0]
+            else:
+                idxs = np.where(future_hi >= stop_price)[0]
+            if len(idxs) > 0:
+                first_stop = int(idxs[0])
+
+        first_tp = None
+        if target_price is not None:
+            if s > 0:
+                idxs = np.where(future_hi >= target_price)[0]
+            else:
+                idxs = np.where(future_lo <= target_price)[0]
+            if len(idxs) > 0:
+                first_tp = int(idxs[0])
+
+        if first_stop is not None and (first_tp is None or first_stop <= first_tp):
+            exit_time = future_t.iloc[first_stop]
+            exit_price = float(stop_price)
+        elif first_tp is not None:
+            exit_time = future_t.iloc[first_tp]
+            exit_price = float(target_price)
+
+        # ----- cost -----
+        if cost_model == "bps":
+            cost_price = entry_price * (cost_bps / 10_000.0)
+        else:  # 'spread'
+            sp = float(sub["spread"].iloc[entry_idx]) + float(sub["spread"].iloc[-1])
+            cost_price = sp * POINT_SIZE
+
         gross = s * (exit_price - entry_price)
         pnl = gross - cost_price
 
@@ -358,6 +479,9 @@ def run_full_sim(spec: dict, h4: pd.DataFrame, m15: pd.DataFrame) -> list[Trade]
             entry=float(entry_price), exit=float(exit_price), cost=float(cost_price),
             pnl=float(pnl), ret=float(pnl / entry_price),
         ))
+
+    if return_diag:
+        return out, diag
     return out
 
 
@@ -374,9 +498,16 @@ def spec_id(spec: dict) -> str:
             parts.append(f"reg{f.get('ma_n', 50)}{f.get('side', 'with')[:3]}")
         elif f["type"] == "min_streak":
             parts.append(f"streak{f.get('k', 2)}")
-    e = spec["entry"]["type"]
-    parts.append(e)
+        elif f["type"] == "candle_class":
+            parts.append("cls" + "-".join(f.get("classes", ["trend"])))
+    parts.append(spec["entry"]["type"])
     s = spec["stop"]
     if s["type"] != "none":
-        parts.append(f"{s['type']}x{s.get('mult', 1.0)}")
+        if "mult" in s:
+            parts.append(f"{s['type']}x{s.get('mult', 1.0)}")
+        else:
+            parts.append(s["type"])
+    e = spec["exit"]
+    if e["type"] != "h4_close":
+        parts.append(e["type"])
     return "_".join(parts) if parts else "raw"
