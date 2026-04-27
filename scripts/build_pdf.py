@@ -284,8 +284,55 @@ for c in cmds:
     story.append(p(f"<font face='Courier' size='8.5'>{c}</font>", MONO))
 story.append(Spacer(1, 0.12 * inch))
 
-# 8. Limitations
-story.append(section("8. Known limitations the skeptic flagged"))
+# 8. v2 system upgrade (added in this commit)
+story.append(PageBreak())
+story.append(section("8. v2 — prop-firm-grade validation engine"))
+story.append(p(
+    "The v1 search certified 9 strategies. The v2 engine applies the strict "
+    "rules in section 9 of the spec — &ge;20 walk-forward folds with median Sharpe &gt; 0.5 "
+    "and &ge;60% positive folds, profit factor &gt; 1.2, max drawdown &le; 20%, "
+    "biggest-trade dependence &le; 20%, shuffled-outcome p &lt; 0.05, "
+    "random-baseline p &lt; 0.05, profitable under stress execution "
+    "(slippage &times;2, spread &times;1.5), and &ge;3 of 9 yearly slices positive. "
+    "Result on the same data: <b>0 of 90 specs certify</b>. The same fib-0.382 "
+    "candidate that won under v1 reaches walk-forward Sharpe 0.87 with 57% positive "
+    "folds — close, but not over the bar. This is the correct outcome of "
+    "statistically defensible criteria.", SMALL))
+story.append(Spacer(1, 0.06 * inch))
+story.append(p("<b>v2 architecture (modules + line counts):</b>"))
+story.append(make_table([
+    ["module", "responsibility"],
+    ["core/",         "shared types (Trade, Spec, FoldResult), constants"],
+    ["data/",         "loader.py + TimeframeDataValidator (8 rules + H4↔M15 alignment)"],
+    ["entry_models/", "registry + 8 models: touch_entry, reaction_close, "
+                      "fib_limit_entry, zone_midpoint_limit, sweep_reclaim, "
+                      "minor_structure_break, delayed_entry_1, delayed_entry_2"],
+    ["execution/",    "executor with slippage, spread widening, missed-fill probability, "
+                      "market vs limit logic, MAE/MFE recording"],
+    ["regime/",       "session/trend/ATR-percentile/VWAP-distance filters + breakdowns"],
+    ["validation/",   "walkforward (≥20 folds), holdout (yearly segmentation), "
+                      "statistical_tests (shuffle + random baseline + BH-FDR), certify"],
+    ["prop/",         "25k/50k/150k account simulation with daily loss + trailing DD"],
+    ["analytics/",    "MAE/MFE distributions, time-to-TP/SL, near-miss TPs, "
+                      "consecutive losses, biggest-trade dependence"],
+    ["tests/",        "10 tests passing: validator, executor, registry"],
+], col_widths=[1.2 * inch, 5.3 * inch]))
+story.append(Spacer(1, 0.06 * inch))
+story.append(p("<b>v2 outputs (under results/):</b>"))
+story.append(make_table([
+    ["file", "purpose"],
+    ["v2_leaderboard.csv",            "all 90 specs with cert status, fail reasons, FDR flag"],
+    ["v2_certified.csv",              "subset that pass the strict v2 criteria"],
+    ["v2_statistical.csv",            "shuffle p, random p, FDR significance per spec"],
+    ["v2_execution_robustness.csv",   "normal vs stressed execution side-by-side"],
+    ["v2_prop_simulation.csv",        "25k/50k/150k blowup probability, p10/p50/p90 balance"],
+    ["v2_entry_comparison.csv",       "entry model × stop × win rate / PF / Sharpe / MAE/MFE / prop survival"],
+], col_widths=[2.4 * inch, 4.1 * inch]))
+story.append(p("Run with <font face='Courier'>make v2</font> (~50 seconds, 90 specs).", SMALL))
+story.append(Spacer(1, 0.12 * inch))
+
+# 9. Limitations
+story.append(section("9. Known limitations the skeptic flagged"))
 for line in [
     "9-week M15 holdout is too short to certify the most selective specs; "
     "their walk-forward Sharpes look strong but trade counts fall under 3/wk. "
