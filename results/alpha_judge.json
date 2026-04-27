@@ -1,0 +1,90 @@
+{
+  "verdict": "no_alpha_certified",
+  "verdict_detail": "0 strategies passed all gates. Closest misses are listed below with the specific gates that rejected them.",
+  "patterns": {
+    "n_evaluated": 23,
+    "n_passes_critic": 2,
+    "n_certified": 0,
+    "edge_dies_under_stress": 2,
+    "edge_survives_stress": 9,
+    "shuffle_p_above_0.05": 23,
+    "random_p_above_0.05": 23,
+    "wf_below_60pct_positive_folds": 17,
+    "below_3_trades_per_week": 15,
+    "above_5_trades_per_week": 5,
+    "pf_above_1.2": 7,
+    "pf_below_1.0": 12
+  },
+  "critic_failure_histogram": {
+    "profit concentrated in 1 session": 14,
+    "profit disappears after removing top 5% trades": 13,
+    "profit disappears after removing top 1 trade": 11,
+    "only 1/3 holdout segments positive": 6,
+    ">70% of positive PnL": 7,
+    "longest losing streak 7 > 6 max": 4,
+    "single biggest winner is 100% of all winning PnL \u2014 concentration risk": 2,
+    "single biggest winner is 71% of all winning PnL \u2014 concentration risk": 1,
+    "single biggest winner is 56% of all winning PnL \u2014 concentration risk": 1,
+    "longest losing streak 8 > 6 max": 1,
+    "single biggest winner is 42% of all winning PnL \u2014 concentration risk": 1,
+    "only 0/3 holdout segments positive": 1,
+    "single biggest winner is 94% of all winning PnL \u2014 concentration risk": 1
+  },
+  "common_failures": [
+    "profit concentrated in 1 session",
+    "profit disappears after removing top 5% trades",
+    "profit disappears after removing top 1 trade",
+    ">70% of positive PnL",
+    "only 1/3 holdout segments positive"
+  ],
+  "recommendations": [
+    "no strategy survived the strict cert + critic + FDR gates; the closest misses are listed in near_misses below.",
+    "shuffle test fails on every spec \u2014 the per-trade returns carry no time-structure signal beyond their marginal distribution; longer M15 history is needed before edges can be statistically distinguished from random ordering.",
+    "random-baseline p-value above 0.05 on most specs \u2014 at this trade frequency a random direction sequence reproduces a similar Sharpe; selectivity needs to rise OR sample size.",
+    ">=70% of specs fall short of the 60% positive-fold gate; the underlying edge is regime-dependent \u2014 try regime_class filters (trend-only vs range-only) to focus the signal.",
+    "many specs trade <3 times/week; loosen filters or pick a less restrictive entry model to bring trade count up.",
+    "2 spec(s) flip negative under spread\u00d71.5 / slippage\u00d72 \u2014 those edges are not real-world tradable; reduce trade frequency or use limit orders so spread cost is amortised.",
+    "critic failure 'profit concentrated in 1 session' appears 14 time(s) across the leaderboard; investigate the trade ledger",
+    "critic failure 'profit disappears after removing top 5% trades' appears 13 time(s) across the leaderboard; investigate the trade ledger",
+    "critic failure 'profit disappears after removing top 1 trade' appears 11 time(s) across the leaderboard; investigate the trade ledger",
+    "single biggest unlock: more *same-broker* M5 history. Sub-M15 execution-model improvements (sweep_reclaim, minor_structure_break) cannot be fairly tested until that lands. See results/data_manifest.json -> known_gaps."
+  ],
+  "near_misses": [
+    {
+      "id": "strong_body_continuation_M15_filters[0].min=0.7",
+      "family_id": "strong_body_continuation",
+      "wf_folds": 28,
+      "wf_median_sharpe": 2.174,
+      "wf_pct_positive_folds": 0.6071,
+      "ho_trades_per_week": 3.88,
+      "ho_total_return": 0.0541,
+      "ho_profit_factor": 1.654,
+      "ho_sharpe_ann": 8.024,
+      "passes_critic": true,
+      "certified": false,
+      "cert_failures": "shuffle_test failed (p=0.3233); random_baseline failed (p=0.135)",
+      "critic_failures": NaN,
+      "stress_total_return": 0.0484,
+      "shuffle_p_value": 0.3233,
+      "random_p_value": 0.135
+    },
+    {
+      "id": "strong_body_continuation_M15_filters[0].min=0.5",
+      "family_id": "strong_body_continuation",
+      "wf_folds": 28,
+      "wf_median_sharpe": 0.871,
+      "wf_pct_positive_folds": 0.5714,
+      "ho_trades_per_week": 5.93,
+      "ho_total_return": 0.0604,
+      "ho_profit_factor": 1.453,
+      "ho_sharpe_ann": 5.928,
+      "passes_critic": true,
+      "certified": false,
+      "cert_failures": "wf_pct_positive_folds<0.6 (got 0.5714); shuffle_test failed (p=0.4667); random_baseline failed (p=0.15)",
+      "critic_failures": NaN,
+      "stress_total_return": 0.0525,
+      "shuffle_p_value": 0.4667,
+      "random_p_value": 0.15
+    }
+  ]
+}

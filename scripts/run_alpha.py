@@ -216,6 +216,7 @@ def main() -> None:
             "cert_failures": "; ".join(r["cert"]["failures"]) if r["cert"]["failures"] else "",
             "critic_failures": "; ".join(r["critic"]["failure_reasons"])
                                 if r["critic"]["failure_reasons"] else "",
+            "spec": json.dumps(r["spec"]),
         }
         rows_lb.append(row)
         rows_critic.append({
@@ -268,8 +269,22 @@ def main() -> None:
 
     print(f"  agent 07 -> {CERTIFIED_JSON}  certified={len(certified_full)}")
 
+    print("[agent 06] targeted refiner ...")
+    try:
+        from scripts import agent_06_refiner  # type: ignore
+        agent_06_refiner.run()
+    except Exception as ex:  # noqa: BLE001
+        print(f"  refiner skipped: {ex}")
+
     print("[agent 08] portfolio clustering ...")
     agent_08_portfolio.run()
+
+    print("[alpha judge] meta-analysis ...")
+    try:
+        from scripts import agent_alpha_judge  # type: ignore
+        agent_alpha_judge.run()
+    except Exception as ex:  # noqa: BLE001
+        print(f"  alpha_judge skipped: {ex}")
 
     print(f"\n=== alpha pipeline complete ===")
     print(f"  evaluated:     {len(results)}")

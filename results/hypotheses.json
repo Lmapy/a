@@ -1,6 +1,6 @@
 {
   "generated_by": "agent_02_hypothesis_generator",
-  "n_hypotheses": 7,
+  "n_hypotheses": 11,
   "hypotheses": [
     {
       "hypothesis_id": "strong_body_continuation",
@@ -99,6 +99,59 @@
         "M5"
       ],
       "strategy_family": "breakout"
+    },
+    {
+      "hypothesis_id": "displacement_continuation",
+      "market_logic": "Strong directional H4 candle: body >= 0.7*ATR(14) with close in top/bottom 30% of range. Trade in same direction with HTF context.",
+      "expected_failure_mode": "Displacement at the END of a multi-bar move tends to mean-revert.",
+      "required_data": [
+        "H4",
+        "M15"
+      ],
+      "preferred_entry_timeframes": [
+        "M15",
+        "M5"
+      ],
+      "strategy_family": "continuation"
+    },
+    {
+      "hypothesis_id": "sweep_rejection_reversal",
+      "market_logic": "Previous H4 swept the prior-prior H4 high or low and closed back inside. Trade against the sweep.",
+      "expected_failure_mode": "Real breakouts where the sweep is the start of a new leg.",
+      "required_data": [
+        "H4",
+        "M15"
+      ],
+      "preferred_entry_timeframes": [
+        "M15"
+      ],
+      "strategy_family": "reversal"
+    },
+    {
+      "hypothesis_id": "failed_continuation_reversal",
+      "market_logic": "Two same-color H4s, then the third closes against the prior body. Trade WITH the new direction.",
+      "expected_failure_mode": "Whipsaw chop where colors alternate at every bar \u2014 no real reversal.",
+      "required_data": [
+        "H4",
+        "M15"
+      ],
+      "preferred_entry_timeframes": [
+        "M15"
+      ],
+      "strategy_family": "reversal"
+    },
+    {
+      "hypothesis_id": "multi_bar_momentum",
+      "market_logic": "k consecutive same-color H4s; trade in the streak's direction (with PDH/PDL guard).",
+      "expected_failure_mode": "Late-stage trends where the third or fourth bar is the exhaustion top/bottom.",
+      "required_data": [
+        "H4",
+        "M15"
+      ],
+      "preferred_entry_timeframes": [
+        "M15"
+      ],
+      "strategy_family": "continuation"
     }
   ]
 }

@@ -189,6 +189,103 @@ STRATEGY_FAMILIES: dict[str, dict] = {
             {"filters[0].hi": 0.40},
         ],
     },
+
+    # H. Displacement candle continuation (NEW signal family).
+    "displacement_continuation": {
+        "description": "Strong directional H4 candle: body >= 0.7*ATR(14) "
+                       "with close in top/bottom 30% of range. Trade in "
+                       "same direction with HTF context.",
+        "expected_failure_mode": "Displacement at the END of a multi-bar "
+                                 "move tends to mean-revert.",
+        "required_data": ["H4", "M15"],
+        "preferred_entry_timeframes": ["M15", "M5"],
+        "family_class": "continuation",
+        "template": {
+            "signal": {"type": "displacement", "min_body_atr": 0.7,
+                       "atr_n": 14, "close_pct": 0.30},
+            "filters": [
+                {"type": "regime_class", "allow": ["trend", "expansion"]},
+                {"type": "pdh_pdl", "mode": "inside"},
+            ],
+            "entry": {"type": "touch_entry"},
+            "stop": {"type": "prev_h4_open"},
+            "exit": {"type": "h4_close"},
+        },
+        "variants": [
+            {"signal.min_body_atr": 0.7},
+            {"signal.min_body_atr": 1.0},
+        ],
+    },
+
+    # I. Sweep + rejection reversal (NEW).
+    "sweep_rejection_reversal": {
+        "description": "Previous H4 swept the prior-prior H4 high or low and "
+                       "closed back inside. Trade against the sweep.",
+        "expected_failure_mode": "Real breakouts where the sweep is the "
+                                 "start of a new leg.",
+        "required_data": ["H4", "M15"],
+        "preferred_entry_timeframes": ["M15"],
+        "family_class": "reversal",
+        "template": {
+            "signal": {"type": "sweep_rejection"},
+            "filters": [
+                {"type": "regime_class", "allow": ["range", "compression"]},
+            ],
+            "entry": {"type": "reaction_close"},
+            "stop": {"type": "prev_h4_extreme"},
+            "exit": {"type": "h4_close"},
+        },
+        "variants": [
+            {"filters[0].allow": ["range"]},
+            {"filters[0].allow": ["range", "compression"]},
+        ],
+    },
+
+    # J. Failed continuation reversal (NEW).
+    "failed_continuation_reversal": {
+        "description": "Two same-color H4s, then the third closes against "
+                       "the prior body. Trade WITH the new direction.",
+        "expected_failure_mode": "Whipsaw chop where colors alternate at "
+                                 "every bar — no real reversal.",
+        "required_data": ["H4", "M15"],
+        "preferred_entry_timeframes": ["M15"],
+        "family_class": "reversal",
+        "template": {
+            "signal": {"type": "failed_continuation"},
+            "filters": [
+                {"type": "regime_class", "allow": ["range", "compression"]},
+            ],
+            "entry": {"type": "reaction_close"},
+            "stop": {"type": "prev_h4_extreme"},
+            "exit": {"type": "h4_close"},
+        },
+        "variants": [{}],
+    },
+
+    # K. Multi-bar momentum continuation (NEW).
+    "multi_bar_momentum": {
+        "description": "k consecutive same-color H4s; trade in the streak's "
+                       "direction (with PDH/PDL guard).",
+        "expected_failure_mode": "Late-stage trends where the third or "
+                                 "fourth bar is the exhaustion top/bottom.",
+        "required_data": ["H4", "M15"],
+        "preferred_entry_timeframes": ["M15"],
+        "family_class": "continuation",
+        "template": {
+            "signal": {"type": "multi_bar_directional", "k": 2},
+            "filters": [
+                {"type": "regime_class", "allow": ["trend", "expansion"]},
+                {"type": "pdh_pdl", "mode": "inside"},
+            ],
+            "entry": {"type": "touch_entry"},
+            "stop": {"type": "prev_h4_open"},
+            "exit": {"type": "h4_close"},
+        },
+        "variants": [
+            {"signal.k": 2},
+            {"signal.k": 3},
+        ],
+    },
 }
 
 

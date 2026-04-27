@@ -410,6 +410,58 @@ story.append(p("This is the correct conclusion under prop-firm-grade rigor. "
 
 story.append(Spacer(1, 0.12 * inch))
 
+story.append(section("9.5 v3.5 — contextual filters, new signals, alpha judge", level=3))
+story.append(p("v3.5 adds the upgrades from §1–§7 of the latest spec without "
+               "regressing the existing rigor.", SMALL))
+story.append(make_table([
+    ["upgrade", "where"],
+    ["4 new signals: displacement, sweep_rejection, failed_continuation, multi_bar_directional",
+                                              "execution/executor.py + scripts/strategy.py"],
+    ["3 contextual filters: pdh_pdl, regime_class, htf_vwap_dist",
+                                              "execution/executor.py + scripts/strategy.py"],
+    ["4 new strategy families using the new primitives",
+                                              "core/strategy_families.py"],
+    ["Targeted Refiner agent (top-N near-misses, single-knob allow-list)",
+                                              "scripts/agent_06_refiner.py + agents/20"],
+    ["Alpha Judge meta-agent (deterministic verdict + recommendations)",
+                                              "scripts/agent_alpha_judge.py + agents/21"],
+    ["Critic extensions: time-segment, direction-bias, cluster-of-wins",
+                                              "validation/critic.py"],
+    ["Edge decomposition (signal/entry/exit quality)",
+                                              "analytics/edge_decomp.py"],
+    ["Documented data gaps (M5/M3/M1 not from same broker)",
+                                              "scripts/fetch_data.py + data_manifest.json"],
+], col_widths=[3.6 * inch, 2.9 * inch]))
+story.append(Spacer(1, 0.06 * inch))
+
+story.append(p("<b>v3.5 result</b> on the same data: 11 hypotheses, 49 specs, "
+               "23 runnable, 26 honestly skipped. 0 certified. <b>Refiner</b> "
+               "generated 28 single-knob variants from 2 critic-passing parents "
+               "and surfaced one large structural win:", SMALL))
+story.append(make_table([
+    ["refined spec", "wf median Sharpe", "wf % pos", "PF", "trades", "holdout return"],
+    ["strong_body_min=0.7 + streak_3", "2.94", "0.57", "7.17", "13", "+6.4%"],
+    ["strong_body_min=0.5 + streak_3", "2.48", "0.61", "2.74", "21", "+6.5%"],
+    ["strong_body_min=0.7 (parent)",   "2.17", "0.61", "1.65", "34", "+5.4%"],
+], col_widths=[2.6 * inch, 1.0 * inch, 0.9 * inch, 0.6 * inch, 0.7 * inch, 1.1 * inch]))
+story.append(p("Adding a 3-bar same-direction streak triples the profit factor "
+               "(1.65 → 7.17) and raises walk-forward Sharpe from 2.17 to 2.94, "
+               "but cuts trade count from 34 to 13 — below the 3 trades/week "
+               "floor. Two refinements (streak_3 with body_min 0.5 and 0.7) sit "
+               "right at the boundary.", SMALL))
+story.append(Spacer(1, 0.04 * inch))
+
+story.append(p("<b>Alpha Judge</b> verdict: <font face='Courier'>"
+               "no_alpha_certified</font>. Top recommendations:", SMALL))
+for line in [
+    "shuffle test fails on every spec — sample size is the bottleneck",
+    "random-baseline p-value > 0.05 on every spec at this trade frequency",
+    ">=70% of specs below the 60% positive-fold gate — try regime_class filters",
+    "single biggest unlock: more *same-broker* M5 history",
+]:
+    story.append(p("• " + line, SMALL))
+story.append(Spacer(1, 0.10 * inch))
+
 # 10. Limitations
 story.append(section("10. Known limitations the skeptic flagged"))
 for line in [

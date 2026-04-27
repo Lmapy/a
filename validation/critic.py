@@ -142,6 +142,76 @@ def removed_top_year(trades: list[Trade], detail: dict) -> list[str]:
     return []
 
 
+def time_segment_holdout(trades: list[Trade], detail: dict) -> list[str]:
+    """Split the holdout into early/mid/late thirds; require positive
+    return in >=2 of 3 segments."""
+    if len(trades) < 9:
+        return []
+    rets = pd.Series([t.ret for t in trades])
+    n = len(rets)
+    bounds = [0, n // 3, 2 * n // 3, n]
+    seg_returns = []
+    for i, (s, e) in enumerate(zip(bounds[:-1], bounds[1:])):
+        seg = rets.iloc[s:e]
+        seg_ret = float((1 + seg).prod() - 1.0) if len(seg) else 0.0
+        seg_returns.append(seg_ret)
+    detail["segment_returns"] = [round(x, 4) for x in seg_returns]
+    n_pos = sum(1 for x in seg_returns if x > 0)
+    if n_pos < 2:
+        return [f"only {n_pos}/3 holdout segments positive "
+                f"(early={seg_returns[0]:+.4f}, mid={seg_returns[1]:+.4f}, "
+                f"late={seg_returns[2]:+.4f})"]
+    return []
+
+
+def direction_bias(trades: list[Trade], detail: dict) -> list[str]:
+    """Both long and short must contribute positive PnL (or one of them
+    must have at least one trade and not be hugely negative)."""
+    if not trades:
+        return []
+    rets_long = [t.ret for t in trades if t.direction > 0]
+    rets_short = [t.ret for t in trades if t.direction < 0]
+    long_total = float(np.prod([1 + r for r in rets_long]) - 1.0) if rets_long else 0.0
+    short_total = float(np.prod([1 + r for r in rets_short]) - 1.0) if rets_short else 0.0
+    detail["long_total_return"] = round(long_total, 4)
+    detail["short_total_return"] = round(short_total, 4)
+    detail["n_long_trades"] = len(rets_long)
+    detail["n_short_trades"] = len(rets_short)
+    fails = []
+    # If we have both sides, require both not catastrophically negative.
+    if rets_long and rets_short:
+        if long_total < -0.05 and short_total > 0:
+            fails.append(f"long-side total return {long_total:+.4f} is "
+                         "materially negative — direction bias risk")
+        if short_total < -0.05 and long_total > 0:
+            fails.append(f"short-side total return {short_total:+.4f} is "
+                         "materially negative — direction bias risk")
+    return fails
+
+
+def cluster_of_wins(trades: list[Trade], detail: dict) -> list[str]:
+    """Detect whether all profit accumulates in a tight calendar window.
+    Reject if >70% of all positive PnL lands inside a single rolling
+    7-day window."""
+    if not trades:
+        return []
+    df = pd.DataFrame([{"t": t.exit_time, "ret": t.ret} for t in trades]).set_index("t").sort_index()
+    pos = df[df["ret"] > 0]
+    if pos.empty:
+        return []
+    total_pos = float(pos["ret"].sum())
+    rolling_max = pos["ret"].rolling("7D").sum().max()
+    if total_pos > 0:
+        share = float(rolling_max) / total_pos
+    else:
+        share = 0.0
+    detail["cluster_max_7d_share_of_positive_pnl"] = round(share, 4)
+    if share > 0.70:
+        return [f">70% of positive PnL ({share:.0%}) clusters in a single "
+                "rolling 7-day window — reject"]
+    return []
+
+
 def run_critic(trades: list[Trade], dd_floor: float = -0.10,
                max_streak: int = 6) -> CriticResult:
     detail: dict = {}
@@ -151,6 +221,9 @@ def run_critic(trades: list[Trade], dd_floor: float = -0.10,
     fails += consecutive_loss(trades, detail, max_streak=max_streak)
     fails += session_split(trades, detail)
     fails += removed_top_year(trades, detail)
+    fails += time_segment_holdout(trades, detail)
+    fails += direction_bias(trades, detail)
+    fails += cluster_of_wins(trades, detail)
     return CriticResult(
         passes_critic=not fails,
         failure_reasons=fails,

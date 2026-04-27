@@ -27,10 +27,14 @@ HYPOTHESES = ROOT / "results" / "hypotheses.json"
 OUT = ROOT / "results" / "generated_specs.json"
 
 # What signal/filter/exit types the executor knows how to run today.
-KNOWN_SIGNAL_TYPES = {"prev_color", "prev_color_inverse"}
+KNOWN_SIGNAL_TYPES = {
+    "prev_color", "prev_color_inverse",
+    "displacement", "sweep_rejection", "failed_continuation",
+    "multi_bar_directional",
+}
 KNOWN_FILTER_TYPES = {
     "body_atr", "session", "regime", "min_streak", "atr_percentile",
-    "vwap_dist", "wick_ratio",
+    "vwap_dist", "wick_ratio", "pdh_pdl", "regime_class", "htf_vwap_dist",
 }
 KNOWN_EXIT_TYPES = {"h4_close", "prev_h4_extreme_tp"}
 KNOWN_STOP_TYPES = {"none", "prev_h4_open", "prev_h4_extreme",

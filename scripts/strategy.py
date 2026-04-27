@@ -126,15 +126,70 @@ def trades_to_metrics(name: str, trades: list[Trade]) -> dict:
 
 def compute_signal_np(h4: pd.DataFrame, spec: dict) -> np.ndarray:
     t = spec["signal"]["type"]
-    if t not in ("prev_color", "prev_color_inverse"):
-        raise ValueError(f"unknown signal: {t}")
-    color = np.sign(h4["close"].values - h4["open"].values).astype(int)
-    sig = np.empty_like(color)
-    sig[0] = 0
-    sig[1:] = color[:-1]
-    if t == "prev_color_inverse":
-        sig = -sig
-    return sig
+    o = h4["open"].values; c = h4["close"].values
+    hi = h4["high"].values; lo = h4["low"].values
+    n = len(h4)
+
+    if t in ("prev_color", "prev_color_inverse"):
+        color = np.sign(c - o).astype(int)
+        sig = np.empty_like(color); sig[0] = 0; sig[1:] = color[:-1]
+        if t == "prev_color_inverse":
+            sig = -sig
+        return sig
+
+    if t == "displacement":
+        mn = float(spec["signal"].get("min_body_atr", 0.7))
+        atr_n = int(spec["signal"].get("atr_n", 14))
+        close_pct = float(spec["signal"].get("close_pct", 0.30))
+        a = atr_np(hi, lo, c, atr_n)
+        body = np.abs(c - o)
+        rng = hi - lo
+        with np.errstate(divide="ignore", invalid="ignore"):
+            close_in = np.where(rng > 0, (c - lo) / rng, 0.5)
+            body_atr = np.where(a > 0, body / a, 0.0)
+        is_bull = (np.sign(c - o) > 0) & (close_in >= 1 - close_pct)
+        is_bear = (np.sign(c - o) < 0) & (close_in <= close_pct)
+        strong = body_atr >= mn
+        color = np.where(is_bull & strong, 1, np.where(is_bear & strong, -1, 0))
+        sig = np.empty_like(color); sig[0] = 0; sig[1:] = color[:-1]
+        return sig.astype(int)
+
+    if t == "sweep_rejection":
+        sig = np.zeros(n, dtype=int)
+        for i in range(2, n):
+            ph, pl = float(hi[i - 2]), float(lo[i - 2])
+            cur_hi, cur_lo, cur_c = float(hi[i - 1]), float(lo[i - 1]), float(c[i - 1])
+            if cur_hi > ph and cur_c < ph:
+                sig[i] = -1
+            elif cur_lo < pl and cur_c > pl:
+                sig[i] = +1
+        return sig
+
+    if t == "failed_continuation":
+        sig = np.zeros(n, dtype=int)
+        color = np.sign(c - o).astype(int)
+        for i in range(3, n):
+            two_prev = color[i - 3]
+            one_prev = color[i - 2]
+            if two_prev != 0 and two_prev == one_prev:
+                last_c = color[i - 1]
+                if last_c != 0 and last_c == -one_prev:
+                    sig[i] = last_c
+        return sig
+
+    if t == "multi_bar_directional":
+        k = int(spec["signal"].get("k", 2))
+        color = np.sign(c - o).astype(int)
+        sig = np.zeros(n, dtype=int)
+        for i in range(k, n):
+            prevs = color[i - k:i]
+            if (prevs > 0).all():
+                sig[i] = 1
+            elif (prevs < 0).all():
+                sig[i] = -1
+        return sig
+
+    raise ValueError(f"unknown signal: {t}")
 
 
 def apply_filters_np(h4: pd.DataFrame, sig: np.ndarray, filters: Iterable[dict]) -> np.ndarray:
@@ -193,6 +248,55 @@ def apply_filters_np(h4: pd.DataFrame, sig: np.ndarray, filters: Iterable[dict])
                 ok &= (shifted == sig)
             ok[:k] = False
             mask &= ok
+        elif t == "pdh_pdl":
+            mode = f.get("mode", "inside")
+            window_h4 = 6
+            pdh = pd.Series(hi).rolling(window_h4).max().shift(1).values
+            pdl = pd.Series(lo).rolling(window_h4).min().shift(1).values
+            cur_close = c
+            if mode == "inside":
+                long_ok = (sig <= 0) | (cur_close <= pdh)
+                short_ok = (sig >= 0) | (cur_close >= pdl)
+            else:  # breakout
+                long_ok = (sig <= 0) | (cur_close > pdh)
+                short_ok = (sig >= 0) | (cur_close < pdl)
+            mask &= np.isfinite(pdh) & np.isfinite(pdl) & long_ok & short_ok
+        elif t == "regime_class":
+            allowed = set(f.get("allow", ["trend"]))
+            n_back = int(f.get("n_lookback", 10))
+            atr_w = int(f.get("atr_window", 100))
+            atr_arr = atr_np(hi, lo, c, int(f.get("atr_n", 14)))
+            ranks = pd.Series(atr_arr).rolling(atr_w).rank(pct=True).values
+            color = np.sign(c - o).astype(int)
+            same_dir = pd.Series(color).rolling(n_back).apply(
+                lambda x: float(np.abs(x.sum()) / max(len(x), 1)), raw=True
+            ).values
+            regime = np.full(n, "other", dtype=object)
+            with np.errstate(invalid="ignore"):
+                regime = np.where(ranks <= 0.30, "compression", regime)
+                regime = np.where(ranks >= 0.80, "expansion", regime)
+                regime = np.where((same_dir >= 0.7) & (ranks >= 0.60), "trend", regime)
+                regime = np.where((same_dir < 0.4) & (ranks < 0.70), "range", regime)
+            regime_prev = np.empty(n, dtype=object); regime_prev[0] = "other"
+            regime_prev[1:] = regime[:-1]
+            mask &= np.isin(regime_prev, list(allowed))
+        elif t == "htf_vwap_dist":
+            window = int(f.get("window", 24))
+            max_above = float(f.get("max_above", 2.0))
+            max_below = float(f.get("max_below", 2.0))
+            tp = (hi + lo + c) / 3.0
+            v = h4["volume"].values
+            num = pd.Series(tp * v).rolling(window).sum().values
+            den = pd.Series(v).rolling(window).sum().values
+            with np.errstate(divide="ignore", invalid="ignore"):
+                vwap = num / den
+            std = pd.Series((tp - vwap) ** 2).rolling(window).mean().pow(0.5).values
+            with np.errstate(divide="ignore", invalid="ignore"):
+                z = (c - vwap) / std
+            ok = np.ones(n, dtype=bool)
+            ok &= (sig <= 0) | (z <= max_above)
+            ok &= (sig >= 0) | (z >= -max_below)
+            mask &= np.isfinite(z) & ok
         elif t == "wick_ratio":
             mn = float(f.get("min", 0.5))
             body_prev = np.empty(n); body_prev[0] = np.nan

@@ -1,8 +1,8 @@
 {
   "generated_by": "agent_03_spec_builder",
-  "n_total": 40,
-  "n_runnable": 16,
-  "n_skipped": 24,
+  "n_total": 49,
+  "n_runnable": 23,
+  "n_skipped": 26,
   "available_entry_timeframes": [
     "M15"
   ],
@@ -1516,6 +1516,353 @@
       "skip_reasons": [
         "no M5 bars on disk yet"
       ]
+    },
+    {
+      "spec": {
+        "signal": {
+          "type": "displacement",
+          "min_body_atr": 0.7,
+          "atr_n": 14,
+          "close_pct": 0.3
+        },
+        "filters": [
+          {
+            "type": "regime_class",
+            "allow": [
+              "trend",
+              "expansion"
+            ]
+          },
+          {
+            "type": "pdh_pdl",
+            "mode": "inside"
+          }
+        ],
+        "entry": {
+          "type": "touch_entry"
+        },
+        "stop": {
+          "type": "prev_h4_open"
+        },
+        "exit": {
+          "type": "h4_close"
+        },
+        "bias_timeframe": "H4",
+        "setup_timeframe": "H4",
+        "entry_timeframe": "M15",
+        "id": "displacement_continuation_M15_signal.min_body_atr=0.7"
+      },
+      "family_id": "displacement_continuation",
+      "entry_timeframe": "M15",
+      "compatibility_status": "ok",
+      "status": "runnable",
+      "skip_reasons": []
+    },
+    {
+      "spec": {
+        "signal": {
+          "type": "displacement",
+          "min_body_atr": 1.0,
+          "atr_n": 14,
+          "close_pct": 0.3
+        },
+        "filters": [
+          {
+            "type": "regime_class",
+            "allow": [
+              "trend",
+              "expansion"
+            ]
+          },
+          {
+            "type": "pdh_pdl",
+            "mode": "inside"
+          }
+        ],
+        "entry": {
+          "type": "touch_entry"
+        },
+        "stop": {
+          "type": "prev_h4_open"
+        },
+        "exit": {
+          "type": "h4_close"
+        },
+        "bias_timeframe": "H4",
+        "setup_timeframe": "H4",
+        "entry_timeframe": "M15",
+        "id": "displacement_continuation_M15_signal.min_body_atr=1.0"
+      },
+      "family_id": "displacement_continuation",
+      "entry_timeframe": "M15",
+      "compatibility_status": "ok",
+      "status": "runnable",
+      "skip_reasons": []
+    },
+    {
+      "spec": {
+        "signal": {
+          "type": "displacement",
+          "min_body_atr": 0.7,
+          "atr_n": 14,
+          "close_pct": 0.3
+        },
+        "filters": [
+          {
+            "type": "regime_class",
+            "allow": [
+              "trend",
+              "expansion"
+            ]
+          },
+          {
+            "type": "pdh_pdl",
+            "mode": "inside"
+          }
+        ],
+        "entry": {
+          "type": "touch_entry"
+        },
+        "stop": {
+          "type": "prev_h4_open"
+        },
+        "exit": {
+          "type": "h4_close"
+        },
+        "bias_timeframe": "H4",
+        "setup_timeframe": "H4",
+        "entry_timeframe": "M5",
+        "id": "displacement_continuation_M5_signal.min_body_atr=0.7"
+      },
+      "family_id": "displacement_continuation",
+      "entry_timeframe": "M5",
+      "compatibility_status": "data_unavailable",
+      "status": "skipped",
+      "skip_reasons": [
+        "no M5 bars on disk yet"
+      ]
+    },
+    {
+      "spec": {
+        "signal": {
+          "type": "displacement",
+          "min_body_atr": 1.0,
+          "atr_n": 14,
+          "close_pct": 0.3
+        },
+        "filters": [
+          {
+            "type": "regime_class",
+            "allow": [
+              "trend",
+              "expansion"
+            ]
+          },
+          {
+            "type": "pdh_pdl",
+            "mode": "inside"
+          }
+        ],
+        "entry": {
+          "type": "touch_entry"
+        },
+        "stop": {
+          "type": "prev_h4_open"
+        },
+        "exit": {
+          "type": "h4_close"
+        },
+        "bias_timeframe": "H4",
+        "setup_timeframe": "H4",
+        "entry_timeframe": "M5",
+        "id": "displacement_continuation_M5_signal.min_body_atr=1.0"
+      },
+      "family_id": "displacement_continuation",
+      "entry_timeframe": "M5",
+      "compatibility_status": "data_unavailable",
+      "status": "skipped",
+      "skip_reasons": [
+        "no M5 bars on disk yet"
+      ]
+    },
+    {
+      "spec": {
+        "signal": {
+          "type": "sweep_rejection"
+        },
+        "filters": [
+          {
+            "type": "regime_class",
+            "allow": [
+              "range"
+            ]
+          }
+        ],
+        "entry": {
+          "type": "reaction_close"
+        },
+        "stop": {
+          "type": "prev_h4_extreme"
+        },
+        "exit": {
+          "type": "h4_close"
+        },
+        "bias_timeframe": "H4",
+        "setup_timeframe": "H4",
+        "entry_timeframe": "M15",
+        "id": "sweep_rejection_reversal_M15_filters[0].allow=['range']"
+      },
+      "family_id": "sweep_rejection_reversal",
+      "entry_timeframe": "M15",
+      "compatibility_status": "ok",
+      "status": "runnable",
+      "skip_reasons": []
+    },
+    {
+      "spec": {
+        "signal": {
+          "type": "sweep_rejection"
+        },
+        "filters": [
+          {
+            "type": "regime_class",
+            "allow": [
+              "range",
+              "compression"
+            ]
+          }
+        ],
+        "entry": {
+          "type": "reaction_close"
+        },
+        "stop": {
+          "type": "prev_h4_extreme"
+        },
+        "exit": {
+          "type": "h4_close"
+        },
+        "bias_timeframe": "H4",
+        "setup_timeframe": "H4",
+        "entry_timeframe": "M15",
+        "id": "sweep_rejection_reversal_M15_filters[0].allow=['range','compression']"
+      },
+      "family_id": "sweep_rejection_reversal",
+      "entry_timeframe": "M15",
+      "compatibility_status": "ok",
+      "status": "runnable",
+      "skip_reasons": []
+    },
+    {
+      "spec": {
+        "signal": {
+          "type": "failed_continuation"
+        },
+        "filters": [
+          {
+            "type": "regime_class",
+            "allow": [
+              "range",
+              "compression"
+            ]
+          }
+        ],
+        "entry": {
+          "type": "reaction_close"
+        },
+        "stop": {
+          "type": "prev_h4_extreme"
+        },
+        "exit": {
+          "type": "h4_close"
+        },
+        "bias_timeframe": "H4",
+        "setup_timeframe": "H4",
+        "entry_timeframe": "M15",
+        "id": "failed_continuation_reversal_M15"
+      },
+      "family_id": "failed_continuation_reversal",
+      "entry_timeframe": "M15",
+      "compatibility_status": "ok",
+      "status": "runnable",
+      "skip_reasons": []
+    },
+    {
+      "spec": {
+        "signal": {
+          "type": "multi_bar_directional",
+          "k": 2
+        },
+        "filters": [
+          {
+            "type": "regime_class",
+            "allow": [
+              "trend",
+              "expansion"
+            ]
+          },
+          {
+            "type": "pdh_pdl",
+            "mode": "inside"
+          }
+        ],
+        "entry": {
+          "type": "touch_entry"
+        },
+        "stop": {
+          "type": "prev_h4_open"
+        },
+        "exit": {
+          "type": "h4_close"
+        },
+        "bias_timeframe": "H4",
+        "setup_timeframe": "H4",
+        "entry_timeframe": "M15",
+        "id": "multi_bar_momentum_M15_signal.k=2"
+      },
+      "family_id": "multi_bar_momentum",
+      "entry_timeframe": "M15",
+      "compatibility_status": "ok",
+      "status": "runnable",
+      "skip_reasons": []
+    },
+    {
+      "spec": {
+        "signal": {
+          "type": "multi_bar_directional",
+          "k": 3
+        },
+        "filters": [
+          {
+            "type": "regime_class",
+            "allow": [
+              "trend",
+              "expansion"
+            ]
+          },
+          {
+            "type": "pdh_pdl",
+            "mode": "inside"
+          }
+        ],
+        "entry": {
+          "type": "touch_entry"
+        },
+        "stop": {
+          "type": "prev_h4_open"
+        },
+        "exit": {
+          "type": "h4_close"
+        },
+        "bias_timeframe": "H4",
+        "setup_timeframe": "H4",
+        "entry_timeframe": "M15",
+        "id": "multi_bar_momentum_M15_signal.k=3"
+      },
+      "family_id": "multi_bar_momentum",
+      "entry_timeframe": "M15",
+      "compatibility_status": "ok",
+      "status": "runnable",
+      "skip_reasons": []
     }
   ]
 }

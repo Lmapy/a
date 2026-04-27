@@ -1,5 +1,5 @@
 {
-  "generated_at_utc": "2026-04-27T11:58:22+00:00",
+  "generated_at_utc": "2026-04-27T23:17:19+00:00",
   "policy": "All sources pinned to immutable commit SHAs. Update SOURCES in scripts/fetch_data.py and re-run to refresh.",
   "sources": [
     {
@@ -14,7 +14,7 @@
       "rows_normalised": 8607,
       "first_time_utc": "2018-06-28 00:00:00+00:00",
       "last_time_utc": "2026-04-20 00:00:00+00:00",
-      "fetched_at_utc": "2026-04-27T11:58:21+00:00"
+      "fetched_at_utc": "2026-04-27T23:17:18+00:00"
     },
     {
       "name": "XAUUSD_H4_matched.csv",
@@ -28,7 +28,7 @@
       "rows_normalised": 261,
       "first_time_utc": "2026-01-30 00:00:00+00:00",
       "last_time_utc": "2026-04-01 08:00:00+00:00",
-      "fetched_at_utc": "2026-04-27T11:58:22+00:00"
+      "fetched_at_utc": "2026-04-27T23:17:19+00:00"
     },
     {
       "name": "XAUUSD_M15_matched.csv",
@@ -42,7 +42,55 @@
       "rows_normalised": 3977,
       "first_time_utc": "2026-01-30 02:30:00+00:00",
       "last_time_utc": "2026-04-01 10:00:00+00:00",
-      "fetched_at_utc": "2026-04-27T11:58:22+00:00"
+      "fetched_at_utc": "2026-04-27T23:17:19+00:00"
+    }
+  ],
+  "known_gaps": [
+    {
+      "missing": "XAUUSD_M5_matched (same broker as H4+M15 holdout)",
+      "blocks_entry_models": [
+        "sweep_reclaim",
+        "minor_structure_break"
+      ],
+      "blocks_strategy_families": [
+        "sweep_reclaim_back_to_value",
+        "asia_compression_session_breakout"
+      ],
+      "candidate_cross_broker_sources": [
+        {
+          "repo": "TuanBT/tradingview",
+          "path": "indicators/MST Medio/data/XAUUSD_M5.csv",
+          "span": "2026-01-21 -> 2026-02-14 (Vietnam tz, ~24 days)",
+          "rejected_because": "different broker; spreads/timestamps incompatible with matched holdout window"
+        },
+        {
+          "repo": "JustusOmbok/Reinforcement",
+          "path": "XAUUSD_M5.csv",
+          "span": "2025-04-08 -> 2025-04-17 (~10 days)",
+          "rejected_because": "different broker; window does not overlap matched H4+M15 window"
+        }
+      ],
+      "what_would_certify_changes": [
+        "sweep_reclaim entries on M5 inside the matched holdout window",
+        "minor_structure_break entries on M5",
+        "true M5 confirmation candles for the strong-body and fib families"
+      ]
+    },
+    {
+      "missing": "XAUUSD_M3_matched (same broker)",
+      "blocks_entry_models": [
+        "sweep_reclaim",
+        "minor_structure_break"
+      ],
+      "candidate_cross_broker_sources": []
+    },
+    {
+      "missing": "XAUUSD_M1_matched (same broker)",
+      "blocks_entry_models": [
+        "sweep_reclaim",
+        "minor_structure_break"
+      ],
+      "candidate_cross_broker_sources": []
     }
   ]
 }

@@ -49,6 +49,59 @@ SOURCES = [
     },
 ]
 
+# Known data gaps. Recording these in the manifest is the honest
+# alternative to either ignoring them or substituting cross-broker data.
+# Cross-broker M5/M3/M1 candidates exist (TuanBT/tradingview ~24 days,
+# JustusOmbok/Reinforcement ~10 days, MihirsinhChauhan ~4 days) but
+# their timestamps, spreads, and tick volumes do NOT match our matched
+# H4+M15 broker (tiumbj/Bot_Data_Basese), so mixing them would
+# contaminate any holdout statistic. The same-broker M5/M3/M1 series
+# does not exist publicly. Until it does, all entry models that
+# require sub-M15 resolution (sweep_reclaim, minor_structure_break,
+# delayed_entry, M5 fib_limit_entry, etc.) remain `data_unavailable`
+# in agent_03_spec_builder and are correctly skipped, not faked.
+KNOWN_GAPS = [
+    {
+        "missing": "XAUUSD_M5_matched (same broker as H4+M15 holdout)",
+        "blocks_entry_models": ["sweep_reclaim", "minor_structure_break"],
+        "blocks_strategy_families": [
+            "sweep_reclaim_back_to_value",
+            "asia_compression_session_breakout",
+        ],
+        "candidate_cross_broker_sources": [
+            {
+                "repo": "TuanBT/tradingview",
+                "path": "indicators/MST Medio/data/XAUUSD_M5.csv",
+                "span": "2026-01-21 -> 2026-02-14 (Vietnam tz, ~24 days)",
+                "rejected_because": "different broker; spreads/timestamps "
+                                    "incompatible with matched holdout window",
+            },
+            {
+                "repo": "JustusOmbok/Reinforcement",
+                "path": "XAUUSD_M5.csv",
+                "span": "2025-04-08 -> 2025-04-17 (~10 days)",
+                "rejected_because": "different broker; window does not "
+                                    "overlap matched H4+M15 window",
+            },
+        ],
+        "what_would_certify_changes": [
+            "sweep_reclaim entries on M5 inside the matched holdout window",
+            "minor_structure_break entries on M5",
+            "true M5 confirmation candles for the strong-body and fib families",
+        ],
+    },
+    {
+        "missing": "XAUUSD_M3_matched (same broker)",
+        "blocks_entry_models": ["sweep_reclaim", "minor_structure_break"],
+        "candidate_cross_broker_sources": [],
+    },
+    {
+        "missing": "XAUUSD_M1_matched (same broker)",
+        "blocks_entry_models": ["sweep_reclaim", "minor_structure_break"],
+        "candidate_cross_broker_sources": [],
+    },
+]
+
 
 def _build_url(s: dict) -> str:
     return f"https://raw.githubusercontent.com/{s['repo']}/{s['commit_sha']}/{s['path_in_repo']}"
@@ -122,6 +175,7 @@ def main() -> int:
         "policy": "All sources pinned to immutable commit SHAs. Update SOURCES "
                   "in scripts/fetch_data.py and re-run to refresh.",
         "sources": manifest_entries,
+        "known_gaps": KNOWN_GAPS,
     }
     MANIFEST.write_text(json.dumps(manifest, indent=2))
     print(f"\nwrote {MANIFEST}")
