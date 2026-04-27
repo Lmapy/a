@@ -1,4 +1,4 @@
-.PHONY: all data audit fib backtest search clean
+.PHONY: all data audit fib backtest search skeptic clean
 
 all: data audit backtest
 
@@ -16,6 +16,9 @@ backtest:
 
 search:
 	python3 scripts/orchestrate.py
+
+skeptic:
+	python3 scripts/skeptic.py
 
 clean:
 	rm -f data/*.csv results/*.csv results/*.png results/*.txt
