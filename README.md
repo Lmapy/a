@@ -85,29 +85,86 @@ Skipped-trade diagnostics: 1 skipped (first H4 has no prior signal); 0
 skipped for missing M15 sub-bars; 0 skipped in `m15_confirm` for lack of
 confirmation. The pipeline is healthy.
 
-## Conclusion
+## Stage 3 — agentic search with walk-forward gating
 
-On gold (XAUUSD), the "next 4h candle continues the previous one"
-hypothesis is **not supported by the data**. The long-history continuation
-probability is 49.7% with a 95% CI that includes 50%, and the executed
-backtest with realistic M15 entries and broker spread costs loses money
-across all three variants.
+The single-spec hypothesis fails. So we built a search loop that proposes
+many specs and gates each through walk-forward and a holdout. See
+[`agents/06-proposer.md`](agents/06-proposer.md),
+[`agents/07-walkforward.md`](agents/07-walkforward.md),
+[`agents/08-critic.md`](agents/08-critic.md), and
+[`agents/09-orchestrator.md`](agents/09-orchestrator.md).
 
-This is the cleanest possible negative result: the hypothesis is precisely
-stated, the data is real and broad, the execution model uses M15 entries
-as requested, and costs are subtracted at the broker level. If a future
-variant of the strategy is to be tested, it should add information not
-present in just the previous candle's color — for example, body size,
-volume confirmation, time-of-day filtering, or higher-timeframe trend.
+```
+proposer → walk-forward (~25 disjoint folds, 2018-2026) → holdout (matched 2026 M15) → critic → leaderboard
+```
+
+The proposer is currently a deterministic grid over filter / entry / stop
+combinations (~648 specs); it is intentionally a placeholder for an LLM
+proposer that reads the leaderboard and adapts its next batch.
+
+**Certification rule** (`scripts/orchestrate.py:certify`):
+
+```
+walk-forward folds        ≥ 10
+walk-forward median Sharpe > 0
+walk-forward % positive folds ≥ 0.55
+holdout trades             ≥ 30
+holdout total return       > 0
+```
+
+### Search result
+
+648 specs evaluated in ~2 minutes; **9 certified**. The pattern that
+survived: a 50-bar moving-average regime filter (`with`-trend) plus a
+body-size or streak filter on the previous bar.
+
+| id                              | wf folds | wf median Sharpe | wf % pos folds | ho trades | ho return | ho Sharpe | certified |
+| ------------------------------- | -------: | ---------------: | -------------: | --------: | --------: | --------: | :-------: |
+| `body0.5_reg50wit_m15_atr_stop` | 27       | **1.04**         | 0.59           | 52        | +6.11%    | 6.84      | ✅ |
+| `body0.5_reg50wit_m15_open`     | 27       | 1.04             | 0.59           | 52        | +3.29%    | 2.64      | ✅ |
+| `reg50wit_streak2_m15_open_h4_atrx1` | 27 | 0.41             | 0.56           | 78        | +3.99%    | 2.52      | ✅ |
+| `body1.0_reg50wit_m15_open_h4_atrx1` | 27 | **3.12**         | 0.56           | 14        | +2.37%    | 8.58      | ❌ holdout < 30 trades |
+| `body1.0_reg50wit_streak2_m15_atr_stop` | 27 | 2.89        | 0.67           | 6         | +2.71%    | 19.9      | ❌ holdout < 30 trades |
+
+The two `body1.0` rows have higher walk-forward Sharpe but get rejected
+because the strict body filter leaves too few holdout trades to certify.
+That's the critic working: a 27-fold edge isn't enough to call it a
+winner if the OOS sample is < 30 trades.
+
+**Important caveats.** The `wf_median_sharpe ≈ 1` certified rows have
+average per-fold returns of ~0.4% — small enough that a real cost model
+worse than 1.5 bps could erase the edge. The huge holdout Sharpe numbers
+(2.6 → 6.8) are annualised from 52-78 trades over 9 weeks; treat those
+as *consistency signals*, not as forecasts. The walk-forward median is
+the metric to anchor on.
+
+### Conclusion
+
+The user's original "every H4 candle continues the previous one"
+hypothesis fails on its own. With one extra ingredient — a 50-bar
+**with-trend** regime filter — the continuation idea passes a strict
+walk-forward + holdout gate, modestly. The cleanest certified spec is
+`body0.5_reg50wit_m15_atr_stop`: take the continuation only when the
+prior H4 body is ≥ 0.5 × ATR(14) **and** the prior close is on the
+same side of the 50-bar MA as the trade direction.
+
+Future work for the agent loop:
+
+- Replace the grid proposer with an adaptive Claude-API proposer that
+  reads the leaderboard.
+- Tighten the critic: deflated Sharpe, regime stability across decade
+  slices, sensitivity to `cost_bps`.
+- Get a longer M15 history so the holdout sample size isn't binding.
 
 ## Reproduce
 
 ```bash
 pip install pandas numpy matplotlib
-python3 scripts/fetch_data.py
-python3 scripts/backtest.py
+make data         # fetch_data.py
+make backtest     # backtest.py — single-spec headline numbers
+make search       # orchestrate.py — agentic search + leaderboard
 ```
 
-All three CSVs and `equity.png` will land in `results/`. The strategy
-rules live in [`agents/02-strategy-spec.md`](agents/02-strategy-spec.md);
-update them there first if you change the rules in `scripts/backtest.py`.
+All CSVs and PNG land in `results/`. The strategy spec schema lives in
+[`agents/06-proposer.md`](agents/06-proposer.md); the backtester
+contract in [`agents/03-backtester.md`](agents/03-backtester.md).

@@ -2,8 +2,14 @@
 
 This folder describes the pipeline as a sequence of named agents. Each agent
 has a single responsibility, a clear input contract, a clear output contract,
-and points at the concrete script that implements it. The agents can be run
-sequentially via `make all` (see top-level `Makefile`) or individually.
+and points at the concrete script that implements it.
+
+There are two flows. The **single-spec flow** (agents 01–05) tests one
+fixed strategy and produces the README's headline numbers. The **search
+flow** (agents 06–09) runs an agentic loop that proposes many specs,
+gates each through walk-forward + holdout, and writes a leaderboard.
+
+## Single-spec flow (`make all`)
 
 ```
 ┌─────────────────┐    ┌──────────────────┐    ┌─────────────────┐    ┌────────────────┐    ┌─────────────────┐
@@ -12,6 +18,17 @@ sequentially via `make all` (see top-level `Makefile`) or individually.
 └─────────────────┘    └──────────────────┘    └─────────────────┘    └────────────────┘    └─────────────────┘
         │                       │                       │                      │                       │
    data/*.csv             agents/02-*.md          results/trades.csv    results/summary.csv      README.md
+```
+
+## Search flow (`make search`)
+
+```
+┌─────────────────┐    ┌──────────────────┐    ┌─────────────────┐    ┌────────────────┐
+│ 06 proposer     │ →  │ 07 walk-forward  │ →  │ 08 critic       │ →  │ 09 orchestrator│
+│ emit JSON spec  │    │ ~25 rolling folds│    │ certify or not  │    │ leaderboard.csv│
+└─────────────────┘    └──────────────────┘    └─────────────────┘    └────────────────┘
+        ↑                                                                       │
+        └──────────── reads leaderboard for next round ─────────────────────────┘
 ```
 
 ## Hard rules
@@ -31,8 +48,18 @@ sequentially via `make all` (see top-level `Makefile`) or individually.
 ## Run the pipeline
 
 ```bash
+# single fixed-spec flow
 python3 scripts/fetch_data.py          # 01
-# (02 is documentation only; rules live in scripts/backtest.py)
-python3 scripts/backtest.py            # 03 + 04
-# 05 is README.md, regenerated from results/*.csv when needed
+python3 scripts/backtest.py            # 03 + 04 (rules quoted in 02)
+
+# agentic search flow
+python3 scripts/orchestrate.py         # 06 + 07 + 08 + 09
 ```
+
+Outputs of the search flow:
+
+- `results/leaderboard.csv` — ranked candidates with walk-forward and
+  holdout metrics, and a `certified` flag.
+- `results/search_folds.csv` — per-fold detail across all candidates.
+- `results/search_holdout_trades.csv` — every holdout trade across all
+  candidates so any leaderboard row can be audited end-to-end.
