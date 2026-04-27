@@ -331,8 +331,87 @@ story.append(make_table([
 story.append(p("Run with <font face='Courier'>make v2</font> (~50 seconds, 90 specs).", SMALL))
 story.append(Spacer(1, 0.12 * inch))
 
-# 9. Limitations
-story.append(section("9. Known limitations the skeptic flagged"))
+# 9. v3 alpha-discovery pipeline (added in this commit)
+story.append(PageBreak())
+story.append(section("9. v3 — agentic alpha-discovery pipeline"))
+story.append(p(
+    "v2 produced a strict statistical engine with 0 certified strategies "
+    "out of 90. v3 keeps those gates and adds a structured, auditable "
+    "agent workflow. Each step writes its own JSON output so a third party "
+    "can audit the chain end-to-end.", SMALL))
+
+story.append(section("9.1 Phase 1 correctness patches", level=3))
+story.append(p("<b>Stop-exit spread bug.</b> The v1 + v2 executors charged the "
+               "bucket-final bar's spread on the exit leg even when a stop fired "
+               "earlier. Spreads can shift materially intra-bucket. Fixed in "
+               "scripts/strategy.py, scripts/backtest.py, and execution/executor.py. "
+               "Permanent regression tests live in "
+               "tests/test_stop_exit_spread.py and the audit (audit_stop_exit_spread). "
+               "All 16 tests pass.", SMALL))
+story.append(p("<b>Pinned data sources.</b> scripts/fetch_data.py no longer "
+               "uses /HEAD/ URLs. All sources pinned to immutable commit SHAs:", SMALL))
+story.append(make_table([
+    ["file", "repo", "commit"],
+    ["XAUUSD_H4_long.csv",     "142f/inv-cry",          "c930706…"],
+    ["XAUUSD_H4_matched.csv",  "tiumbj/Bot_Data_Basese", "bf8cc14…"],
+    ["XAUUSD_M15_matched.csv", "tiumbj/Bot_Data_Basese", "bf8cc14…"],
+], col_widths=[2.4 * inch, 2.5 * inch, 1.6 * inch]))
+story.append(p("Manifest at results/data_manifest.json; the audit verifies it "
+               "exists and that no URL contains /HEAD/.", SMALL))
+
+story.append(section("9.2 Strategy families (v3)", level=3))
+story.append(make_table([
+    ["family", "class", "preferred entry TFs"],
+    ["strong_body_continuation",            "continuation",   "M15, M5"],
+    ["exhaustion_reversal",                 "reversal",       "M15, M5"],
+    ["sweep_reclaim_back_to_value",         "reversal",       "M5, M3 (data unavailable)"],
+    ["fib_continuation",                    "continuation",   "M15, M5"],
+    ["asia_compression_session_breakout",   "breakout",       "M5, M15"],
+    ["vwap_mean_reversion",                 "mean_reversion", "M15, M5"],
+    ["compression_breakout_continuation",   "breakout",       "M15, M5"],
+], col_widths=[2.6 * inch, 1.4 * inch, 2.5 * inch]))
+story.append(p("Each family declares its market logic, expected failure mode, "
+               "required data, and a parameterised spec template. Listed in "
+               "core/strategy_families.py.", SMALL))
+
+story.append(section("9.3 Agent pipeline outputs", level=3))
+story.append(make_table([
+    ["file", "agent", "purpose"],
+    ["data_manifest.json",          "fetch_data",      "pinned source provenance"],
+    ["agent_data_audit.json",       "01 data auditor", "validator + manifest results"],
+    ["hypotheses.json",             "02 hypothesis gen","one entry per market-structure family"],
+    ["generated_specs.json",        "03 spec builder", "expanded specs + skip reasons"],
+    ["leaderboard.csv",             "04 backtest",     "per-spec wf + holdout + critic"],
+    ["critic_report.json",          "05 critic",       "top-trade / worst-week / etc."],
+    ["certified_alpha_strategies.json","07 certifier", "strategies passing ALL gates"],
+    ["alpha_portfolio.json",        "08 portfolio",    "correlation-clustered shortlist"],
+    ["prop_simulation.json",        "07b prop sim",    "25k/50k/150k blowup + balances"],
+    ["alpha_trades/<id>.csv",       "04 backtest",     "per-strategy trade ledger"],
+], col_widths=[2.45 * inch, 1.55 * inch, 2.5 * inch]))
+
+story.append(section("9.4 v3 result", level=3))
+story.append(p("16 runnable specs evaluated (24 honestly skipped for missing M5 "
+               "data or `data_unavailable` gating). 0 strategies pass all gates "
+               "(strict cert + critic + FDR significance).", SMALL))
+story.append(p("<b>Closest miss.</b> "
+               "<font face='Courier'>strong_body_continuation_M15_min=0.7</font>: "
+               "wf median Sharpe <b>2.17</b>, <b>60.7% positive folds</b> across 28 "
+               "disjoint train/test slices, +5.4% holdout, profit factor 1.65, "
+               "3.88 trades/week, passes the new robustness critic "
+               "(top-trade removal, worst-week, session-split, consecutive-loss, "
+               "removed-best-year). Fails on shuffled-outcome p=0.32 and "
+               "random-baseline p=0.135 — statistically indistinguishable from "
+               "noise on the 9-week M15 holdout.", SMALL))
+story.append(p("This is the correct conclusion under prop-firm-grade rigor. "
+               "The strategy is plausible and survives every robustness check, "
+               "but the available M15 data isn't deep enough to make its "
+               "p-values cross the 0.05 line. Longer M15 history is the "
+               "single biggest unlock.", SMALL))
+
+story.append(Spacer(1, 0.12 * inch))
+
+# 10. Limitations
+story.append(section("10. Known limitations the skeptic flagged"))
 for line in [
     "9-week M15 holdout is too short to certify the most selective specs; "
     "their walk-forward Sharpes look strong but trade counts fall under 3/wk. "

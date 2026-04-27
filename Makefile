@@ -1,4 +1,4 @@
-.PHONY: all data audit fib backtest search skeptic v2 test pdf clean
+.PHONY: all data audit fib backtest search skeptic v2 alpha report test pdf clean
 
 all: data audit backtest
 
@@ -23,10 +23,17 @@ skeptic:
 v2:
 	python3 scripts/run_v2.py
 
+alpha:
+	python3 scripts/run_alpha.py
+
+report: data audit alpha pdf
+
 test:
 	python3 tests/test_validator.py
 	python3 tests/test_executor.py
 	python3 tests/test_registry.py
+	python3 tests/test_compatibility.py
+	python3 tests/test_stop_exit_spread.py
 
 pdf:
 	python3 scripts/build_pdf.py

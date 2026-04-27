@@ -10,8 +10,8 @@ TF_MINUTES = {"M1": 1, "M3": 3, "M5": 5, "M15": 15, "M30": 30, "H1": 60, "H4": 2
 # XAUUSD broker spec — point size for the cent symbol used in the dataset.
 POINT_SIZE = 0.001
 
-# Standard fib retracement levels.
-FIB_LEVELS = (0.0, 0.236, 0.382, 0.5, 0.618, 0.786, 1.0)
+# Standard fib retracement levels (incl. 0.705 — common SMC "equilibrium-plus" level).
+FIB_LEVELS = (0.0, 0.236, 0.382, 0.5, 0.618, 0.705, 0.786, 1.0)
 
 # UTC hours that bound the three traditional FX sessions.
 SESSION_HOURS = {

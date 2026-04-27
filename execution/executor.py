@@ -63,13 +63,16 @@ def _atr(df: pd.DataFrame, n: int = 14) -> np.ndarray:
 
 
 def _signal_series(h4: pd.DataFrame, signal_spec: dict) -> np.ndarray:
-    if signal_spec["type"] != "prev_color":
-        raise ValueError(f"unknown signal: {signal_spec['type']}")
-    color = np.sign(h4["close"].values - h4["open"].values).astype(int)
-    sig = np.empty_like(color)
-    sig[0] = 0
-    sig[1:] = color[:-1]
-    return sig
+    t = signal_spec["type"]
+    if t in ("prev_color", "prev_color_inverse"):
+        color = np.sign(h4["close"].values - h4["open"].values).astype(int)
+        sig = np.empty_like(color)
+        sig[0] = 0
+        sig[1:] = color[:-1]
+        if t == "prev_color_inverse":
+            sig = -sig
+        return sig
+    raise ValueError(f"unknown signal: {t}")
 
 
 def _apply_filters(h4: pd.DataFrame, sig: np.ndarray, filters: list[dict]) -> np.ndarray:
@@ -120,6 +123,17 @@ def _apply_filters(h4: pd.DataFrame, sig: np.ndarray, filters: list[dict]) -> np
             atr_arr = _atr(h4, int(f.get("atr_n", 14)))
             ranks = pd.Series(atr_arr).rolling(ap_n).rank(pct=True).values
             mask &= np.isfinite(ranks) & (ranks >= lo_p) & (ranks <= hi_p)
+        elif t == "wick_ratio":
+            # Require previous H4 candle's wick share of the range to be >= min.
+            # wick_share = 1 - body/range. Large value = large wick = exhaustion.
+            mn = float(f.get("min", 0.5))
+            body_prev = np.empty(n); body_prev[0] = np.nan
+            body_prev[1:] = np.abs(c[:-1] - o[:-1])
+            range_prev = np.empty(n); range_prev[0] = np.nan
+            range_prev[1:] = hi[:-1] - lo[:-1]
+            with np.errstate(divide="ignore", invalid="ignore"):
+                wick_share = 1.0 - (body_prev / range_prev)
+            mask &= np.isfinite(wick_share) & (wick_share >= mn)
         elif t == "vwap_dist":
             window = int(f.get("window", 24))
             max_z = float(f.get("max_z", 2.0))

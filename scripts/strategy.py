@@ -125,12 +125,15 @@ def trades_to_metrics(name: str, trades: list[Trade]) -> dict:
 # ---------- signal + filters (vectorised) ----------
 
 def compute_signal_np(h4: pd.DataFrame, spec: dict) -> np.ndarray:
-    if spec["signal"]["type"] != "prev_color":
-        raise ValueError(f"unknown signal: {spec['signal']['type']}")
+    t = spec["signal"]["type"]
+    if t not in ("prev_color", "prev_color_inverse"):
+        raise ValueError(f"unknown signal: {t}")
     color = np.sign(h4["close"].values - h4["open"].values).astype(int)
     sig = np.empty_like(color)
     sig[0] = 0
     sig[1:] = color[:-1]
+    if t == "prev_color_inverse":
+        sig = -sig
     return sig
 
 
@@ -190,6 +193,35 @@ def apply_filters_np(h4: pd.DataFrame, sig: np.ndarray, filters: Iterable[dict])
                 ok &= (shifted == sig)
             ok[:k] = False
             mask &= ok
+        elif t == "wick_ratio":
+            mn = float(f.get("min", 0.5))
+            body_prev = np.empty(n); body_prev[0] = np.nan
+            body_prev[1:] = np.abs(c[:-1] - o[:-1])
+            range_prev = np.empty(n); range_prev[0] = np.nan
+            range_prev[1:] = hi[:-1] - lo[:-1]
+            with np.errstate(divide="ignore", invalid="ignore"):
+                wick_share = 1.0 - (body_prev / range_prev)
+            mask &= np.isfinite(wick_share) & (wick_share >= mn)
+        elif t == "atr_percentile":
+            an = int(f.get("atr_n", 14))
+            window = int(f.get("window", 100))
+            lo_p, hi_p = float(f.get("lo", 0.0)), float(f.get("hi", 1.0))
+            atr_arr = atr_np(hi, lo, c, an)
+            ranks = pd.Series(atr_arr).rolling(window).rank(pct=True).values
+            mask &= np.isfinite(ranks) & (ranks >= lo_p) & (ranks <= hi_p)
+        elif t == "vwap_dist":
+            window = int(f.get("window", 24))
+            max_z = float(f.get("max_z", 2.0))
+            tp = (hi + lo + c) / 3.0
+            v = h4["volume"].values
+            num = pd.Series(tp * v).rolling(window).sum().values
+            den = pd.Series(v).rolling(window).sum().values
+            with np.errstate(divide="ignore", invalid="ignore"):
+                vwap = num / den
+            std = pd.Series((tp - vwap) ** 2).rolling(window).mean().pow(0.5).values
+            with np.errstate(divide="ignore", invalid="ignore"):
+                z = (c - vwap) / std
+            mask &= np.isfinite(z) & (np.abs(z) <= max_z)
         elif t == "candle_class":
             # classify the *previous* H4 candle as trend / rotation / exhaustion.
             cls = f.get("classes", ["trend"])

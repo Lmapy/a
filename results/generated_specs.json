@@ -1,0 +1,1521 @@
+{
+  "generated_by": "agent_03_spec_builder",
+  "n_total": 40,
+  "n_runnable": 16,
+  "n_skipped": 24,
+  "available_entry_timeframes": [
+    "M15"
+  ],
+  "specs": [
+    {
+      "spec": {
+        "signal": {
+          "type": "prev_color"
+        },
+        "filters": [
+          {
+            "type": "body_atr",
+            "min": 0.5,
+            "atr_n": 14
+          },
+          {
+            "type": "regime",
+            "ma_n": 50,
+            "side": "with"
+          }
+        ],
+        "entry": {
+          "type": "touch_entry"
+        },
+        "stop": {
+          "type": "prev_h4_open"
+        },
+        "exit": {
+          "type": "h4_close"
+        },
+        "bias_timeframe": "H4",
+        "setup_timeframe": "H4",
+        "entry_timeframe": "M15",
+        "id": "strong_body_continuation_M15_filters[0].min=0.5"
+      },
+      "family_id": "strong_body_continuation",
+      "entry_timeframe": "M15",
+      "compatibility_status": "ok",
+      "status": "runnable",
+      "skip_reasons": []
+    },
+    {
+      "spec": {
+        "signal": {
+          "type": "prev_color"
+        },
+        "filters": [
+          {
+            "type": "body_atr",
+            "min": 0.7,
+            "atr_n": 14
+          },
+          {
+            "type": "regime",
+            "ma_n": 50,
+            "side": "with"
+          }
+        ],
+        "entry": {
+          "type": "touch_entry"
+        },
+        "stop": {
+          "type": "prev_h4_open"
+        },
+        "exit": {
+          "type": "h4_close"
+        },
+        "bias_timeframe": "H4",
+        "setup_timeframe": "H4",
+        "entry_timeframe": "M15",
+        "id": "strong_body_continuation_M15_filters[0].min=0.7"
+      },
+      "family_id": "strong_body_continuation",
+      "entry_timeframe": "M15",
+      "compatibility_status": "ok",
+      "status": "runnable",
+      "skip_reasons": []
+    },
+    {
+      "spec": {
+        "signal": {
+          "type": "prev_color"
+        },
+        "filters": [
+          {
+            "type": "body_atr",
+            "min": 1.0,
+            "atr_n": 14
+          },
+          {
+            "type": "regime",
+            "ma_n": 50,
+            "side": "with"
+          }
+        ],
+        "entry": {
+          "type": "touch_entry"
+        },
+        "stop": {
+          "type": "prev_h4_open"
+        },
+        "exit": {
+          "type": "h4_close"
+        },
+        "bias_timeframe": "H4",
+        "setup_timeframe": "H4",
+        "entry_timeframe": "M15",
+        "id": "strong_body_continuation_M15_filters[0].min=1.0"
+      },
+      "family_id": "strong_body_continuation",
+      "entry_timeframe": "M15",
+      "compatibility_status": "ok",
+      "status": "runnable",
+      "skip_reasons": []
+    },
+    {
+      "spec": {
+        "signal": {
+          "type": "prev_color"
+        },
+        "filters": [
+          {
+            "type": "body_atr",
+            "min": 0.5,
+            "atr_n": 14
+          },
+          {
+            "type": "regime",
+            "ma_n": 50,
+            "side": "with"
+          }
+        ],
+        "entry": {
+          "type": "touch_entry"
+        },
+        "stop": {
+          "type": "prev_h4_open"
+        },
+        "exit": {
+          "type": "h4_close"
+        },
+        "bias_timeframe": "H4",
+        "setup_timeframe": "H4",
+        "entry_timeframe": "M5",
+        "id": "strong_body_continuation_M5_filters[0].min=0.5"
+      },
+      "family_id": "strong_body_continuation",
+      "entry_timeframe": "M5",
+      "compatibility_status": "data_unavailable",
+      "status": "skipped",
+      "skip_reasons": [
+        "no M5 bars on disk yet"
+      ]
+    },
+    {
+      "spec": {
+        "signal": {
+          "type": "prev_color"
+        },
+        "filters": [
+          {
+            "type": "body_atr",
+            "min": 0.7,
+            "atr_n": 14
+          },
+          {
+            "type": "regime",
+            "ma_n": 50,
+            "side": "with"
+          }
+        ],
+        "entry": {
+          "type": "touch_entry"
+        },
+        "stop": {
+          "type": "prev_h4_open"
+        },
+        "exit": {
+          "type": "h4_close"
+        },
+        "bias_timeframe": "H4",
+        "setup_timeframe": "H4",
+        "entry_timeframe": "M5",
+        "id": "strong_body_continuation_M5_filters[0].min=0.7"
+      },
+      "family_id": "strong_body_continuation",
+      "entry_timeframe": "M5",
+      "compatibility_status": "data_unavailable",
+      "status": "skipped",
+      "skip_reasons": [
+        "no M5 bars on disk yet"
+      ]
+    },
+    {
+      "spec": {
+        "signal": {
+          "type": "prev_color"
+        },
+        "filters": [
+          {
+            "type": "body_atr",
+            "min": 1.0,
+            "atr_n": 14
+          },
+          {
+            "type": "regime",
+            "ma_n": 50,
+            "side": "with"
+          }
+        ],
+        "entry": {
+          "type": "touch_entry"
+        },
+        "stop": {
+          "type": "prev_h4_open"
+        },
+        "exit": {
+          "type": "h4_close"
+        },
+        "bias_timeframe": "H4",
+        "setup_timeframe": "H4",
+        "entry_timeframe": "M5",
+        "id": "strong_body_continuation_M5_filters[0].min=1.0"
+      },
+      "family_id": "strong_body_continuation",
+      "entry_timeframe": "M5",
+      "compatibility_status": "data_unavailable",
+      "status": "skipped",
+      "skip_reasons": [
+        "no M5 bars on disk yet"
+      ]
+    },
+    {
+      "spec": {
+        "signal": {
+          "type": "prev_color_inverse"
+        },
+        "filters": [
+          {
+            "type": "wick_ratio",
+            "min": 0.6
+          },
+          {
+            "type": "regime",
+            "ma_n": 50,
+            "side": "against"
+          }
+        ],
+        "entry": {
+          "type": "reaction_close"
+        },
+        "stop": {
+          "type": "prev_h4_extreme"
+        },
+        "exit": {
+          "type": "h4_close"
+        },
+        "bias_timeframe": "H4",
+        "setup_timeframe": "H4",
+        "entry_timeframe": "M15",
+        "id": "exhaustion_reversal_M15_filters[0].min=0.6"
+      },
+      "family_id": "exhaustion_reversal",
+      "entry_timeframe": "M15",
+      "compatibility_status": "ok",
+      "status": "runnable",
+      "skip_reasons": []
+    },
+    {
+      "spec": {
+        "signal": {
+          "type": "prev_color_inverse"
+        },
+        "filters": [
+          {
+            "type": "wick_ratio",
+            "min": 0.75
+          },
+          {
+            "type": "regime",
+            "ma_n": 50,
+            "side": "against"
+          }
+        ],
+        "entry": {
+          "type": "reaction_close"
+        },
+        "stop": {
+          "type": "prev_h4_extreme"
+        },
+        "exit": {
+          "type": "h4_close"
+        },
+        "bias_timeframe": "H4",
+        "setup_timeframe": "H4",
+        "entry_timeframe": "M15",
+        "id": "exhaustion_reversal_M15_filters[0].min=0.75"
+      },
+      "family_id": "exhaustion_reversal",
+      "entry_timeframe": "M15",
+      "compatibility_status": "ok",
+      "status": "runnable",
+      "skip_reasons": []
+    },
+    {
+      "spec": {
+        "signal": {
+          "type": "prev_color_inverse"
+        },
+        "filters": [
+          {
+            "type": "wick_ratio",
+            "min": 0.6
+          },
+          {
+            "type": "regime",
+            "ma_n": 50,
+            "side": "against"
+          }
+        ],
+        "entry": {
+          "type": "reaction_close"
+        },
+        "stop": {
+          "type": "prev_h4_extreme"
+        },
+        "exit": {
+          "type": "h4_close"
+        },
+        "bias_timeframe": "H4",
+        "setup_timeframe": "H4",
+        "entry_timeframe": "M5",
+        "id": "exhaustion_reversal_M5_filters[0].min=0.6"
+      },
+      "family_id": "exhaustion_reversal",
+      "entry_timeframe": "M5",
+      "compatibility_status": "data_unavailable",
+      "status": "skipped",
+      "skip_reasons": [
+        "no M5 bars on disk yet"
+      ]
+    },
+    {
+      "spec": {
+        "signal": {
+          "type": "prev_color_inverse"
+        },
+        "filters": [
+          {
+            "type": "wick_ratio",
+            "min": 0.75
+          },
+          {
+            "type": "regime",
+            "ma_n": 50,
+            "side": "against"
+          }
+        ],
+        "entry": {
+          "type": "reaction_close"
+        },
+        "stop": {
+          "type": "prev_h4_extreme"
+        },
+        "exit": {
+          "type": "h4_close"
+        },
+        "bias_timeframe": "H4",
+        "setup_timeframe": "H4",
+        "entry_timeframe": "M5",
+        "id": "exhaustion_reversal_M5_filters[0].min=0.75"
+      },
+      "family_id": "exhaustion_reversal",
+      "entry_timeframe": "M5",
+      "compatibility_status": "data_unavailable",
+      "status": "skipped",
+      "skip_reasons": [
+        "no M5 bars on disk yet"
+      ]
+    },
+    {
+      "spec": {
+        "signal": {
+          "type": "prev_color"
+        },
+        "filters": [],
+        "entry": {
+          "type": "sweep_reclaim"
+        },
+        "stop": {
+          "type": "prev_h4_extreme"
+        },
+        "exit": {
+          "type": "h4_close"
+        },
+        "bias_timeframe": "H4",
+        "setup_timeframe": "H4",
+        "entry_timeframe": "M5",
+        "id": "sweep_reclaim_back_to_value_M5_filters=[]"
+      },
+      "family_id": "sweep_reclaim_back_to_value",
+      "entry_timeframe": "M5",
+      "compatibility_status": "data_unavailable",
+      "status": "skipped",
+      "skip_reasons": [
+        "no M5 bars on disk yet"
+      ]
+    },
+    {
+      "spec": {
+        "signal": {
+          "type": "prev_color"
+        },
+        "filters": [
+          {
+            "type": "session",
+            "hours_utc": [
+              12,
+              16
+            ]
+          }
+        ],
+        "entry": {
+          "type": "sweep_reclaim"
+        },
+        "stop": {
+          "type": "prev_h4_extreme"
+        },
+        "exit": {
+          "type": "h4_close"
+        },
+        "bias_timeframe": "H4",
+        "setup_timeframe": "H4",
+        "entry_timeframe": "M5",
+        "id": "sweep_reclaim_back_to_value_M5_filters=[{'type':'session','hours_utc':[12,16]}]"
+      },
+      "family_id": "sweep_reclaim_back_to_value",
+      "entry_timeframe": "M5",
+      "compatibility_status": "data_unavailable",
+      "status": "skipped",
+      "skip_reasons": [
+        "no M5 bars on disk yet"
+      ]
+    },
+    {
+      "spec": {
+        "signal": {
+          "type": "prev_color"
+        },
+        "filters": [],
+        "entry": {
+          "type": "sweep_reclaim"
+        },
+        "stop": {
+          "type": "prev_h4_extreme"
+        },
+        "exit": {
+          "type": "h4_close"
+        },
+        "bias_timeframe": "H4",
+        "setup_timeframe": "H4",
+        "entry_timeframe": "M3",
+        "id": "sweep_reclaim_back_to_value_M3_filters=[]"
+      },
+      "family_id": "sweep_reclaim_back_to_value",
+      "entry_timeframe": "M3",
+      "compatibility_status": "data_unavailable",
+      "status": "skipped",
+      "skip_reasons": [
+        "no M3 bars on disk yet"
+      ]
+    },
+    {
+      "spec": {
+        "signal": {
+          "type": "prev_color"
+        },
+        "filters": [
+          {
+            "type": "session",
+            "hours_utc": [
+              12,
+              16
+            ]
+          }
+        ],
+        "entry": {
+          "type": "sweep_reclaim"
+        },
+        "stop": {
+          "type": "prev_h4_extreme"
+        },
+        "exit": {
+          "type": "h4_close"
+        },
+        "bias_timeframe": "H4",
+        "setup_timeframe": "H4",
+        "entry_timeframe": "M3",
+        "id": "sweep_reclaim_back_to_value_M3_filters=[{'type':'session','hours_utc':[12,16]}]"
+      },
+      "family_id": "sweep_reclaim_back_to_value",
+      "entry_timeframe": "M3",
+      "compatibility_status": "data_unavailable",
+      "status": "skipped",
+      "skip_reasons": [
+        "no M3 bars on disk yet"
+      ]
+    },
+    {
+      "spec": {
+        "signal": {
+          "type": "prev_color"
+        },
+        "filters": [
+          {
+            "type": "body_atr",
+            "min": 0.5,
+            "atr_n": 14
+          },
+          {
+            "type": "regime",
+            "ma_n": 50,
+            "side": "with"
+          }
+        ],
+        "entry": {
+          "type": "fib_limit_entry",
+          "level": 0.382
+        },
+        "stop": {
+          "type": "prev_h4_open"
+        },
+        "exit": {
+          "type": "h4_close"
+        },
+        "bias_timeframe": "H4",
+        "setup_timeframe": "H4",
+        "entry_timeframe": "M15",
+        "id": "fib_continuation_M15_entry.level=0.382"
+      },
+      "family_id": "fib_continuation",
+      "entry_timeframe": "M15",
+      "compatibility_status": "ok",
+      "status": "runnable",
+      "skip_reasons": []
+    },
+    {
+      "spec": {
+        "signal": {
+          "type": "prev_color"
+        },
+        "filters": [
+          {
+            "type": "body_atr",
+            "min": 0.5,
+            "atr_n": 14
+          },
+          {
+            "type": "regime",
+            "ma_n": 50,
+            "side": "with"
+          }
+        ],
+        "entry": {
+          "type": "fib_limit_entry",
+          "level": 0.5
+        },
+        "stop": {
+          "type": "prev_h4_open"
+        },
+        "exit": {
+          "type": "h4_close"
+        },
+        "bias_timeframe": "H4",
+        "setup_timeframe": "H4",
+        "entry_timeframe": "M15",
+        "id": "fib_continuation_M15_entry.level=0.5"
+      },
+      "family_id": "fib_continuation",
+      "entry_timeframe": "M15",
+      "compatibility_status": "ok",
+      "status": "runnable",
+      "skip_reasons": []
+    },
+    {
+      "spec": {
+        "signal": {
+          "type": "prev_color"
+        },
+        "filters": [
+          {
+            "type": "body_atr",
+            "min": 0.5,
+            "atr_n": 14
+          },
+          {
+            "type": "regime",
+            "ma_n": 50,
+            "side": "with"
+          }
+        ],
+        "entry": {
+          "type": "fib_limit_entry",
+          "level": 0.618
+        },
+        "stop": {
+          "type": "prev_h4_open"
+        },
+        "exit": {
+          "type": "h4_close"
+        },
+        "bias_timeframe": "H4",
+        "setup_timeframe": "H4",
+        "entry_timeframe": "M15",
+        "id": "fib_continuation_M15_entry.level=0.618"
+      },
+      "family_id": "fib_continuation",
+      "entry_timeframe": "M15",
+      "compatibility_status": "ok",
+      "status": "runnable",
+      "skip_reasons": []
+    },
+    {
+      "spec": {
+        "signal": {
+          "type": "prev_color"
+        },
+        "filters": [
+          {
+            "type": "body_atr",
+            "min": 0.5,
+            "atr_n": 14
+          },
+          {
+            "type": "regime",
+            "ma_n": 50,
+            "side": "with"
+          }
+        ],
+        "entry": {
+          "type": "fib_limit_entry",
+          "level": 0.705
+        },
+        "stop": {
+          "type": "prev_h4_open"
+        },
+        "exit": {
+          "type": "h4_close"
+        },
+        "bias_timeframe": "H4",
+        "setup_timeframe": "H4",
+        "entry_timeframe": "M15",
+        "id": "fib_continuation_M15_entry.level=0.705"
+      },
+      "family_id": "fib_continuation",
+      "entry_timeframe": "M15",
+      "compatibility_status": "ok",
+      "status": "runnable",
+      "skip_reasons": []
+    },
+    {
+      "spec": {
+        "signal": {
+          "type": "prev_color"
+        },
+        "filters": [
+          {
+            "type": "body_atr",
+            "min": 0.5,
+            "atr_n": 14
+          },
+          {
+            "type": "regime",
+            "ma_n": 50,
+            "side": "with"
+          }
+        ],
+        "entry": {
+          "type": "fib_limit_entry",
+          "level": 0.786
+        },
+        "stop": {
+          "type": "prev_h4_open"
+        },
+        "exit": {
+          "type": "h4_close"
+        },
+        "bias_timeframe": "H4",
+        "setup_timeframe": "H4",
+        "entry_timeframe": "M15",
+        "id": "fib_continuation_M15_entry.level=0.786"
+      },
+      "family_id": "fib_continuation",
+      "entry_timeframe": "M15",
+      "compatibility_status": "ok",
+      "status": "runnable",
+      "skip_reasons": []
+    },
+    {
+      "spec": {
+        "signal": {
+          "type": "prev_color"
+        },
+        "filters": [
+          {
+            "type": "body_atr",
+            "min": 0.5,
+            "atr_n": 14
+          },
+          {
+            "type": "regime",
+            "ma_n": 50,
+            "side": "with"
+          }
+        ],
+        "entry": {
+          "type": "fib_limit_entry",
+          "level": 0.382
+        },
+        "stop": {
+          "type": "prev_h4_open"
+        },
+        "exit": {
+          "type": "h4_close"
+        },
+        "bias_timeframe": "H4",
+        "setup_timeframe": "H4",
+        "entry_timeframe": "M5",
+        "id": "fib_continuation_M5_entry.level=0.382"
+      },
+      "family_id": "fib_continuation",
+      "entry_timeframe": "M5",
+      "compatibility_status": "data_unavailable",
+      "status": "skipped",
+      "skip_reasons": [
+        "no M5 bars on disk yet"
+      ]
+    },
+    {
+      "spec": {
+        "signal": {
+          "type": "prev_color"
+        },
+        "filters": [
+          {
+            "type": "body_atr",
+            "min": 0.5,
+            "atr_n": 14
+          },
+          {
+            "type": "regime",
+            "ma_n": 50,
+            "side": "with"
+          }
+        ],
+        "entry": {
+          "type": "fib_limit_entry",
+          "level": 0.5
+        },
+        "stop": {
+          "type": "prev_h4_open"
+        },
+        "exit": {
+          "type": "h4_close"
+        },
+        "bias_timeframe": "H4",
+        "setup_timeframe": "H4",
+        "entry_timeframe": "M5",
+        "id": "fib_continuation_M5_entry.level=0.5"
+      },
+      "family_id": "fib_continuation",
+      "entry_timeframe": "M5",
+      "compatibility_status": "data_unavailable",
+      "status": "skipped",
+      "skip_reasons": [
+        "no M5 bars on disk yet"
+      ]
+    },
+    {
+      "spec": {
+        "signal": {
+          "type": "prev_color"
+        },
+        "filters": [
+          {
+            "type": "body_atr",
+            "min": 0.5,
+            "atr_n": 14
+          },
+          {
+            "type": "regime",
+            "ma_n": 50,
+            "side": "with"
+          }
+        ],
+        "entry": {
+          "type": "fib_limit_entry",
+          "level": 0.618
+        },
+        "stop": {
+          "type": "prev_h4_open"
+        },
+        "exit": {
+          "type": "h4_close"
+        },
+        "bias_timeframe": "H4",
+        "setup_timeframe": "H4",
+        "entry_timeframe": "M5",
+        "id": "fib_continuation_M5_entry.level=0.618"
+      },
+      "family_id": "fib_continuation",
+      "entry_timeframe": "M5",
+      "compatibility_status": "data_unavailable",
+      "status": "skipped",
+      "skip_reasons": [
+        "no M5 bars on disk yet"
+      ]
+    },
+    {
+      "spec": {
+        "signal": {
+          "type": "prev_color"
+        },
+        "filters": [
+          {
+            "type": "body_atr",
+            "min": 0.5,
+            "atr_n": 14
+          },
+          {
+            "type": "regime",
+            "ma_n": 50,
+            "side": "with"
+          }
+        ],
+        "entry": {
+          "type": "fib_limit_entry",
+          "level": 0.705
+        },
+        "stop": {
+          "type": "prev_h4_open"
+        },
+        "exit": {
+          "type": "h4_close"
+        },
+        "bias_timeframe": "H4",
+        "setup_timeframe": "H4",
+        "entry_timeframe": "M5",
+        "id": "fib_continuation_M5_entry.level=0.705"
+      },
+      "family_id": "fib_continuation",
+      "entry_timeframe": "M5",
+      "compatibility_status": "data_unavailable",
+      "status": "skipped",
+      "skip_reasons": [
+        "no M5 bars on disk yet"
+      ]
+    },
+    {
+      "spec": {
+        "signal": {
+          "type": "prev_color"
+        },
+        "filters": [
+          {
+            "type": "body_atr",
+            "min": 0.5,
+            "atr_n": 14
+          },
+          {
+            "type": "regime",
+            "ma_n": 50,
+            "side": "with"
+          }
+        ],
+        "entry": {
+          "type": "fib_limit_entry",
+          "level": 0.786
+        },
+        "stop": {
+          "type": "prev_h4_open"
+        },
+        "exit": {
+          "type": "h4_close"
+        },
+        "bias_timeframe": "H4",
+        "setup_timeframe": "H4",
+        "entry_timeframe": "M5",
+        "id": "fib_continuation_M5_entry.level=0.786"
+      },
+      "family_id": "fib_continuation",
+      "entry_timeframe": "M5",
+      "compatibility_status": "data_unavailable",
+      "status": "skipped",
+      "skip_reasons": [
+        "no M5 bars on disk yet"
+      ]
+    },
+    {
+      "spec": {
+        "signal": {
+          "type": "asia_range_break"
+        },
+        "filters": [
+          {
+            "type": "session",
+            "hours_utc": [
+              8,
+              12,
+              16
+            ]
+          }
+        ],
+        "entry": {
+          "type": "minor_structure_break",
+          "lookback": 3
+        },
+        "stop": {
+          "type": "prev_h4_open"
+        },
+        "exit": {
+          "type": "h4_close"
+        },
+        "bias_timeframe": "H4",
+        "setup_timeframe": "H4",
+        "entry_timeframe": "M5",
+        "id": "asia_compression_session_breakout_M5_filters=[{'type':'session','hours_utc':[8,12,16]}]"
+      },
+      "family_id": "asia_compression_session_breakout",
+      "entry_timeframe": "M5",
+      "compatibility_status": "data_unavailable",
+      "status": "skipped",
+      "skip_reasons": [
+        "no M5 bars on disk yet",
+        "unknown signal: asia_range_break"
+      ]
+    },
+    {
+      "spec": {
+        "signal": {
+          "type": "asia_range_break"
+        },
+        "filters": [
+          {
+            "type": "session",
+            "hours_utc": [
+              12,
+              16
+            ]
+          }
+        ],
+        "entry": {
+          "type": "minor_structure_break",
+          "lookback": 3
+        },
+        "stop": {
+          "type": "prev_h4_open"
+        },
+        "exit": {
+          "type": "h4_close"
+        },
+        "bias_timeframe": "H4",
+        "setup_timeframe": "H4",
+        "entry_timeframe": "M5",
+        "id": "asia_compression_session_breakout_M5_filters=[{'type':'session','hours_utc':[12,16]}]"
+      },
+      "family_id": "asia_compression_session_breakout",
+      "entry_timeframe": "M5",
+      "compatibility_status": "data_unavailable",
+      "status": "skipped",
+      "skip_reasons": [
+        "no M5 bars on disk yet",
+        "unknown signal: asia_range_break"
+      ]
+    },
+    {
+      "spec": {
+        "signal": {
+          "type": "asia_range_break"
+        },
+        "filters": [
+          {
+            "type": "session",
+            "hours_utc": [
+              8,
+              12,
+              16
+            ]
+          }
+        ],
+        "entry": {
+          "type": "minor_structure_break",
+          "lookback": 3
+        },
+        "stop": {
+          "type": "prev_h4_open"
+        },
+        "exit": {
+          "type": "h4_close"
+        },
+        "bias_timeframe": "H4",
+        "setup_timeframe": "H4",
+        "entry_timeframe": "M15",
+        "id": "asia_compression_session_breakout_M15_filters=[{'type':'session','hours_utc':[8,12,16]}]"
+      },
+      "family_id": "asia_compression_session_breakout",
+      "entry_timeframe": "M15",
+      "compatibility_status": "resolution_limited",
+      "status": "skipped",
+      "skip_reasons": [
+        "minor_structure_break not designed for M15",
+        "unknown signal: asia_range_break"
+      ]
+    },
+    {
+      "spec": {
+        "signal": {
+          "type": "asia_range_break"
+        },
+        "filters": [
+          {
+            "type": "session",
+            "hours_utc": [
+              12,
+              16
+            ]
+          }
+        ],
+        "entry": {
+          "type": "minor_structure_break",
+          "lookback": 3
+        },
+        "stop": {
+          "type": "prev_h4_open"
+        },
+        "exit": {
+          "type": "h4_close"
+        },
+        "bias_timeframe": "H4",
+        "setup_timeframe": "H4",
+        "entry_timeframe": "M15",
+        "id": "asia_compression_session_breakout_M15_filters=[{'type':'session','hours_utc':[12,16]}]"
+      },
+      "family_id": "asia_compression_session_breakout",
+      "entry_timeframe": "M15",
+      "compatibility_status": "resolution_limited",
+      "status": "skipped",
+      "skip_reasons": [
+        "minor_structure_break not designed for M15",
+        "unknown signal: asia_range_break"
+      ]
+    },
+    {
+      "spec": {
+        "signal": {
+          "type": "prev_color_inverse"
+        },
+        "filters": [
+          {
+            "type": "vwap_dist",
+            "window": 24,
+            "max_z": 2.0
+          },
+          {
+            "type": "regime",
+            "ma_n": 50,
+            "side": "against"
+          }
+        ],
+        "entry": {
+          "type": "reaction_close"
+        },
+        "stop": {
+          "type": "prev_h4_extreme"
+        },
+        "exit": {
+          "type": "h4_close"
+        },
+        "bias_timeframe": "H4",
+        "setup_timeframe": "H4",
+        "entry_timeframe": "M15",
+        "id": "vwap_mean_reversion_M15_filters[0].max_z=2.0"
+      },
+      "family_id": "vwap_mean_reversion",
+      "entry_timeframe": "M15",
+      "compatibility_status": "ok",
+      "status": "runnable",
+      "skip_reasons": []
+    },
+    {
+      "spec": {
+        "signal": {
+          "type": "prev_color_inverse"
+        },
+        "filters": [
+          {
+            "type": "vwap_dist",
+            "window": 24,
+            "max_z": 2.5
+          },
+          {
+            "type": "regime",
+            "ma_n": 50,
+            "side": "against"
+          }
+        ],
+        "entry": {
+          "type": "reaction_close"
+        },
+        "stop": {
+          "type": "prev_h4_extreme"
+        },
+        "exit": {
+          "type": "h4_close"
+        },
+        "bias_timeframe": "H4",
+        "setup_timeframe": "H4",
+        "entry_timeframe": "M15",
+        "id": "vwap_mean_reversion_M15_filters[0].max_z=2.5"
+      },
+      "family_id": "vwap_mean_reversion",
+      "entry_timeframe": "M15",
+      "compatibility_status": "ok",
+      "status": "runnable",
+      "skip_reasons": []
+    },
+    {
+      "spec": {
+        "signal": {
+          "type": "prev_color_inverse"
+        },
+        "filters": [
+          {
+            "type": "vwap_dist",
+            "window": 24,
+            "max_z": 3.0
+          },
+          {
+            "type": "regime",
+            "ma_n": 50,
+            "side": "against"
+          }
+        ],
+        "entry": {
+          "type": "reaction_close"
+        },
+        "stop": {
+          "type": "prev_h4_extreme"
+        },
+        "exit": {
+          "type": "h4_close"
+        },
+        "bias_timeframe": "H4",
+        "setup_timeframe": "H4",
+        "entry_timeframe": "M15",
+        "id": "vwap_mean_reversion_M15_filters[0].max_z=3.0"
+      },
+      "family_id": "vwap_mean_reversion",
+      "entry_timeframe": "M15",
+      "compatibility_status": "ok",
+      "status": "runnable",
+      "skip_reasons": []
+    },
+    {
+      "spec": {
+        "signal": {
+          "type": "prev_color_inverse"
+        },
+        "filters": [
+          {
+            "type": "vwap_dist",
+            "window": 24,
+            "max_z": 2.0
+          },
+          {
+            "type": "regime",
+            "ma_n": 50,
+            "side": "against"
+          }
+        ],
+        "entry": {
+          "type": "reaction_close"
+        },
+        "stop": {
+          "type": "prev_h4_extreme"
+        },
+        "exit": {
+          "type": "h4_close"
+        },
+        "bias_timeframe": "H4",
+        "setup_timeframe": "H4",
+        "entry_timeframe": "M5",
+        "id": "vwap_mean_reversion_M5_filters[0].max_z=2.0"
+      },
+      "family_id": "vwap_mean_reversion",
+      "entry_timeframe": "M5",
+      "compatibility_status": "data_unavailable",
+      "status": "skipped",
+      "skip_reasons": [
+        "no M5 bars on disk yet"
+      ]
+    },
+    {
+      "spec": {
+        "signal": {
+          "type": "prev_color_inverse"
+        },
+        "filters": [
+          {
+            "type": "vwap_dist",
+            "window": 24,
+            "max_z": 2.5
+          },
+          {
+            "type": "regime",
+            "ma_n": 50,
+            "side": "against"
+          }
+        ],
+        "entry": {
+          "type": "reaction_close"
+        },
+        "stop": {
+          "type": "prev_h4_extreme"
+        },
+        "exit": {
+          "type": "h4_close"
+        },
+        "bias_timeframe": "H4",
+        "setup_timeframe": "H4",
+        "entry_timeframe": "M5",
+        "id": "vwap_mean_reversion_M5_filters[0].max_z=2.5"
+      },
+      "family_id": "vwap_mean_reversion",
+      "entry_timeframe": "M5",
+      "compatibility_status": "data_unavailable",
+      "status": "skipped",
+      "skip_reasons": [
+        "no M5 bars on disk yet"
+      ]
+    },
+    {
+      "spec": {
+        "signal": {
+          "type": "prev_color_inverse"
+        },
+        "filters": [
+          {
+            "type": "vwap_dist",
+            "window": 24,
+            "max_z": 3.0
+          },
+          {
+            "type": "regime",
+            "ma_n": 50,
+            "side": "against"
+          }
+        ],
+        "entry": {
+          "type": "reaction_close"
+        },
+        "stop": {
+          "type": "prev_h4_extreme"
+        },
+        "exit": {
+          "type": "h4_close"
+        },
+        "bias_timeframe": "H4",
+        "setup_timeframe": "H4",
+        "entry_timeframe": "M5",
+        "id": "vwap_mean_reversion_M5_filters[0].max_z=3.0"
+      },
+      "family_id": "vwap_mean_reversion",
+      "entry_timeframe": "M5",
+      "compatibility_status": "data_unavailable",
+      "status": "skipped",
+      "skip_reasons": [
+        "no M5 bars on disk yet"
+      ]
+    },
+    {
+      "spec": {
+        "signal": {
+          "type": "prev_color"
+        },
+        "filters": [
+          {
+            "type": "atr_percentile",
+            "window": 100,
+            "lo": 0.0,
+            "hi": 0.2
+          },
+          {
+            "type": "body_atr",
+            "min": 1.0,
+            "atr_n": 14
+          }
+        ],
+        "entry": {
+          "type": "touch_entry"
+        },
+        "stop": {
+          "type": "prev_h4_open"
+        },
+        "exit": {
+          "type": "h4_close"
+        },
+        "bias_timeframe": "H4",
+        "setup_timeframe": "H4",
+        "entry_timeframe": "M15",
+        "id": "compression_breakout_continuation_M15_filters[0].hi=0.2"
+      },
+      "family_id": "compression_breakout_continuation",
+      "entry_timeframe": "M15",
+      "compatibility_status": "ok",
+      "status": "runnable",
+      "skip_reasons": []
+    },
+    {
+      "spec": {
+        "signal": {
+          "type": "prev_color"
+        },
+        "filters": [
+          {
+            "type": "atr_percentile",
+            "window": 100,
+            "lo": 0.0,
+            "hi": 0.3
+          },
+          {
+            "type": "body_atr",
+            "min": 1.0,
+            "atr_n": 14
+          }
+        ],
+        "entry": {
+          "type": "touch_entry"
+        },
+        "stop": {
+          "type": "prev_h4_open"
+        },
+        "exit": {
+          "type": "h4_close"
+        },
+        "bias_timeframe": "H4",
+        "setup_timeframe": "H4",
+        "entry_timeframe": "M15",
+        "id": "compression_breakout_continuation_M15_filters[0].hi=0.3"
+      },
+      "family_id": "compression_breakout_continuation",
+      "entry_timeframe": "M15",
+      "compatibility_status": "ok",
+      "status": "runnable",
+      "skip_reasons": []
+    },
+    {
+      "spec": {
+        "signal": {
+          "type": "prev_color"
+        },
+        "filters": [
+          {
+            "type": "atr_percentile",
+            "window": 100,
+            "lo": 0.0,
+            "hi": 0.4
+          },
+          {
+            "type": "body_atr",
+            "min": 1.0,
+            "atr_n": 14
+          }
+        ],
+        "entry": {
+          "type": "touch_entry"
+        },
+        "stop": {
+          "type": "prev_h4_open"
+        },
+        "exit": {
+          "type": "h4_close"
+        },
+        "bias_timeframe": "H4",
+        "setup_timeframe": "H4",
+        "entry_timeframe": "M15",
+        "id": "compression_breakout_continuation_M15_filters[0].hi=0.4"
+      },
+      "family_id": "compression_breakout_continuation",
+      "entry_timeframe": "M15",
+      "compatibility_status": "ok",
+      "status": "runnable",
+      "skip_reasons": []
+    },
+    {
+      "spec": {
+        "signal": {
+          "type": "prev_color"
+        },
+        "filters": [
+          {
+            "type": "atr_percentile",
+            "window": 100,
+            "lo": 0.0,
+            "hi": 0.2
+          },
+          {
+            "type": "body_atr",
+            "min": 1.0,
+            "atr_n": 14
+          }
+        ],
+        "entry": {
+          "type": "touch_entry"
+        },
+        "stop": {
+          "type": "prev_h4_open"
+        },
+        "exit": {
+          "type": "h4_close"
+        },
+        "bias_timeframe": "H4",
+        "setup_timeframe": "H4",
+        "entry_timeframe": "M5",
+        "id": "compression_breakout_continuation_M5_filters[0].hi=0.2"
+      },
+      "family_id": "compression_breakout_continuation",
+      "entry_timeframe": "M5",
+      "compatibility_status": "data_unavailable",
+      "status": "skipped",
+      "skip_reasons": [
+        "no M5 bars on disk yet"
+      ]
+    },
+    {
+      "spec": {
+        "signal": {
+          "type": "prev_color"
+        },
+        "filters": [
+          {
+            "type": "atr_percentile",
+            "window": 100,
+            "lo": 0.0,
+            "hi": 0.3
+          },
+          {
+            "type": "body_atr",
+            "min": 1.0,
+            "atr_n": 14
+          }
+        ],
+        "entry": {
+          "type": "touch_entry"
+        },
+        "stop": {
+          "type": "prev_h4_open"
+        },
+        "exit": {
+          "type": "h4_close"
+        },
+        "bias_timeframe": "H4",
+        "setup_timeframe": "H4",
+        "entry_timeframe": "M5",
+        "id": "compression_breakout_continuation_M5_filters[0].hi=0.3"
+      },
+      "family_id": "compression_breakout_continuation",
+      "entry_timeframe": "M5",
+      "compatibility_status": "data_unavailable",
+      "status": "skipped",
+      "skip_reasons": [
+        "no M5 bars on disk yet"
+      ]
+    },
+    {
+      "spec": {
+        "signal": {
+          "type": "prev_color"
+        },
+        "filters": [
+          {
+            "type": "atr_percentile",
+            "window": 100,
+            "lo": 0.0,
+            "hi": 0.4
+          },
+          {
+            "type": "body_atr",
+            "min": 1.0,
+            "atr_n": 14
+          }
+        ],
+        "entry": {
+          "type": "touch_entry"
+        },
+        "stop": {
+          "type": "prev_h4_open"
+        },
+        "exit": {
+          "type": "h4_close"
+        },
+        "bias_timeframe": "H4",
+        "setup_timeframe": "H4",
+        "entry_timeframe": "M5",
+        "id": "compression_breakout_continuation_M5_filters[0].hi=0.4"
+      },
+      "family_id": "compression_breakout_continuation",
+      "entry_timeframe": "M5",
+      "compatibility_status": "data_unavailable",
+      "status": "skipped",
+      "skip_reasons": [
+        "no M5 bars on disk yet"
+      ]
+    }
+  ]
+}
