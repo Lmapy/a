@@ -1,0 +1,65 @@
+project:
+  timezone: UTC
+  raw_data_dir: data/raw
+  processed_data_dir: data/processed
+
+symbols:
+  bybit: [BTCUSDT, ETHUSDT, SOLUSDT]
+  hyperliquid: [BTC, ETH, SOL]
+
+timeframes:
+  base: 1m
+  derived: [5m, 15m, 1h]
+
+download:
+  start: '2023-01-01'
+  end: '2026-01-01'
+  chunk_days:
+    bybit_1m: 7
+    hyperliquid_1m: 3
+  max_retries: 5
+  retry_backoff_sec: 1.5
+
+execution:
+  initial_capital: 100000
+  taker_fee_bps: 5.5
+  maker_fee_bps: 2.0
+  slippage_bps: 1.5
+  breakout_missed_fill_penalty_bps: 2.0
+  leverage: 3.0
+  leverage_cap: 5.0
+  risk_per_trade: 0.01
+  use_fractional_kelly: false
+  kelly_fraction: 0.25
+  max_concurrent_positions: 3
+  max_daily_loss_pct: 0.05
+  max_drawdown_kill_switch_pct: 0.30
+
+strategies:
+  breakout:
+    donchian_window: 20
+    bb_window: 20
+    bb_std: 2
+    squeeze_lookback: 200
+    squeeze_pctile: 0.2
+    volume_multiple: 1.5
+    atr_window: 14
+    initial_stop_atr: 1.2
+    trailing_stop_atr: 2.0
+    max_bars_in_trade: 120
+  sweep:
+    wick_body_ratio_min: 1.8
+    use_momentum_exhaustion_filter: true
+    momentum_rsi_thresh: 30
+    stop_buffer_atr: 0.35
+    second_target_mode: r_multiple
+    second_target_r_multiple: 2.0
+  vwap_reversion:
+    z_long: -3.0
+    z_short: 3.0
+    rsi_long: 20
+    rsi_short: 80
+    use_volume_spike_filter: false
+    stop_sigma: 1.2
+    disable_in_high_vol_trend: true
+    high_vol_quantile: 0.8
