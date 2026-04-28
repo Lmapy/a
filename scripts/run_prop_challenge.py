@@ -68,8 +68,13 @@ def collect_strategies() -> list[tuple[str, pd.DataFrame]]:
 
 
 TOP_N_STRATEGIES = 6        # top-6 by walk-forward median Sharpe
-N_RUNS_CHALLENGE = 100      # MC paths per (strategy x account x risk x rules) for challenge sim
-N_RUNS_PAYOUT    = 100      # MC paths for payout sim
+# Lower MC counts to keep run-time interactive on the larger Dukascopy
+# trade ledgers. Each MC bootstrap walks the full ledger; with 500-900
+# trades per spec (vs 30-150 on the old broker) the per-sim cost rose
+# 5-10x. 50/50 is enough resolution for the certify thresholds; bump
+# to 200/200 for the final certified champion's report.
+N_RUNS_CHALLENGE = 50
+N_RUNS_PAYOUT    = 50
 
 
 # ---------- selection focus ----------

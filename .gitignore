@@ -31,3 +31,8 @@ results/refined_specs.csv
 results/alpha_portfolio.json
 results/alpha_judge.json
 results/certified_alpha_strategies.json
+
+# In-flight per-run leaderboard. The committed leaderboard lives in
+# results/_archive_pre_dukascopy/ for the old runs; the live one is
+# regenerated each time `make alpha` runs. Avoid noisy per-run diffs.
+results/leaderboard.csv
