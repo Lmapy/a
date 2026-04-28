@@ -1,0 +1,129 @@
+{
+  "generated_by": "agent_01_data_auditor",
+  "generated_at_utc": "2026-04-27T23:23:24+00:00",
+  "validator_findings": [
+    {
+      "severity": "warning",
+      "code": "gaps_detected",
+      "message": "h4_long: 1196 gaps > 240-min (414 > 6\u00d7bar length)",
+      "sample": {
+        "first_gap_min": 1440.0
+      }
+    },
+    {
+      "severity": "warning",
+      "code": "gaps_detected",
+      "message": "h4_matched: 9 gaps > 240-min (9 > 6\u00d7bar length)",
+      "sample": {
+        "first_gap_min": 3120.0
+      }
+    },
+    {
+      "severity": "warning",
+      "code": "gaps_detected",
+      "message": "m15_matched: 43 gaps > 15-min (10 > 6\u00d7bar length)",
+      "sample": {
+        "first_gap_min": 2955.0
+      }
+    }
+  ],
+  "n_errors": 0,
+  "n_warnings": 3,
+  "manifest_present": true,
+  "manifest": {
+    "generated_at_utc": "2026-04-27T23:17:19+00:00",
+    "policy": "All sources pinned to immutable commit SHAs. Update SOURCES in scripts/fetch_data.py and re-run to refresh.",
+    "sources": [
+      {
+        "name": "XAUUSD_H4_long.csv",
+        "url": "https://raw.githubusercontent.com/142f/inv-cry/c9307060289ad47b7f184b206344edc7ad08c2cd/data_2015_xau_btc/processed/mt5/H4/XAUUSDc.csv",
+        "repo": "142f/inv-cry",
+        "commit_sha": "c9307060289ad47b7f184b206344edc7ad08c2cd",
+        "path_in_repo": "data_2015_xau_btc/processed/mt5/H4/XAUUSDc.csv",
+        "purpose": "long-history H4 hit-rate + walk-forward folds",
+        "raw_bytes": 771772,
+        "raw_sha256": "695b5ff5da724663979e48d92da94a75ed64e0182215376c6c3d517662cbeaea",
+        "rows_normalised": 8607,
+        "first_time_utc": "2018-06-28 00:00:00+00:00",
+        "last_time_utc": "2026-04-20 00:00:00+00:00",
+        "fetched_at_utc": "2026-04-27T23:17:18+00:00"
+      },
+      {
+        "name": "XAUUSD_H4_matched.csv",
+        "url": "https://raw.githubusercontent.com/tiumbj/Bot_Data_Basese/bf8cc14e17ba8f40783144c3030c5dec3c93d812/Local_LLM/dataset/tf/XAUUSD_H4.csv",
+        "repo": "tiumbj/Bot_Data_Basese",
+        "commit_sha": "bf8cc14e17ba8f40783144c3030c5dec3c93d812",
+        "path_in_repo": "Local_LLM/dataset/tf/XAUUSD_H4.csv",
+        "purpose": "matched H4 for executed-backtest holdout",
+        "raw_bytes": 18010,
+        "raw_sha256": "d782b60d2241ec1123dde76c3210fea2d6d3cb23ad41a872da315fd0b5def9cc",
+        "rows_normalised": 261,
+        "first_time_utc": "2026-01-30 00:00:00+00:00",
+        "last_time_utc": "2026-04-01 08:00:00+00:00",
+        "fetched_at_utc": "2026-04-27T23:17:19+00:00"
+      },
+      {
+        "name": "XAUUSD_M15_matched.csv",
+        "url": "https://raw.githubusercontent.com/tiumbj/Bot_Data_Basese/bf8cc14e17ba8f40783144c3030c5dec3c93d812/Local_LLM/dataset/tf/XAUUSD_M15.csv",
+        "repo": "tiumbj/Bot_Data_Basese",
+        "commit_sha": "bf8cc14e17ba8f40783144c3030c5dec3c93d812",
+        "path_in_repo": "Local_LLM/dataset/tf/XAUUSD_M15.csv",
+        "purpose": "matched M15 for executed-backtest entries",
+        "raw_bytes": 268804,
+        "raw_sha256": "70d3b6dfefe7c65ff3887a166bf286f36a765f2adb8a59083fd8ac2dbad54b65",
+        "rows_normalised": 3977,
+        "first_time_utc": "2026-01-30 02:30:00+00:00",
+        "last_time_utc": "2026-04-01 10:00:00+00:00",
+        "fetched_at_utc": "2026-04-27T23:17:19+00:00"
+      }
+    ],
+    "known_gaps": [
+      {
+        "missing": "XAUUSD_M5_matched (same broker as H4+M15 holdout)",
+        "blocks_entry_models": [
+          "sweep_reclaim",
+          "minor_structure_break"
+        ],
+        "blocks_strategy_families": [
+          "sweep_reclaim_back_to_value",
+          "asia_compression_session_breakout"
+        ],
+        "candidate_cross_broker_sources": [
+          {
+            "repo": "TuanBT/tradingview",
+            "path": "indicators/MST Medio/data/XAUUSD_M5.csv",
+            "span": "2026-01-21 -> 2026-02-14 (Vietnam tz, ~24 days)",
+            "rejected_because": "different broker; spreads/timestamps incompatible with matched holdout window"
+          },
+          {
+            "repo": "JustusOmbok/Reinforcement",
+            "path": "XAUUSD_M5.csv",
+            "span": "2025-04-08 -> 2025-04-17 (~10 days)",
+            "rejected_because": "different broker; window does not overlap matched H4+M15 window"
+          }
+        ],
+        "what_would_certify_changes": [
+          "sweep_reclaim entries on M5 inside the matched holdout window",
+          "minor_structure_break entries on M5",
+          "true M5 confirmation candles for the strong-body and fib families"
+        ]
+      },
+      {
+        "missing": "XAUUSD_M3_matched (same broker)",
+        "blocks_entry_models": [
+          "sweep_reclaim",
+          "minor_structure_break"
+        ],
+        "candidate_cross_broker_sources": []
+      },
+      {
+        "missing": "XAUUSD_M1_matched (same broker)",
+        "blocks_entry_models": [
+          "sweep_reclaim",
+          "minor_structure_break"
+        ],
+        "candidate_cross_broker_sources": []
+      }
+    ]
+  }
+}

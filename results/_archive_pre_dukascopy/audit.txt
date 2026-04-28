@@ -1,0 +1,23 @@
+XAUUSD Dukascopy-only pipeline audit
+============================================================
+
+=== manifest — single Dukascopy source ===
+  [PASS] data/dukascopy/manifests/XAUUSD_manifest.json exists   (/home/user/a/data/dukascopy/manifests/XAUUSD_manifest.json)
+  [PASS] official_source == dukascopy   (got=dukascopy)
+  [PASS] old_sources_deprecated == true
+  [PASS] generated_from_tick_data == true
+  [PASS] manifest declares all 8 required timeframes
+
+=== Dukascopy candle data on disk ===
+  [FAIL] at least one timeframe has candles on disk   (no Dukascopy data yet — run scripts/fetch_dukascopy.py from an unrestricted environment, or drop .bi5 hourly tick files into data/dukascopy/raw/)
+
+=== dataset_source enforcement ===
+  (skipped — no candles on disk yet)
+
+=== active code does not import deprecated broker data ===
+  [PASS] no scripts/*.py references the deprecated broker CSVs
+
+=== timeframe integrity (when data is present) ===
+  (skipped — H4 or M15 not on disk)
+
+=== audit summary: 1 failures ===

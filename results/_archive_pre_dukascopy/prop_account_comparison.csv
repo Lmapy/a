@@ -1,0 +1,13 @@
+strategy_id,account,firm,drawdown_type,risk_model,daily_rules,pass_probability,blowup_probability,timeout_probability,consistency_breach_rate,median_days_to_pass,median_end_balance,first_payout_probability,blowup_before_payout_probability,median_days_to_payout,prop_score,cert_ok,cert_fails,main_failure_reason,best_for_account
+exhaustion_reversal_M15_filters[0].min=0.6,generic_static_50k,Generic,static,micro_1,stop_w1,0.98,0.0,0.02,0.0816,22.0,53306.98,0.99,0.01,8.0,1.451,True,,none,True
+vwap_mean_reversion_M15_filters[0].max_z=2.0,generic_static_50k,Generic,static,micro_1,stop_w1,0.69,0.04,0.27,0.0435,33.0,53119.5,0.97,0.02,12.0,1.138,False,median_days=33.0 > 30,max_loss_static,True
+vwap_mean_reversion_M15_filters[0].max_z=2.5,generic_static_50k,Generic,static,dollar_risk_50,stop_w1,0.71,0.07,0.22,0.0141,30.0,53090.2,0.91,0.07,10.0,1.113,True,,max_loss_static,True
+vwap_mean_reversion_M15_filters[0].max_z=3.0,generic_static_50k,Generic,static,micro_1,stop_w1,0.68,0.11,0.21,0.0,30.5,53084.8,0.95,0.02,13.0,1.078,False,median_days=30.5 > 30,max_loss_static,True
+exhaustion_reversal_M15_filters[0].min=0.6,mffu_50k,MyFundedFutures,intraday_trailing,dollar_risk_100,none,0.87,0.0,0.13,0.0345,20.0,53174.4,1.0,0.0,8.0,1.361,True,,none,True
+vwap_mean_reversion_M15_filters[0].max_z=2.5,mffu_50k,MyFundedFutures,intraday_trailing,dollar_risk_50,stop_w1,0.55,0.09,0.36,0.0545,27.0,53018.94,0.91,0.04,11.0,0.933,True,,daily_loss,True
+vwap_mean_reversion_M15_filters[0].max_z=3.0,mffu_50k,MyFundedFutures,intraday_trailing,micro_1,stop_w1,0.55,0.09,0.36,0.1273,22.0,53022.28,0.92,0.05,12.0,0.926,True,,daily_loss,True
+vwap_mean_reversion_M15_filters[0].max_z=2.0,mffu_50k,MyFundedFutures,intraday_trailing,micro_1,max2,0.43,0.0,0.57,0.2791,27.0,51792.95,0.87,0.0,15.0,0.829,False,consistency_breach=27.91% > 15%,none,True
+exhaustion_reversal_M15_filters[0].min=0.6,topstep_50k,Topstep,eod_trailing,dollar_risk_50,stop_w1,0.92,0.07,0.01,0.0761,21.0,53251.42,0.93,0.07,8.0,1.315,True,,trailing_dd_eod,True
+vwap_mean_reversion_M15_filters[0].max_z=2.0,topstep_50k,Topstep,eod_trailing,micro_1,stop_w1,0.57,0.3,0.13,0.0175,34.0,53024.57,0.88,0.12,12.0,0.797,False,blowup_prob=30.00% > 15%; median_days=34.0 > 30,daily_loss,True
+vwap_mean_reversion_M15_filters[0].max_z=2.5,topstep_50k,Topstep,eod_trailing,micro_1,stop_w1,0.6,0.3,0.1,0.0167,29.5,53094.46,0.81,0.19,10.0,0.792,False,blowup_prob=30.00% > 15%,trailing_dd_eod,True
+vwap_mean_reversion_M15_filters[0].max_z=3.0,topstep_50k,Topstep,eod_trailing,micro_1,stop_w1,0.6,0.34,0.06,0.0333,28.5,53036.55,0.85,0.15,11.0,0.781,False,blowup_prob=34.00% > 15%,trailing_dd_eod,True
