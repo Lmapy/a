@@ -9,15 +9,25 @@ XAUUSD Dukascopy-only pipeline audit
   [PASS] manifest declares all 8 required timeframes
 
 === Dukascopy candle data on disk ===
-  [FAIL] at least one timeframe has candles on disk   (no Dukascopy data yet — run scripts/fetch_dukascopy.py from an unrestricted environment, or drop .bi5 hourly tick files into data/dukascopy/raw/)
+  [PASS] M1: years on disk   ([2020, 2021, 2022, 2023, 2024, 2025, 2026])
+  [PASS] M3: years on disk   ([2020, 2021, 2022, 2023, 2024, 2025, 2026])
+  [PASS] M5: years on disk   ([2020, 2021, 2022, 2023, 2024, 2025, 2026])
+  [PASS] M15: years on disk   ([2020, 2021, 2022, 2023, 2024, 2025, 2026])
+  [PASS] M30: years on disk   ([2020, 2021, 2022, 2023, 2024, 2025, 2026])
+  [PASS] H1: years on disk   ([2020, 2021, 2022, 2023, 2024, 2025, 2026])
+  [PASS] H4: years on disk   ([2020, 2021, 2022, 2023, 2024, 2025, 2026])
+  [PASS] D1: years on disk   ([2020, 2021, 2022, 2023, 2024, 2025, 2026])
 
 === dataset_source enforcement ===
-  (skipped — no candles on disk yet)
+  [PASS] every candle file's dataset_source == dukascopy
 
 === active code does not import deprecated broker data ===
   [PASS] no scripts/*.py references the deprecated broker CSVs
 
 === timeframe integrity (when data is present) ===
-  (skipped — H4 or M15 not on disk)
+  [PASS] H4 timestamps land on a 4h boundary
+  [PASS] M15 timestamps land on a 15-min boundary
+  [PASS] H4 OHLC valid (low <= open,close <= high)
+  [PASS] every M15 bar maps to a known H4 bucket   (outside=0)
 
-=== audit summary: 1 failures ===
+=== audit summary: 0 failures ===

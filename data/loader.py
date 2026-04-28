@@ -92,6 +92,11 @@ def load_candles(symbol: str = "XAUUSD",
             "sources. Move the file to data/_deprecated_/ or refetch.")
     df = df[CANONICAL_COLS]
     df = df.sort_values("time").drop_duplicates("time").reset_index(drop=True)
+    # Back-compat: legacy executor + strategy code reads `spread`. Dukascopy
+    # candles carry `spread_mean` / `spread_max`. Alias spread = spread_mean
+    # so v1/v2/v3 code paths work unchanged.
+    if "spread" not in df.columns and "spread_mean" in df.columns:
+        df["spread"] = df["spread_mean"]
     return df
 
 

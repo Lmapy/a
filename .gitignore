@@ -7,3 +7,27 @@ __pycache__/
 output/
 results/search_folds.csv
 results/search_holdout_trades.csv
+
+# Real Dukascopy candle tree is canonical on the data-dukascopy sidecar
+# branch and pulled into here via `make pull-data`. Never commit this
+# 197 MB tree to the code branch — duplicates the sidecar and bloats
+# every clone.
+data/dukascopy/candles/
+
+# Per-strategy alpha trade ledgers are regenerable via `make alpha`
+# and can run to hundreds of files; the leaderboard.csv summary is
+# what's worth committing.
+results/alpha_trades/
+
+# Big regenerable JSON dumps from in-flight runs. The summary
+# leaderboard.csv is committed; these are intermediates.
+results/agent_data_audit.json
+results/critic_report.json
+results/generated_specs.json
+results/hypotheses.json
+results/prop_simulation.json
+results/refinement_log.json
+results/refined_specs.csv
+results/alpha_portfolio.json
+results/alpha_judge.json
+results/certified_alpha_strategies.json
