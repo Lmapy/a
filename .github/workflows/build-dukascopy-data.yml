@@ -1,11 +1,18 @@
 name: build-dukascopy-data
 
 # Manual-only ingestion of Dukascopy XAUUSD ticks -> candles.
-# Runs the local pipeline scripts (see scripts/run_dukascopy_pipeline.py)
-# and uploads the resulting candle files (parquet + manifest +
-# validation_report.json) as a GitHub Actions artifact. Does NOT commit
-# any tick files or candle data back to the repo -- the artifact is the
-# delivery mechanism.
+#
+# Two modes:
+#   ticks_only  - download .bi5 hourly tick files only and upload the raw/
+#                 tree as the artifact. Decode + resample happen LOCALLY on
+#                 the user's machine via scripts/build_dukascopy_candles.py.
+#                 Faster CI run, bigger artifact, full local iteration on
+#                 candle logic.
+#   candles     - full pipeline in CI: download -> decode + resample to
+#                 8 timeframes -> validate -> upload candle parquet.
+#
+# Does NOT commit any tick or candle data back to the repo -- the artifact
+# is the delivery mechanism.
 
 on:
   workflow_dispatch:
@@ -14,6 +21,10 @@ on:
         description: "Dukascopy symbol (e.g. XAUUSD)"
         required: true
         default: "XAUUSD"
+      mode:
+        description: "ticks_only (raw .bi5 -> local processing) | candles (full pipeline in CI)"
+        required: true
+        default: "ticks_only"
       years_back:
         description: "Years of history when start_date/end_date are blank"
         required: true
@@ -26,12 +37,16 @@ on:
         description: "UTC YYYY-MM-DD (optional; exclusive)"
         required: false
         default: ""
+      workers:
+        description: "Parallel download workers (32 is a good default; raise if download is the bottleneck)"
+        required: true
+        default: "32"
       write_csv:
-        description: "Also emit CSV copies of every timeframe (true/false)"
+        description: "Also emit CSV copies of every timeframe (candles mode only)"
         required: true
         default: "false"
       chunk_by:
-        description: "Chunk granularity: year | quarter | month"
+        description: "Chunk granularity for build step: year | quarter | month"
         required: true
         default: "year"
 
@@ -76,19 +91,22 @@ jobs:
             echo "Using years_back=$YB (today minus YB years)"
           fi
 
-      - name: Run Dukascopy pipeline (download -> candles -> validate -> manifest)
+      - name: Run Dukascopy pipeline
         env:
           SYMBOL:     ${{ github.event.inputs.symbol }}
+          MODE:       ${{ github.event.inputs.mode }}
           WRITE_CSV:  ${{ github.event.inputs.write_csv }}
           CHUNK_BY:   ${{ github.event.inputs.chunk_by }}
+          WORKERS:    ${{ github.event.inputs.workers }}
           USE:        ${{ steps.range.outputs.use }}
           START:      ${{ steps.range.outputs.start }}
           END:        ${{ steps.range.outputs.end }}
           YB:         ${{ steps.range.outputs.yb }}
         run: |
           set -e
-          ARGS=(--symbol "$SYMBOL" --output-dir output/dukascopy --chunk-by "$CHUNK_BY")
+          ARGS=(--symbol "$SYMBOL" --output-dir output/dukascopy --chunk-by "$CHUNK_BY" --workers "$WORKERS")
           if [ "$WRITE_CSV" = "true" ]; then ARGS+=(--write-csv); fi
+          if [ "$MODE" = "ticks_only" ]; then ARGS+=(--ticks-only --keep-raw); fi
           if [ "$USE" = "explicit" ]; then
             ARGS+=(--start-date "$START" --end-date "$END")
           else
@@ -100,35 +118,45 @@ jobs:
       - name: Tree of output/dukascopy
         if: always()
         run: |
-          echo "=== output/dukascopy contents ==="
-          find output/dukascopy -maxdepth 5 -type f -printf '%s\t%p\n' | sort
+          echo "=== output/dukascopy contents (top 50 by path) ==="
+          find output/dukascopy -maxdepth 6 -type f -printf '%s\t%p\n' | sort | head -50
+          echo "=== total size ==="
+          du -sh output/dukascopy 2>/dev/null || true
           echo "=== manifest ==="
           if [ -f output/dukascopy/${{ github.event.inputs.symbol }}/manifest.json ]; then
             cat output/dukascopy/${{ github.event.inputs.symbol }}/manifest.json
           fi
 
-      - name: Zip candle dataset
+      - name: Zip artifact (mode-aware)
+        env:
+          SYMBOL: ${{ github.event.inputs.symbol }}
+          MODE:   ${{ github.event.inputs.mode }}
         run: |
           set -e
-          ZIP_NAME="${{ github.event.inputs.symbol }}_dukascopy_candles.zip"
-          # Don't include the raw/ tick cache even if --keep-raw was passed.
-          (cd output/dukascopy && zip -r "../../${ZIP_NAME}" "${{ github.event.inputs.symbol }}")
+          if [ "$MODE" = "ticks_only" ]; then
+            ZIP_NAME="${SYMBOL}_dukascopy_ticks.zip"
+            (cd output/dukascopy && zip -r -q "../../${ZIP_NAME}" raw "${SYMBOL}/manifest.json")
+          else
+            ZIP_NAME="${SYMBOL}_dukascopy_candles.zip"
+            (cd output/dukascopy && zip -r -q "../../${ZIP_NAME}" "${SYMBOL}")
+          fi
           ls -la "${ZIP_NAME}"
           echo "ZIP_NAME=${ZIP_NAME}" >> "$GITHUB_ENV"
+          echo "Final zip size: $(du -h "${ZIP_NAME}" | cut -f1)"
 
-      - name: Upload candle artifact
+      - name: Upload main artifact
         uses: actions/upload-artifact@v4
         with:
-          name: ${{ github.event.inputs.symbol }}_dukascopy_candles
+          name: ${{ github.event.inputs.symbol }}_dukascopy_${{ github.event.inputs.mode }}
           path: ${{ env.ZIP_NAME }}
           if-no-files-found: error
           retention-days: 30
 
-      - name: Upload validation report (separate, for quick inspection)
+      - name: Upload manifest + logs (small, for quick inspection)
         uses: actions/upload-artifact@v4
         if: always()
         with:
-          name: ${{ github.event.inputs.symbol }}_dukascopy_validation
+          name: ${{ github.event.inputs.symbol }}_dukascopy_${{ github.event.inputs.mode }}_meta
           path: |
             output/dukascopy/${{ github.event.inputs.symbol }}/manifest.json
             output/dukascopy/${{ github.event.inputs.symbol }}/validation_report.json
