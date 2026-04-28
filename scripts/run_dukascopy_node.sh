@@ -21,8 +21,16 @@ DN_OUT="${OUT}/dn"
 rm -rf "${DN_OUT}"
 mkdir -p "${DN_OUT}/bid" "${DN_OUT}/ask"
 
-# dukascopy-node fetches per-day; --batch-size groups multiple days per request
-# to amortise overhead. --gap-fill keeps the time grid contiguous over weekends.
+# Print the installed CLI's --help once so we always have the exact flag
+# set in the run logs (different package versions have slightly different
+# option names; the fail-fast on unknown options is otherwise opaque).
+echo "[node] dukascopy-node --help:"
+npx -y dukascopy-node --help || true
+echo "[node] dukascopy-node --version:"
+npx -y dukascopy-node --version || true
+
+# Minimum-viable flag set: only the universally-supported options. The
+# library has built-in retry/backoff that we don't need to override.
 common=(
     "--instrument" "${SYMBOL_LC}"
     "--date-from"  "${START}"
@@ -31,8 +39,6 @@ common=(
     "--format"     "csv"
     "--volumes"    "true"
     "--batch-size" "10"
-    "--retry-count" "3"
-    "--retry-on-empty" "false"
 )
 
 echo "[node] fetching bid M1 ${START} -> ${END} ..."
