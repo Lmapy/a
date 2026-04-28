@@ -61,9 +61,11 @@ KNOBS = [
     # 2. Add HTF context guard
     {"label": "pdh_pdl_inside",      "patch": ("add_filter",
                                               {"type": "pdh_pdl", "mode": "inside"})},
-    {"label": "htf_vwap_dist_2.5",   "patch": ("add_filter",
-                                              {"type": "htf_vwap_dist", "max_above": 2.5,
-                                               "max_below": 2.5})},
+    # NOTE: htf_vwap_dist removed in Batch F. VWAP-style filters
+    # require real volume that the harness does not have on disk;
+    # the feature-capability gate rejects them. The OHLC-only proxy
+    # `atr_distance_from_session_mean` will replace this knob once
+    # the proxy filter is wired into the executor in Batch G.
     # 3. Regime-class restriction
     {"label": "regime_trend",        "patch": ("add_filter",
                                               {"type": "regime_class", "allow": ["trend"]})},

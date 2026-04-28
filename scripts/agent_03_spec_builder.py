@@ -34,7 +34,12 @@ KNOWN_SIGNAL_TYPES = {
 }
 KNOWN_FILTER_TYPES = {
     "body_atr", "session", "regime", "min_streak", "atr_percentile",
-    "vwap_dist", "wick_ratio", "pdh_pdl", "regime_class", "htf_vwap_dist",
+    "wick_ratio", "pdh_pdl", "regime_class",
+    # NOTE: `vwap_dist` and `htf_vwap_dist` were previously here but
+    # required real volume / VWAP data the harness does not have on
+    # disk. The Batch F feature-capability gate now rejects them
+    # explicitly. Use `atr_distance_from_session_mean` once the OHLC
+    # proxy is wired into the executor (Batch G).
 }
 KNOWN_EXIT_TYPES = {"h4_close", "prev_h4_extreme_tp"}
 KNOWN_STOP_TYPES = {"none", "prev_h4_open", "prev_h4_extreme",

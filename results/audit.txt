@@ -64,6 +64,14 @@ XAUUSD Dukascopy-only pipeline audit
   [PASS] certifier does not silently consume the no-op shuffle test
   [PASS] statistical_tests.shuffled_outcome_test is deprecated   (shuffled_outcome_test must raise; see Phase 5 hardening)
 
+=== OHLC-only feature capability (Batch F) ===
+  [PASS] canonical registry disables real-volume / VWAP / VP / footprint / delta / CVD / orderbook
+  [PASS] VWAP / VolumeProfile / footprint / delta / CVD / orderbook tokens are rejected by classify_candidate
+  [PASS] TPO tokens (tpo_*) are accepted on OHLC-only data   (got status=ok, unavailable=[])
+
+=== active strategies do not reference unavailable data ===
+  [PASS] no canonical .py file references vwap / volume_profile / footprint / delta / cvd / orderbook / bid_ask_imbalance
+
 === results provenance ===
   [PASS] leaderboard_hardened.csv: provenance metadata present   (missing .meta.json — treat as research-only)
 

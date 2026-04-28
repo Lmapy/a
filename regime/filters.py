@@ -39,14 +39,10 @@ def trend_label(h4: pd.DataFrame, ma_n: int = 50) -> pd.Series:
     return pd.Series(sign).map({1: "up", -1: "down", 0: "flat"}).fillna("na")
 
 
-def vwap_distance_z(h4: pd.DataFrame, window: int = 24) -> pd.Series:
-    tp = (h4["high"] + h4["low"] + h4["close"]) / 3.0
-    v = h4["volume"]
-    num = (tp * v).rolling(window).sum()
-    den = v.rolling(window).sum()
-    vwap = num / den
-    sd = ((tp - vwap) ** 2).rolling(window).mean().pow(0.5)
-    return (h4["close"] - vwap) / sd
+# `vwap_distance_z` previously lived here. Removed in Batch F: requires
+# real volume the harness does not have on disk. The OHLC-only proxy
+# is `atr_distance_from_session_mean` (Batch G); call sites can build
+# it from the session-anchored TWAP / typical-price mean.
 
 
 def regime_breakdown(trades: list, h4: pd.DataFrame) -> pd.DataFrame:

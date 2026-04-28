@@ -432,6 +432,132 @@ def audit_prop_accounts_metadata(rep: Report) -> None:
                    if n_unver else "")
 
 
+def audit_feature_capability(rep: Report) -> None:
+    """Phase 9 (Batch F): the harness must reject candidates needing
+    unavailable real-volume / VWAP / Volume Profile / footprint /
+    delta / CVD / order-book features. TPO must be allowed without
+    real volume.
+
+    This audit performs three checks:
+      1. The canonical CapabilityRegistry has the expected disabled
+         features.
+      2. A representative VWAP/Volume Profile/footprint/delta/CVD/
+         orderbook candidate is rejected.
+      3. A representative TPO candidate is accepted.
+    """
+    rep.section("OHLC-only feature capability (Batch F)")
+    try:
+        from core.feature_capability import (
+            CANONICAL_REGISTRY, classify_candidate,
+        )
+    except Exception as exc:
+        rep.check("core.feature_capability importable", False, detail=str(exc))
+        return
+
+    expect_off = ("real_volume", "bid_ask_volume", "footprint", "delta",
+                  "cvd", "orderbook", "vwap", "volume_profile")
+    bad = [f for f in expect_off if getattr(CANONICAL_REGISTRY, f, True)]
+    rep.check(
+        "canonical registry disables real-volume / VWAP / VP / footprint / "
+        "delta / CVD / orderbook",
+        not bad,
+        detail=("UNEXPECTEDLY ENABLED: " + ", ".join(bad)) if bad else "")
+
+    rejected_tokens = ("vwap_dist", "volume_poc", "footprint", "delta",
+                        "cvd", "bid_ask_imbalance", "dom_liquidity")
+    misses: list[str] = []
+    for tok in rejected_tokens:
+        spec = {"signal": {"type": "prev_color"},
+                 "filters": [{"type": tok}],
+                 "entry": {"type": "touch_entry"},
+                 "stop": {"type": "prev_h4_open"},
+                 "exit": {"type": "h4_close"}}
+        v = classify_candidate(spec)
+        if v.status != "rejected_unavailable_data":
+            misses.append(tok)
+    rep.check("VWAP / VolumeProfile / footprint / delta / CVD / orderbook "
+              "tokens are rejected by classify_candidate",
+              not misses,
+              detail=("FAILED to reject: " + ", ".join(misses)) if misses else "")
+
+    tpo_spec = {"signal": {"type": "prev_color"},
+                 "filters": [{"type": "tpo_value_acceptance"},
+                              {"type": "tpo_poor_high"}],
+                 "entry": {"type": "tpo_value_rejection"},
+                 "stop": {"type": "prev_h4_open"},
+                 "exit": {"type": "h4_close"}}
+    v = classify_candidate(tpo_spec)
+    rep.check("TPO tokens (tpo_*) are accepted on OHLC-only data",
+              v.status == "ok",
+              detail=f"got status={v.status}, unavailable={v.unavailable_tokens}")
+
+
+def audit_active_strategies_no_unavailable_data(rep: Report) -> None:
+    """Sweep canonical strategy/runner files for hard-coded references
+    to unavailable-data features (vwap, volume_profile, footprint,
+    delta, cvd, orderbook). The intent is to catch regressions where
+    a token like `volume_poc` slips back into a runner / family
+    generator. Comments and docstrings are excluded by skipping lines
+    starting with `#` or wrapped in triple quotes.
+    """
+    rep.section("active strategies do not reference unavailable data")
+    forbidden = ("vwap", "volume_profile", "volume_poc", "footprint",
+                 "_delta", "cvd_", "bid_ask_imbalance", "dom_liquidity")
+    skip_dirs = ("scripts/_deprecated_", "data/_deprecated_",
+                 "results/_archive_pre_dukascopy", "results/_pre_hardening",
+                 "tests/", "agents/", "docs/", "results/audit.txt")
+    # Files that legitimately mention forbidden tokens by name:
+    # - audit.py: audit logic
+    # - feature_capability.py: registry declarations
+    # - build_pdf.py: PDF text labels (documentation)
+    # - strategy.py: deprecation tombstones (raise ValueError when the
+    #   v1 kernel is asked to run a vwap_dist filter)
+    skip_files = {"audit.py", "feature_capability.py",
+                  "build_pdf.py", "strategy.py"}
+    # active code paths to scan
+    paths = []
+    for sub in ("scripts", "validation", "execution", "core", "analytics",
+                 "prop", "prop_challenge", "data", "regime", "entry_models",
+                 "strategies"):
+        d = ROOT / sub
+        if not d.exists():
+            continue
+        for p in d.rglob("*.py"):
+            if any(s in str(p) for s in skip_dirs):
+                continue
+            paths.append(p)
+    offenders: list[str] = []
+    for p in paths:
+        if p.name in skip_files:
+            continue
+        try:
+            text = p.read_text(encoding="utf-8")
+        except UnicodeDecodeError:
+            continue
+        # very simple "is this a comment / docstring" filter to avoid
+        # the audit / capability declarations themselves flagging
+        in_doc = False
+        for i, line in enumerate(text.splitlines(), 1):
+            stripped = line.strip()
+            if stripped.startswith('"""') or stripped.startswith("'''"):
+                in_doc = not in_doc
+                continue
+            if in_doc:
+                continue
+            if stripped.startswith("#"):
+                continue
+            for f in forbidden:
+                if f in line.lower():
+                    offenders.append(f"{p.relative_to(ROOT)}:{i}: {line.strip()[:100]}")
+                    break
+    rep.check("no canonical .py file references vwap / volume_profile / "
+              "footprint / delta / cvd / orderbook / bid_ask_imbalance",
+              not offenders,
+              detail=("\n    " + "\n    ".join(offenders[:10])
+                      + (f"\n    ...({len(offenders)-10} more)" if len(offenders) > 10 else ""))
+                     if offenders else "")
+
+
 def audit_results_provenance(rep: Report) -> None:
     """Active leaderboard files should declare the commit / config they
     were produced from. Lacking that, we mark them as research-only."""
@@ -464,6 +590,8 @@ def main() -> int:
     audit_prop_sim_no_future_leak(rep)
     audit_prop_accounts_metadata(rep)
     audit_shuffle_test_disabled(rep)
+    audit_feature_capability(rep)
+    audit_active_strategies_no_unavailable_data(rep)
     audit_results_provenance(rep)
 
     rep.write("")

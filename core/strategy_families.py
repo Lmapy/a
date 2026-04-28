@@ -138,10 +138,17 @@ STRATEGY_FAMILIES: dict[str, dict] = {
         ],
     },
 
-    # F. Mean reversion to VWAP / MA (NEW).
-    "vwap_mean_reversion": {
-        "description": "Price extends > N std from VWAP/MA in a range "
-                       "regime; fade back to mean.",
+    # F. Mean reversion to session/MA (was "vwap_mean_reversion"; renamed
+    # in Batch F because the harness has no real volume so a true
+    # session-VWAP cannot be computed; the OHLC-only proxy is the
+    # session-anchored TWAP / typical-price mean. The proxy filter
+    # `atr_distance_from_session_mean` is wired in Batch G; until then
+    # this family is OHLC-only by NOT having a fair-value-distance
+    # filter at all -- the regime + reaction_close entry stand alone.
+    "session_mean_reversion": {
+        "description": "Range-regime fade back to a session-anchored mean. "
+                       "Pre-Batch-G: regime+entry only. Batch G adds an "
+                       "OHLC-only ATR-distance-from-session-mean filter.",
         "expected_failure_mode": "Trending regime where the extension keeps "
                                  "extending instead of reverting.",
         "required_data": ["H4", "M15"],
@@ -150,17 +157,16 @@ STRATEGY_FAMILIES: dict[str, dict] = {
         "template": {
             "signal": {"type": "prev_color_inverse"},
             "filters": [
-                {"type": "vwap_dist", "window": 24, "max_z": 2.5},   # require |z|>=2.5
-                {"type": "regime", "ma_n": 50, "side": "against"},   # against trend = range/MR
+                {"type": "regime", "ma_n": 50, "side": "against"},
             ],
             "entry": {"type": "reaction_close"},
             "stop": {"type": "prev_h4_extreme"},
             "exit": {"type": "h4_close"},
         },
         "variants": [
-            {"filters[0].max_z": 2.0},
-            {"filters[0].max_z": 2.5},
-            {"filters[0].max_z": 3.0},
+            {"filters[0].ma_n": 30},
+            {"filters[0].ma_n": 50},
+            {"filters[0].ma_n": 100},
         ],
     },
 

@@ -281,22 +281,14 @@ def apply_filters_np(h4: pd.DataFrame, sig: np.ndarray, filters: Iterable[dict])
             regime_prev[1:] = regime[:-1]
             mask &= np.isin(regime_prev, list(allowed))
         elif t == "htf_vwap_dist":
-            window = int(f.get("window", 24))
-            max_above = float(f.get("max_above", 2.0))
-            max_below = float(f.get("max_below", 2.0))
-            tp = (hi + lo + c) / 3.0
-            v = h4["volume"].values
-            num = pd.Series(tp * v).rolling(window).sum().values
-            den = pd.Series(v).rolling(window).sum().values
-            with np.errstate(divide="ignore", invalid="ignore"):
-                vwap = num / den
-            std = pd.Series((tp - vwap) ** 2).rolling(window).mean().pow(0.5).values
-            with np.errstate(divide="ignore", invalid="ignore"):
-                z = (c - vwap) / std
-            ok = np.ones(n, dtype=bool)
-            ok &= (sig <= 0) | (z <= max_above)
-            ok &= (sig >= 0) | (z >= -max_below)
-            mask &= np.isfinite(z) & ok
+            # REMOVED in Batch F: requires real volume the harness does
+            # not have on disk. Refuse the spec loudly here so v1
+            # strategy callers fail fast rather than silently misuse
+            # tick_count as volume.
+            raise ValueError(
+                "htf_vwap_dist requires real volume; "
+                "use atr_distance_from_session_mean instead "
+                "(see core/feature_capability.py)")
         elif t == "wick_ratio":
             mn = float(f.get("min", 0.5))
             body_prev = np.empty(n); body_prev[0] = np.nan
@@ -314,18 +306,13 @@ def apply_filters_np(h4: pd.DataFrame, sig: np.ndarray, filters: Iterable[dict])
             ranks = pd.Series(atr_arr).rolling(window).rank(pct=True).values
             mask &= np.isfinite(ranks) & (ranks >= lo_p) & (ranks <= hi_p)
         elif t == "vwap_dist":
-            window = int(f.get("window", 24))
-            max_z = float(f.get("max_z", 2.0))
-            tp = (hi + lo + c) / 3.0
-            v = h4["volume"].values
-            num = pd.Series(tp * v).rolling(window).sum().values
-            den = pd.Series(v).rolling(window).sum().values
-            with np.errstate(divide="ignore", invalid="ignore"):
-                vwap = num / den
-            std = pd.Series((tp - vwap) ** 2).rolling(window).mean().pow(0.5).values
-            with np.errstate(divide="ignore", invalid="ignore"):
-                z = (c - vwap) / std
-            mask &= np.isfinite(z) & (np.abs(z) <= max_z)
+            # REMOVED in Batch F: requires real volume the harness does
+            # not have on disk. Use atr_distance_from_session_mean for
+            # an OHLC-only proxy.
+            raise ValueError(
+                "vwap_dist requires real volume; "
+                "use atr_distance_from_session_mean instead "
+                "(see core/feature_capability.py)")
         elif t == "candle_class":
             # classify the *previous* H4 candle as trend / rotation / exhaustion.
             cls = f.get("classes", ["trend"])

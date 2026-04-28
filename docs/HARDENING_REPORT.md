@@ -1,4 +1,4 @@
-# Hardening report — Batches A + B + C + D + E
+# Hardening report — Batches A through F
 
 Date: 2026-04-29
 Branch: `claude/4h-candle-strategy-backtest-8kKdx`
@@ -386,13 +386,169 @@ Was 5 audit failures at Batch A start; **0 now**.
 | 28d | Prop sim summary | — | Median 25k blowup probability: 57.6% (Wilson upper CI 61.9%). High because most specs are losing or too volatile for the small account; the `prop_25k_research_only` flag is True on all 72 because each carries the legacy 25k preset's `verification_status="unverified"` (the canonical pipeline uses the legacy `prop.simulator.simulate_all` adapter which builds an `AccountSpec` from `core.constants.PROP_ACCOUNTS` rather than the verified `prop_accounts.json` keys). Promotion to verified-account simulations is a Batch-D-follow-up nice-to-have, not a hardening blocker — the 7 real-firm accounts in `prop_accounts.json` are now `verified` and ready to use directly. |
 | 29 | HARDENING_REPORT updated | ✅ landed (this section) | Documents what changed and why. |
 
-## What is NOT yet done
+## Batch F summary (OHLC-only foundations + UI scaffold)
 
-The pipeline is honest now, but a few residual items remain:
+This batch refactors the harness toward the prop-firm passing engine
+described in the Batch F brief. It establishes:
+
+- **OHLC-only feature contract.** `core/feature_capability.py` declares
+  what data the harness has on disk (OHLC, spread, tick count, TPO)
+  and what it does NOT have (real volume, bid/ask volume, footprint,
+  delta, CVD, order book, VWAP, Volume Profile). Strategy proposers
+  must check `classify_candidate(spec)` before running; an
+  unavailable-feature token (`vwap_dist`, `volume_poc`, `footprint`,
+  `delta`, `cvd`, `bid_ask_imbalance`, `dom_liquidity`, etc.) returns
+  `status="rejected_unavailable_data"` with the offending tokens and
+  a renaming hint to the OHLC proxy.
+
+- **TPO as a first-class allowed auction feature.** `analytics/tpo.py`
+  computes a true Time-Price-Opportunity profile from OHLC candles
+  alone — *time at price*, not volume at price. Outputs: POC, VAH,
+  VAL, value area width, single prints, poor highs/lows, excess
+  highs/lows, initial balance high/low, open inside/outside prior
+  value. The module never reads a `volume` column.
+
+- **PropCandidate schema.** `core/candidate.py` introduces
+  `PropCandidate` — the rich research object combining strategy +
+  filters + entry + stop + exit + risk model + daily rules + prop
+  account + certification metadata. Composition over inheritance:
+  `candidate.to_spec()` produces an executor-compatible `Spec` so
+  the hardened executor / walk-forward / holdout / statistical
+  pipeline keeps running unchanged. `PropCandidate.from_spec()`
+  wraps an existing Spec with default risk / daily / account.
+
+- **Certification ladder.** `core/certification.py` replaces the
+  binary `certified: bool` with an 8-level `CertificationLevel`
+  enum: `REJECTED_UNAVAILABLE_DATA → REJECTED_BROKEN → RESEARCH_ONLY
+  → WATCHLIST → CANDIDATE → PROP_CANDIDATE → CERTIFIED`, plus
+  `RETIRED` for previously-certified strategies that no longer
+  qualify. Each `FailureReason` (e.g. `FAIL_LOOKAHEAD`,
+  `FAIL_WALK_FORWARD`, `FAIL_HIGH_BLOWUP_PROBABILITY`) caps the
+  candidate at a specific level.
+
+- **UI event/progress scaffold.** `core/run_state.py` and
+  `core/run_events.py` write per-run `progress.json` and append-only
+  `events.jsonl` files under `results/runs/<run_id>/`. The hardened
+  pipeline still works without an EventWriter — `emit_candidate(None,
+  ...)` is a safe no-op. A future React/FastAPI control room (Batch
+  J) will tail `events.jsonl` and render per-stage progress.
+
+- **Active-code purge of unavailable-data references.** Three places
+  still hard-coded `vwap_dist` / `htf_vwap_dist` / `vwap_mean_reversion`
+  references were updated:
+    * `scripts/agent_03_spec_builder.py` — VWAP filters removed from
+      the known-filter set with a comment pointing at the OHLC proxy.
+    * `scripts/agent_06_refiner.py` — `htf_vwap_dist_2.5` knob
+      removed from the refinement allow-list.
+    * `core/strategy_families.py` — `vwap_mean_reversion` family
+      renamed to `session_mean_reversion`; the VWAP filter is dropped
+      from the template (Batch G adds the OHLC ATR-distance proxy).
+    * `scripts/strategy.py` — v1 strategy module's `vwap_dist` and
+      `htf_vwap_dist` filter implementations replaced with explicit
+      `raise ValueError(...)` so any caller that still passes those
+      tokens fails loudly rather than silently using `tick_count` as
+      volume.
+    * `regime/filters.py` — unused `vwap_distance_z` function
+      removed.
+
+- **Audit expansion.** `scripts/audit.py` adds two new sections:
+    * "OHLC-only feature capability (Batch F)" — verifies the
+      canonical `CapabilityRegistry` disables real volume / VWAP /
+      Volume Profile / footprint / delta / CVD / orderbook;
+      `classify_candidate` rejects representative tokens for each;
+      `tpo_*` tokens are accepted.
+    * "active strategies do not reference unavailable data" — sweeps
+      every `.py` in `scripts/`, `validation/`, `execution/`, `core/`,
+      `analytics/`, `prop/`, `prop_challenge/`, `data/`, `regime/`,
+      `entry_models/`, `strategies/` for hard-coded references to
+      `vwap`, `volume_profile`, `footprint`, `delta`, `cvd`,
+      `bid_ask_imbalance`, `dom_liquidity`. Skips the small set of
+      files that legitimately mention those tokens (`audit.py`,
+      `feature_capability.py`, `build_pdf.py` documentation,
+      `scripts/strategy.py` deprecation tombstones).
+
+### Batch F file changes
+
+```
+new file:   core/feature_capability.py
+new file:   core/certification.py
+new file:   core/candidate.py
+new file:   core/run_state.py
+new file:   core/run_events.py
+new file:   analytics/tpo.py
+new file:   tests/test_feature_capability.py
+new file:   tests/test_certification.py
+new file:   tests/test_candidate.py
+new file:   tests/test_tpo.py
+new file:   tests/test_run_events.py
+modified:   core/strategy_families.py        (vwap_mean_reversion -> session_mean_reversion)
+modified:   regime/filters.py                (vwap_distance_z removed)
+modified:   scripts/agent_03_spec_builder.py (vwap_dist / htf_vwap_dist out of KNOWN_FILTER_TYPES)
+modified:   scripts/agent_06_refiner.py      (htf_vwap_dist_2.5 knob removed)
+modified:   scripts/strategy.py              (vwap_dist / htf_vwap_dist tombstoned)
+modified:   scripts/audit.py                 (Batch F audit sections)
+modified:   scripts/run_tests.py             (5 new test files wired)
+modified:   Makefile                         (5 new test files wired)
+```
+
+### Batch F tests
+
+55 new tests across 5 files:
+
+- `test_feature_capability.py` (12) — VWAP / VP / footprint / delta /
+  CVD / orderbook tokens are rejected; TPO tokens are allowed without
+  volume; existing OHLC filters still allowed; unknown tokens
+  reported but treated as OHLC; `assert_only_ohlc_only` raises;
+  registry can be overridden if a future dataset adds real volume;
+  no typos in the tag map.
+- `test_certification.py` (10) — levels are uniquely ordered;
+  failure reasons all have caps; `REJECTED_UNAVAILABLE_DATA`
+  dominates other failures; lookahead caps at REJECTED_BROKEN; prop-
+  specific failures cap at PROP_CANDIDATE; `promote/demote` clamp at
+  extremes; verdict round-trips through JSON.
+- `test_candidate.py` (6) — `to_spec()` returns an executor-
+  compatible Spec; `from_spec()` round-trips; rich blocks (Risk /
+  DailyRules / AccountRef) round-trip through dict; certification
+  state round-trips through JSON.
+- `test_tpo.py` (13) — POC at most-visited price; VAH/VAL sandwich
+  POC; single prints, poor highs/lows, excess flags consistent with
+  auction-theory definitions; initial balance covers first N
+  brackets only; open-inside-value detection works with prior value;
+  empty input safe; profile JSON-serialises; `session_slices`
+  yields one group per UTC day; bracket count uses candle range
+  (no volume column).
+- `test_run_events.py` (14) — run directory + events.jsonl created;
+  `next_seq` increments per date; `set_stage` / `set_status` /
+  `bump` validate against allowed vocabularies; events appended as
+  one JSON line each, timestamped + run-id-stamped automatically;
+  malformed events rejected; recent_events list capped;
+  `emit_candidate` / `emit_stage` helpers; safe with `events=None`;
+  `write_summary` includes extras; run_id format is sortable
+  `YYYY-MM-DD_NNN`.
+
+### Test totals
+
+**130 individual tests across 16 files; all passing.** Was 75/75
+after Batch C-E.
+
+### Audit totals
+
+**45 PASS / 0 FAIL.** Was 33 PASS / 2 FAIL after Batch C-E.
+
+The two formerly-known failures are gone:
+- "no real-firm accounts left as 'unverified' or 'stale'" — fixed in
+  Batch D when verified rules came back from the research agent.
+- "leaderboard_hardened.csv: provenance metadata present" — fixed in
+  Batch E when `make pipeline` produced the `.meta.json` sidecar.
+
+## What is NOT yet done
 
 | Item | Owner / Notes |
 |---|---|
-| Walk-forward gate is relaxed (`min_folds=4`, `min_median_sharpe=0`) because the train slice (2020-07 → 2022-01) only fits ~4 disjoint 6m/3m folds. To restore the full 20-fold gate, fetch older Dukascopy years and widen `research_train.start`. | User decision; sub-2020 data is not yet in the sidecar branch. |
+| Batch G — strategy family generators (10 OHLC-only families) + entry-model lab + risk sweep + daily-rule optimiser. | Next batch. The PropCandidate schema is the boundary; family generators emit candidates, the lab modules run sweeps, the orchestrator is tiered. |
+| Batch H/I — `scripts/run_prop_passing.py` orchestrator, `prop_passing_leaderboard.csv` + `.meta.json`, `prop_passing_report.md`, README rewrite. | After Batch G. |
+| Batch J — local React/FastAPI control room. | Far future; the event scaffold from Batch F is the contract. |
+| Walk-forward gate is relaxed (`min_folds=4`, `min_median_sharpe=0`) because the train slice (2020-07 → 2022-01) only fits ~4 disjoint 6m/3m folds. To restore the full 20-fold gate, fetch older Dukascopy years and widen `research_train.start`. | User decision; sub-2020 data is not yet in the sidecar branch. The user has explicitly chosen "leave as is" for now. |
 | Re-verifying prop accounts in 90 days. | Operational; the audit will start failing on `last_verified` staleness automatically. |
 | The legacy `scripts/run_alpha.py` and `scripts/run_prop_challenge.py` still call `load_all` (full-series data) instead of `load_splits()`. They predate Batch D. They've been kept in `scripts/` (not moved to `_deprecated_/`) for back-compat but the README marks them as legacy. | Optional follow-up; if you want them retired, move to `_deprecated_/`. |
 

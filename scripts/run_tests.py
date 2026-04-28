@@ -29,6 +29,11 @@ TEST_FILES = [
     "tests/test_statistical_tests.py",
     "tests/test_trade_metrics.py",
     "tests/test_prop_simulator.py",
+    "tests/test_feature_capability.py",
+    "tests/test_certification.py",
+    "tests/test_candidate.py",
+    "tests/test_tpo.py",
+    "tests/test_run_events.py",
 ]
 
 
