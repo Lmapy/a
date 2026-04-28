@@ -74,6 +74,15 @@ def _write_chunk(symbol: str, tf: str, freq_min: int, out_root: Path,
 
 
 def _merge_chunks(symbol: str, tf: str, out_root: Path, write_csv: bool) -> int:
+    """Merge per-chunk parquet into:
+
+      - one merged file <out>/<SYM>/<TF>/<SYM>_<TF>.parquet
+      - per-year files <out>/<SYM>/<TF>/year=YYYY.parquet
+
+    The per-year split exists so the sidecar-branch commit step can push
+    files that fit under GitHub's 100 MB per-file limit (M1 merged is
+    ~250 MB for 6 years; per-year M1 is ~40 MB).
+    """
     tf_dir = out_root / symbol / tf
     chunk_dir = tf_dir / "_chunks"
     if not chunk_dir.exists():
@@ -87,11 +96,18 @@ def _merge_chunks(symbol: str, tf: str, out_root: Path, write_csv: bool) -> int:
             .sort_values("time")
             .reset_index(drop=True))
     df = df[CANDLE_COLS]
+
+    # 1) merged file (convenient for local use; may be too big to git-push)
     out_pq = tf_dir / f"{symbol}_{tf}.parquet"
     df.to_parquet(out_pq, index=False)
     if write_csv:
         df.to_csv(tf_dir / f"{symbol}_{tf}.csv", index=False)
-    # leave chunk dir on disk; pipeline runner cleans it
+
+    # 2) per-year files (always written; safe to commit to a sidecar branch)
+    df["_year"] = df["time"].dt.year
+    for year, g in df.groupby("_year"):
+        ypath = tf_dir / f"year={int(year)}.parquet"
+        g.drop(columns=["_year"]).to_parquet(ypath, index=False)
     return len(df)
 
 

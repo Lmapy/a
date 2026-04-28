@@ -102,15 +102,20 @@ def audit_dataset_source(rep: Report, avail: dict[str, list[int]]) -> None:
         return
     bad = 0
     for tf in avail:
-        for f in (CANDLES / tf).glob("year=*.csv"):
-            df = pd.read_csv(f, nrows=1)
+        files = (list((CANDLES / tf).glob("year=*.parquet"))
+                 + list((CANDLES / tf).glob("year=*.csv")))
+        for f in files:
+            if f.suffix == ".parquet":
+                df = pd.read_parquet(f, columns=["dataset_source"])
+            else:
+                df = pd.read_csv(f, nrows=1)
             if "dataset_source" not in df.columns:
                 rep.check(f"{tf}/{f.name}: dataset_source column present",
                           False, detail="missing column")
                 bad += 1
                 continue
-            if df["dataset_source"].iloc[0] != "dukascopy":
-                rep.check(f"{tf}/{f.name}: row 0 dataset_source",
+            if (df["dataset_source"] != "dukascopy").any():
+                rep.check(f"{tf}/{f.name}: dataset_source",
                           False, detail=f"got={df['dataset_source'].iloc[0]}")
                 bad += 1
     rep.check("every candle file's dataset_source == dukascopy", bad == 0)

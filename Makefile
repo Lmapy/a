@@ -1,4 +1,4 @@
-.PHONY: all data audit fib backtest search skeptic v2 alpha prop report test pdf clean
+.PHONY: all data pull-data audit fib backtest search skeptic v2 alpha prop report test pdf clean
 
 all: data audit alpha prop pdf
 
@@ -6,6 +6,9 @@ all: data audit alpha prop pdf
 # see data/_deprecated_/. Default range is the period covered by config/data_splits.json.
 data:
 	python3 scripts/fetch_dukascopy.py --symbol XAUUSD --start 2008-01-01 --end 2026-04-29
+
+pull-data:
+	python3 scripts/pull_sidecar.py
 
 audit:
 	python3 scripts/audit.py
