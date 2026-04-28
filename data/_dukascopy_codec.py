@@ -181,36 +181,54 @@ def make_session(pool_size: int):
 
 
 def download_bi5_session(url: str, dst: Path, session, *, timeout: int = 30,
-                         retries: int = 3, backoff: float = 0.5) -> bytes:
+                         retries: int = 5, backoff: float = 1.0) -> bytes:
     """Like download_bi5 but reuses TLS connections through a requests
     Session. Each parallel worker should hold its own session (sessions
-    are not fully thread-safe under heavy contention)."""
+    are not fully thread-safe under heavy contention).
+
+    403 is treated as RETRYABLE (Dukascopy rate-limits aggressive
+    concurrency by returning 403, not 429). After `retries` retries of
+    403/429/5xx the request is finally classified as unreachable.
+    """
     err: Exception | None = None
+    last_status: int | None = None
     for attempt in range(retries):
         try:
             r = session.get(url, timeout=timeout, stream=False)
         except Exception as e:    # ConnectionError, Timeout, etc.
             err = e
             if attempt + 1 < retries:
-                time.sleep(backoff * (2 ** attempt))
+                # exponential backoff with jitter -- spreads workers
+                # apart when Dukascopy rate-limits a burst
+                import random
+                time.sleep(backoff * (2 ** attempt) * (1 + 0.3 * random.random()))
             continue
+        last_status = r.status_code
         if r.status_code == 200:
             body = r.content
             dst.parent.mkdir(parents=True, exist_ok=True)
             dst.write_bytes(body)
             return body
         if r.status_code == 404:
+            # closed-market hour; cache as empty so we don't refetch
             dst.parent.mkdir(parents=True, exist_ok=True)
             dst.write_bytes(b"")
             return b""
-        if r.status_code == 403:
-            raise DukascopyUnreachable(
-                f"403 on {url} — upstream blocked by your network.")
+        if r.status_code in (403, 429) or 500 <= r.status_code < 600:
+            # rate-limited / server error -> retry with backoff
+            err = RuntimeError(f"HTTP {r.status_code} on {url}")
+            if attempt + 1 < retries:
+                import random
+                time.sleep(backoff * (2 ** attempt) * (1 + 0.3 * random.random()))
+            continue
+        # any other status -> retry once
         err = RuntimeError(f"HTTP {r.status_code} on {url}")
         if attempt + 1 < retries:
-            time.sleep(backoff * (2 ** attempt))
+            time.sleep(backoff)
+    # all retries exhausted
     raise DukascopyUnreachable(
-        f"failed to fetch {url} after {retries} attempts: {err}") from err
+        f"failed to fetch {url} after {retries} attempts "
+        f"(last_status={last_status}): {err}") from err
 
 
 # ---------- decode ----------

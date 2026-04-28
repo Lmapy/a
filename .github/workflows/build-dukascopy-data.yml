@@ -38,9 +38,9 @@ on:
         required: false
         default: ""
       workers:
-        description: "Parallel download workers (32 is a good default; raise if download is the bottleneck)"
+        description: "Parallel download workers (Dukascopy rate-limits >8 with 403; default 6 is the sweet spot)"
         required: true
-        default: "32"
+        default: "6"
       write_csv:
         description: "Also emit CSV copies of every timeframe (candles mode only)"
         required: true

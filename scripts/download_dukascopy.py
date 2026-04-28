@@ -40,12 +40,16 @@ def parse_args() -> argparse.Namespace:
     p.add_argument("--end",   required=True, help="UTC end YYYY-MM-DD (exclusive)")
     p.add_argument("--output-dir", default="output/dukascopy")
     p.add_argument("--retries", type=int, default=3)
-    p.add_argument("--workers", type=int, default=32,
-                   help="parallel download workers (default 32)")
-    p.add_argument("--unreachable-threshold", type=int, default=50,
-                   help="bail if this many 403s pile up (firewall guard); "
-                        "default 50 (was 5 — too aggressive for a real run "
-                        "with transient errors)")
+    p.add_argument("--workers", type=int, default=6,
+                   help="parallel download workers (default 6). Dukascopy "
+                        "rate-limits high concurrency via 403; 4-8 is the "
+                        "sweet spot. Higher counts work briefly then start "
+                        "throwing 403s that even retries struggle with.")
+    p.add_argument("--unreachable-threshold", type=int, default=200,
+                   help="bail only after this many hours stay unreachable "
+                        "across all retries. With retries=5 + backoff this "
+                        "is a true 'something is wrong' signal, not "
+                        "transient rate-limiting noise.")
     return p.parse_args()
 
 
