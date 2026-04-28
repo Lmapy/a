@@ -1,19 +1,17 @@
 name: build-dukascopy-data
 
-# Manual-only ingestion of Dukascopy XAUUSD ticks -> candles.
+# Manual-only ingestion of Dukascopy XAUUSD candles via the
+# dukascopy-node Node.js library (which handles Dukascopy's per-IP rate
+# limiting). The Python downloader path is kept as a fallback for
+# ticks_only mode.
 #
-# Two modes:
-#   ticks_only  - download .bi5 hourly tick files only and upload the raw/
-#                 tree as the artifact. Decode + resample happen LOCALLY
-#                 via scripts/build_dukascopy_candles.py.
-#   candles     - full pipeline in CI: download -> decode + resample to
-#                 8 timeframes -> validate. The candle parquet is then
-#                 force-pushed to the sidecar branch named in
-#                 `commit_to_branch` (default: data-dukascopy) so a
-#                 sandbox that can only reach github.com can pull the
-#                 result via codeload zip without manual steps.
-#
-# The sidecar branch is regenerable; never merge it into main.
+# Modes:
+#   candles      [default]  fetch M1 bid + ask via dukascopy-node, combine
+#                           into mid OHLC + spread, resample to all 8
+#                           timeframes, force-push to data-dukascopy.
+#   ticks_only              fetch raw .bi5 via the in-house Python
+#                           downloader and upload as artifact (for users
+#                           who want to do their own decoding).
 
 on:
   workflow_dispatch:
@@ -23,7 +21,7 @@ on:
         required: true
         default: "XAUUSD"
       mode:
-        description: "candles (full pipeline + push to sidecar) | ticks_only (raw .bi5 only)"
+        description: "candles (default; uses dukascopy-node) | ticks_only (raw .bi5 only)"
         required: true
         default: "candles"
       years_back:
@@ -39,23 +37,14 @@ on:
         required: false
         default: ""
       workers:
-        description: "Parallel download workers (Dukascopy rate-limits >8 with 403; default 6)"
+        description: "Workers for the ticks_only Python downloader (ignored in candles mode)"
         required: true
         default: "6"
-      write_csv:
-        description: "Also emit CSV copies of every timeframe (candles mode only)"
-        required: true
-        default: "false"
-      chunk_by:
-        description: "Chunk granularity for build step: year | quarter | month"
-        required: true
-        default: "year"
       commit_to_branch:
         description: "Push candles to this orphan branch (candles mode). Empty disables."
         required: false
         default: "data-dukascopy"
 
-# Need write so the final step can force-push the sidecar branch.
 permissions:
   contents: write
 
@@ -73,10 +62,22 @@ jobs:
         with:
           python-version: "3.11"
 
-      - name: Install dependencies
+      - name: Set up Node.js 20
+        if: ${{ github.event.inputs.mode == 'candles' }}
+        uses: actions/setup-node@v4
+        with:
+          node-version: "20"
+
+      - name: Install Python dependencies
         run: |
           python -m pip install --upgrade pip
           pip install pandas numpy pyarrow requests tqdm
+
+      - name: Install dukascopy-node (npm)
+        if: ${{ github.event.inputs.mode == 'candles' }}
+        run: |
+          npm install -g dukascopy-node
+          npx -y dukascopy-node --version || true
 
       - name: Resolve date range
         id: range
@@ -87,50 +88,49 @@ jobs:
         run: |
           set -e
           if [ -n "$SD" ] && [ -n "$ED" ]; then
-            echo "use=explicit" >> "$GITHUB_OUTPUT"
-            echo "start=$SD"   >> "$GITHUB_OUTPUT"
-            echo "end=$ED"     >> "$GITHUB_OUTPUT"
-            echo "Using explicit range: $SD -> $ED"
+            START="$SD"; END="$ED"
+            echo "Using explicit range: $START -> $END"
           else
-            echo "use=relative" >> "$GITHUB_OUTPUT"
-            echo "yb=$YB"       >> "$GITHUB_OUTPUT"
-            echo "Using years_back=$YB (today minus YB years)"
+            END="$(date -u +%Y-%m-%d)"
+            START="$(date -u -d "${YB} years ago" +%Y-%m-%d)"
+            echo "Using years_back=${YB}: $START -> $END"
           fi
+          echo "start=$START" >> "$GITHUB_OUTPUT"
+          echo "end=$END"     >> "$GITHUB_OUTPUT"
 
-      - name: Run Dukascopy pipeline
+      - name: Run candles pipeline (dukascopy-node + resample)
+        if: ${{ github.event.inputs.mode == 'candles' }}
         env:
-          SYMBOL:     ${{ github.event.inputs.symbol }}
-          MODE:       ${{ github.event.inputs.mode }}
-          WRITE_CSV:  ${{ github.event.inputs.write_csv }}
-          CHUNK_BY:   ${{ github.event.inputs.chunk_by }}
-          WORKERS:    ${{ github.event.inputs.workers }}
-          USE:        ${{ steps.range.outputs.use }}
-          START:      ${{ steps.range.outputs.start }}
-          END:        ${{ steps.range.outputs.end }}
-          YB:         ${{ steps.range.outputs.yb }}
+          SYMBOL: ${{ github.event.inputs.symbol }}
+          START:  ${{ steps.range.outputs.start }}
+          END:    ${{ steps.range.outputs.end }}
         run: |
-          set -e
-          ARGS=(--symbol "$SYMBOL" --output-dir output/dukascopy --chunk-by "$CHUNK_BY" --workers "$WORKERS")
-          if [ "$WRITE_CSV" = "true" ]; then ARGS+=(--write-csv); fi
-          if [ "$MODE" = "ticks_only" ]; then ARGS+=(--ticks-only --keep-raw); fi
-          if [ "$USE" = "explicit" ]; then
-            ARGS+=(--start-date "$START" --end-date "$END")
-          else
-            ARGS+=(--years-back "$YB")
-          fi
-          echo "+ python scripts/run_dukascopy_pipeline.py ${ARGS[@]}"
-          python scripts/run_dukascopy_pipeline.py "${ARGS[@]}"
+          mkdir -p output/dukascopy
+          bash scripts/run_dukascopy_node.sh "$SYMBOL" "$START" "$END" output/dukascopy
+
+      - name: Run ticks_only pipeline (Python downloader)
+        if: ${{ github.event.inputs.mode == 'ticks_only' }}
+        env:
+          SYMBOL:  ${{ github.event.inputs.symbol }}
+          WORKERS: ${{ github.event.inputs.workers }}
+          START:   ${{ steps.range.outputs.start }}
+          END:     ${{ steps.range.outputs.end }}
+        run: |
+          python scripts/run_dukascopy_pipeline.py \
+            --symbol "$SYMBOL" --output-dir output/dukascopy \
+            --workers "$WORKERS" --ticks-only --keep-raw \
+            --start-date "$START" --end-date "$END"
 
       - name: Tree of output/dukascopy
         if: always()
         run: |
-          echo "=== output/dukascopy contents (top 50) ==="
-          find output/dukascopy -maxdepth 6 -type f -printf '%s\t%p\n' | sort | head -50
+          echo "=== output/dukascopy contents (top 80) ==="
+          find output/dukascopy -maxdepth 6 -type f -printf '%s\t%p\n' | sort | head -80
           echo "=== total size ==="
           du -sh output/dukascopy 2>/dev/null || true
           echo "=== manifest ==="
-          if [ -f output/dukascopy/${{ github.event.inputs.symbol }}/manifest.json ]; then
-            cat output/dukascopy/${{ github.event.inputs.symbol }}/manifest.json
+          if [ -f "output/dukascopy/${{ github.event.inputs.symbol }}/manifest.json" ]; then
+            cat "output/dukascopy/${{ github.event.inputs.symbol }}/manifest.json"
           fi
 
       - name: Zip artifact (mode-aware)
@@ -141,7 +141,7 @@ jobs:
           set -e
           if [ "$MODE" = "ticks_only" ]; then
             ZIP_NAME="${SYMBOL}_dukascopy_ticks.zip"
-            (cd output/dukascopy && zip -r -q "../../${ZIP_NAME}" raw "${SYMBOL}/manifest.json")
+            (cd output/dukascopy && zip -r -q "../../${ZIP_NAME}" raw "${SYMBOL}/manifest.json" 2>/dev/null) || true
           else
             ZIP_NAME="${SYMBOL}_dukascopy_candles.zip"
             (cd output/dukascopy && zip -r -q "../../${ZIP_NAME}" "${SYMBOL}")
@@ -171,9 +171,6 @@ jobs:
           retention-days: 30
 
       - name: Force-push candles to sidecar branch
-        # Only when we actually built candles AND the user wants the sidecar
-        # populated. The branch is treated as a regenerable orphan: history
-        # is replaced on every run, never merged into main.
         if: ${{ github.event.inputs.mode == 'candles' && github.event.inputs.commit_to_branch != '' }}
         env:
           BRANCH: ${{ github.event.inputs.commit_to_branch }}
@@ -182,38 +179,34 @@ jobs:
           GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
         run: |
           set -e
-          # We push only the per-year parquet files (and merged when small
-          # enough) plus the manifest + validation report. No raw ticks.
           STAGE=/tmp/sidecar
           rm -rf "$STAGE"
           mkdir -p "$STAGE/data/dukascopy/candles"
           cp -r "output/dukascopy/${SYMBOL}" "$STAGE/data/dukascopy/candles/"
-          # Drop merged files larger than 95 MB so git push won't fail
-          # at GitHub's 100 MB per-file ceiling.
+          # Drop merged files larger than 95 MB so git push doesn't trip the 100 MB limit.
           find "$STAGE" -type f -name "${SYMBOL}_*.parquet" \
             ! -name "year=*" -size +95M -print -delete || true
-
-          # README at the branch root explains its purpose for anyone who
-          # finds the branch by accident.
           cat > "$STAGE/README.md" <<EOF
           # data-dukascopy (regenerable sidecar)
 
           This branch is force-replaced by the build-dukascopy-data
-          GitHub Actions workflow on every refresh. It is **not** a code
-          branch — do not merge it into main.
+          GitHub Actions workflow. It is not a code branch — do not
+          merge it into main.
 
           Layout:
             data/dukascopy/candles/${SYMBOL}/<TF>/year=YYYY.parquet
             data/dukascopy/candles/${SYMBOL}/manifest.json
             data/dukascopy/candles/${SYMBOL}/validation_report.json
 
-          Each candle row carries dataset_source = "dukascopy". To pull
-          locally: codeload zip
+          Built via dukascopy-node (M1 bid + ask -> mid + spread,
+          resampled to M1 M3 M5 M15 M30 H1 H4 D1). Each candle row
+          carries dataset_source = "dukascopy".
+
+          Pull (codeload zip):
             https://codeload.github.com/${{ github.repository }}/zip/refs/heads/${BRANCH}
-          or per-file
+          Per-file:
             https://raw.githubusercontent.com/${{ github.repository }}/${BRANCH}/<path>
           EOF
-
           cd "$STAGE"
           git init -q -b "$BRANCH"
           git config user.name  "github-actions[bot]"
