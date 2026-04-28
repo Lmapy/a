@@ -1,0 +1,190 @@
+{
+  "symbol": "XAUUSD",
+  "timeframes": {
+    "M1": {
+      "timeframe": "M1",
+      "path": "output/dukascopy/XAUUSD/M1/XAUUSD_M1.parquet",
+      "hard_failures": [],
+      "warnings": [],
+      "rows": 2063372,
+      "first_time": "2020-07-01 00:00:00+00:00",
+      "last_time": "2026-04-27 23:59:00+00:00",
+      "gap_summary": {
+        "n_gaps": 1897,
+        "max_gap_min": 4576.0,
+        "n_large_gaps_over_6_bars": 1510
+      },
+      "price_range": {
+        "min_low": 1614.901,
+        "max_high": 5598.26,
+        "median_close": 1952.4
+      },
+      "spread_range": {
+        "spread_mean_avg": 0.43578749445083304,
+        "spread_max_max": 137.60699999999997
+      }
+    },
+    "M3": {
+      "timeframe": "M3",
+      "path": "output/dukascopy/XAUUSD/M3/XAUUSD_M3.parquet",
+      "hard_failures": [],
+      "warnings": [],
+      "rows": 687963,
+      "first_time": "2020-07-01 00:00:00+00:00",
+      "last_time": "2026-04-27 23:57:00+00:00",
+      "gap_summary": {
+        "n_gaps": 1517,
+        "max_gap_min": 4578.0,
+        "n_large_gaps_over_6_bars": 1504
+      },
+      "price_range": {
+        "min_low": 1614.901,
+        "max_high": 5598.26,
+        "median_close": 1952.3965
+      },
+      "spread_range": {
+        "spread_mean_avg": 0.43592936417607936,
+        "spread_max_max": 137.60699999999997
+      }
+    },
+    "M5": {
+      "timeframe": "M5",
+      "path": "output/dukascopy/XAUUSD/M5/XAUUSD_M5.parquet",
+      "hard_failures": [],
+      "warnings": [],
+      "rows": 412787,
+      "first_time": "2020-07-01 00:00:00+00:00",
+      "last_time": "2026-04-27 23:55:00+00:00",
+      "gap_summary": {
+        "n_gaps": 1509,
+        "max_gap_min": 4580.0,
+        "n_large_gaps_over_6_bars": 1503
+      },
+      "price_range": {
+        "min_low": 1614.901,
+        "max_high": 5598.26,
+        "median_close": 1952.3899999999999
+      },
+      "spread_range": {
+        "spread_mean_avg": 0.43594571691938183,
+        "spread_max_max": 137.60699999999997
+      }
+    },
+    "M15": {
+      "timeframe": "M15",
+      "path": "output/dukascopy/XAUUSD/M15/XAUUSD_M15.parquet",
+      "hard_failures": [],
+      "warnings": [],
+      "rows": 137601,
+      "first_time": "2020-07-01 00:00:00+00:00",
+      "last_time": "2026-04-27 23:45:00+00:00",
+      "gap_summary": {
+        "n_gaps": 1503,
+        "max_gap_min": 4590.0,
+        "n_large_gaps_over_6_bars": 345
+      },
+      "price_range": {
+        "min_low": 1614.901,
+        "max_high": 5598.26,
+        "median_close": 1952.3654999999999
+      },
+      "spread_range": {
+        "spread_mean_avg": 0.43602902352250833,
+        "spread_max_max": 137.60699999999997
+      }
+    },
+    "M30": {
+      "timeframe": "M30",
+      "path": "output/dukascopy/XAUUSD/M30/XAUUSD_M30.parquet",
+      "hard_failures": [],
+      "warnings": [],
+      "rows": 68806,
+      "first_time": "2020-07-01 00:00:00+00:00",
+      "last_time": "2026-04-27 23:30:00+00:00",
+      "gap_summary": {
+        "n_gaps": 1503,
+        "max_gap_min": 4590.0,
+        "n_large_gaps_over_6_bars": 345
+      },
+      "price_range": {
+        "min_low": 1614.901,
+        "max_high": 5598.26,
+        "median_close": 1952.3807499999998
+      },
+      "spread_range": {
+        "spread_mean_avg": 0.4360058015431511,
+        "spread_max_max": 137.60699999999997
+      }
+    },
+    "H1": {
+      "timeframe": "H1",
+      "path": "output/dukascopy/XAUUSD/H1/XAUUSD_H1.parquet",
+      "hard_failures": [],
+      "warnings": [],
+      "rows": 34417,
+      "first_time": "2020-07-01 00:00:00+00:00",
+      "last_time": "2026-04-27 23:00:00+00:00",
+      "gap_summary": {
+        "n_gaps": 1502,
+        "max_gap_min": 4620.0,
+        "n_large_gaps_over_6_bars": 308
+      },
+      "price_range": {
+        "min_low": 1614.901,
+        "max_high": 5598.26,
+        "median_close": 1952.408
+      },
+      "spread_range": {
+        "spread_mean_avg": 0.4359978835962962,
+        "spread_max_max": 137.60699999999997
+      }
+    },
+    "H4": {
+      "timeframe": "H4",
+      "path": "output/dukascopy/XAUUSD/H4/XAUUSD_H4.parquet",
+      "hard_failures": [],
+      "warnings": [],
+      "rows": 9309,
+      "first_time": "2020-07-01 00:00:00+00:00",
+      "last_time": "2026-04-27 20:00:00+00:00",
+      "gap_summary": {
+        "n_gaps": 308,
+        "max_gap_min": 4560.0,
+        "n_large_gaps_over_6_bars": 306
+      },
+      "price_range": {
+        "min_low": 1614.901,
+        "max_high": 5598.26,
+        "median_close": 1952.385
+      },
+      "spread_range": {
+        "spread_mean_avg": 0.44250254677993667,
+        "spread_max_max": 137.60699999999997
+      }
+    },
+    "D1": {
+      "timeframe": "D1",
+      "path": "output/dukascopy/XAUUSD/D1/XAUUSD_D1.parquet",
+      "hard_failures": [],
+      "warnings": [],
+      "rows": 1810,
+      "first_time": "2020-07-01 00:00:00+00:00",
+      "last_time": "2026-04-27 00:00:00+00:00",
+      "gap_summary": {
+        "n_gaps": 304,
+        "max_gap_min": 4320.0,
+        "n_large_gaps_over_6_bars": 0
+      },
+      "price_range": {
+        "min_low": 1614.901,
+        "max_high": 5598.26,
+        "median_close": 1954.26925
+      },
+      "spread_range": {
+        "spread_mean_avg": 0.4643717526075244,
+        "spread_max_max": 137.60699999999997
+      }
+    }
+  },
+  "overall_hard_failures": 0
+}

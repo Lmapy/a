@@ -1,0 +1,29 @@
+{
+  "official_source": "dukascopy",
+  "downloaded_via": "dukascopy-node",
+  "symbol": "XAUUSD",
+  "timeframes": [
+    "M1",
+    "M3",
+    "M5",
+    "M15",
+    "M30",
+    "H1",
+    "H4",
+    "D1"
+  ],
+  "rows_per_timeframe": {
+    "M1": 2063372,
+    "M3": 687963,
+    "M5": 412787,
+    "M15": 137601,
+    "M30": 68806,
+    "H1": 34417,
+    "H4": 9309,
+    "D1": 1810
+  },
+  "range_start_utc": "2020-04-28",
+  "range_end_utc": "2026-04-28",
+  "generated_at_utc": "2026-04-28T05:45:48+00:00",
+  "policy": "Single-source Dukascopy. Lower TFs derived from M1 mid (bid+ask)/2; spread_mean per bar = ask_close - bid_close; tick_count is aggregated from M1 (1 per minute, summed)."
+}
