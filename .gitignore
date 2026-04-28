@@ -36,3 +36,13 @@ results/certified_alpha_strategies.json
 # results/_archive_pre_dukascopy/ for the old runs; the live one is
 # regenerated each time `make alpha` runs. Avoid noisy per-run diffs.
 results/leaderboard.csv
+
+# Per-run prop simulation outputs. The prop_challenge_leaderboard.csv
+# is the canonical summary (kept tracked); the individual aggregations
+# can be regenerated.
+results/prop_account_comparison.csv
+results/prop_risk_model_comparison.csv
+results/prop_daily_rules_comparison.csv
+results/prop_payout_survival.csv
+results/prop_failure_modes.json
+results/certified_prop_challenge_strategies.json
