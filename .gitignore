@@ -1,8 +1,9 @@
-__pycache__/
-*.pyc
-.DS_Store
 
 # Regenerable audit outputs from `make search` (kept locally, not in git).
 # leaderboard.csv is committed; the per-fold and per-trade dumps are not.
+*.pyc
+.DS_Store
+__pycache__/
+output/
 results/search_folds.csv
 results/search_holdout_trades.csv

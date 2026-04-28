@@ -1,0 +1,21 @@
+{
+  "_meta": {
+    "purpose": "Per-symbol Dukascopy decode metadata: price_scale (raw int -> price multiplier 1/price_scale) and a sanity range for post-decode warnings.",
+    "source": "https://www.dukascopy.com/swiss/english/marketwatch/historical/"
+  },
+  "XAUUSD": {
+    "price_scale": 1000,
+    "expected_price_min": 200.0,
+    "expected_price_max": 10000.0
+  },
+  "XAGUSD": {
+    "price_scale": 1000,
+    "expected_price_min": 5.0,
+    "expected_price_max": 200.0
+  },
+  "EURUSD": {
+    "price_scale": 100000,
+    "expected_price_min": 0.5,
+    "expected_price_max": 2.0
+  }
+}
