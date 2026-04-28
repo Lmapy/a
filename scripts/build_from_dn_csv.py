@@ -43,18 +43,38 @@ from data._dukascopy_codec import CANDLE_COLS, TIMEFRAMES_MIN
 
 def _read_dn_csv(directory: Path) -> pd.DataFrame:
     """Concat every CSV under `directory` into one DataFrame.
-    dukascopy-node M1 CSV has columns: timestamp,open,high,low,close,volume."""
+
+    dukascopy-node M1 CSV has columns: timestamp,open,high,low,close,volume.
+    Tolerant of partial-failure artefacts: 0-byte files and files that
+    fail to parse (EmptyDataError) are SKIPPED with a warning rather
+    than aborting. The downstream join handles missing years naturally
+    (only timestamps present in BOTH bid and ask survive).
+    """
     files = sorted(directory.glob("*.csv"))
     if not files:
         raise SystemExit(f"no CSVs found under {directory}")
     frames = []
+    skipped: list[str] = []
     for f in files:
-        df = pd.read_csv(f)
-        # tolerate either header style; lowercase canonical
+        size = f.stat().st_size
+        if size == 0:
+            skipped.append(f"{f.name} (0 bytes)")
+            continue
+        try:
+            df = pd.read_csv(f)
+        except pd.errors.EmptyDataError:
+            skipped.append(f"{f.name} (no parseable columns)")
+            continue
         df.columns = [c.lower() for c in df.columns]
         if "timestamp" not in df.columns:
-            raise SystemExit(f"{f}: no 'timestamp' column. Got: {list(df.columns)}")
+            skipped.append(f"{f.name} (missing timestamp column)")
+            continue
         frames.append(df)
+    if skipped:
+        print(f"[build] WARN skipped {len(skipped)} file(s) under "
+              f"{directory.name}/: {skipped}", file=sys.stderr)
+    if not frames:
+        raise SystemExit(f"no usable CSVs in {directory} after skip-filter")
     out = pd.concat(frames, ignore_index=True)
     return out.sort_values("timestamp").drop_duplicates("timestamp").reset_index(drop=True)
 

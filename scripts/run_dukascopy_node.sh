@@ -103,6 +103,9 @@ flatten() {
         rel="$(basename "$(dirname "$f")")_$(basename "$f")"
         mv "$f" "${DN_OUT}/${side}/${rel}"
     done
+    # Drop 0-byte files left behind by failed/aborted dukascopy-node runs;
+    # the Python builder already tolerates them but cleaner to delete here.
+    find "${DN_OUT}/${side}" -maxdepth 1 -name '*.csv' -size 0 -print -delete || true
     find "${DN_OUT}/${side}" -mindepth 1 -type d -empty -delete
     n=$(find "${DN_OUT}/${side}" -maxdepth 1 -name '*.csv' | wc -l)
     echo "[node] ${side} CSV count after flatten: ${n}"
