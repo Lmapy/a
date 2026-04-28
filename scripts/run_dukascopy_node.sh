@@ -72,25 +72,36 @@ run_one_chunk() {
     return 1
 }
 
+# Chunk per QUARTER inside each year. Smaller windows shrink blast
+# radius: a transient Dukascopy hiccup that breaks one chunk only
+# loses ~3 months instead of a full year. Run #6 saw 2023-ask fail
+# all 3 year-level retries; quarterly chunks let the surrounding
+# quarters of 2023 still land.
 for ((y = START_Y; y <= END_Y; y++)); do
-    cs="${y}-01-01"
-    ce="$((y + 1))-01-01"
-    if [ "${y}" = "${START_Y}" ]; then cs="${START}"; fi
-    if [ "${y}" = "${END_Y}"   ]; then ce="${END}";   fi
-    [ "${cs}" = "${ce}" ] && continue
-
     bid_dir="${DN_OUT}/bid/${y}"
     ask_dir="${DN_OUT}/ask/${y}"
     mkdir -p "${bid_dir}" "${ask_dir}"
 
-    if ! run_one_chunk bid "${cs}" "${ce}" "${bid_dir}"; then
-        missing_years+=("${y}-bid")
-        continue
-    fi
-    if ! run_one_chunk ask "${cs}" "${ce}" "${ask_dir}"; then
-        missing_years+=("${y}-ask")
-        continue
-    fi
+    for q in 1 2 3 4; do
+        case $q in
+            1) qs="${y}-01-01"; qe="${y}-04-01" ;;
+            2) qs="${y}-04-01"; qe="${y}-07-01" ;;
+            3) qs="${y}-07-01"; qe="${y}-10-01" ;;
+            4) qs="${y}-10-01"; qe="$((y + 1))-01-01" ;;
+        esac
+        # Clamp to the requested overall range.
+        [ "${qe}" \> "${END}" ] && qe="${END}"
+        [ "${qs}" \< "${START}" ] && qs="${START}"
+        # Skip empty / inverted intervals (happens at start/end edges).
+        [ "${qs}" \< "${qe}" ] || continue
+
+        if ! run_one_chunk bid "${qs}" "${qe}" "${bid_dir}"; then
+            missing_years+=("${y}Q${q}-bid")
+        fi
+        if ! run_one_chunk ask "${qs}" "${qe}" "${ask_dir}"; then
+            missing_years+=("${y}Q${q}-ask")
+        fi
+    done
 done
 
 # Flatten per-year subdirs back into a single bid/ and ask/ tree so the
