@@ -36,7 +36,14 @@ def parse_args() -> argparse.Namespace:
     p.add_argument("--keep-raw", action="store_true")
     p.add_argument("--chunk-by", choices=["year", "quarter", "month"],
                    default="year")
-    p.add_argument("--workers", type=int, default=8)
+    p.add_argument("--workers", type=int, default=32,
+                   help="parallel download workers (default 32; uses keep-alive sessions)")
+    p.add_argument("--ticks-only", action="store_true",
+                   help="download raw .bi5 ticks and stop. The artifact will "
+                        "be the raw/ tree; user runs build_dukascopy_candles.py "
+                        "locally to decode + resample. Useful when CI is the "
+                        "only host with internet access to Dukascopy and the "
+                        "user wants to iterate on candle logic locally.")
     return p.parse_args()
 
 
@@ -80,6 +87,43 @@ def main() -> int:
     if rc != 0:
         print("[pipeline] download step failed", file=sys.stderr)
         return rc
+
+    if args.ticks_only:
+        # Skip build + validate. The artifact is the raw .bi5 tree;
+        # the user runs build_dukascopy_candles.py locally.
+        print("[pipeline] --ticks-only: skipping build + validate. "
+              "Artifact will be the raw/ tree.", flush=True)
+        sym_dir = out_dir / args.symbol
+        sym_dir.mkdir(parents=True, exist_ok=True)
+        manifest = {
+            "official_source": "dukascopy",
+            "symbol": args.symbol,
+            "price_scale": spec.price_scale,
+            "expected_price_range": [spec.expected_price_min, spec.expected_price_max],
+            "range_start_utc": start.isoformat(),
+            "range_end_utc": end.isoformat(),
+            "generated_at_utc": datetime.now(timezone.utc).isoformat(timespec="seconds"),
+            "mode": "ticks_only",
+            "policy": ("Dukascopy is the single official data source. Run "
+                       "scripts/build_dukascopy_candles.py locally on the "
+                       "raw/ tree to produce M1..D1 OHLC parquet."),
+            "next_step": (f"python3 scripts/build_dukascopy_candles.py "
+                          f"--symbol {args.symbol} --start {start.date()} "
+                          f"--end {end.date()} --input-dir <unzipped raw/> "
+                          f"--output-dir <where you want candles>"),
+        }
+        (sym_dir / "manifest.json").write_text(json.dumps(manifest, indent=2))
+        print()
+        print("=" * 60)
+        print(f"Dukascopy {args.symbol} pipeline complete (ticks_only mode)")
+        print(f"  Symbol:      {args.symbol}")
+        print(f"  Start:       {start.date()}")
+        print(f"  End:         {end.date()}")
+        print(f"  Raw tree:    {out_dir / 'raw'}")
+        print(f"  Manifest:    {sym_dir / 'manifest.json'}")
+        print(f"  Next step:   run scripts/build_dukascopy_candles.py locally")
+        print("=" * 60)
+        return 0
 
     # 2. build
     rc = _run([sys.executable, "scripts/build_dukascopy_candles.py",
