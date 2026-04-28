@@ -1,0 +1,138 @@
+name: build-dukascopy-data
+
+# Manual-only ingestion of Dukascopy XAUUSD ticks -> candles.
+# Runs the local pipeline scripts (see scripts/run_dukascopy_pipeline.py)
+# and uploads the resulting candle files (parquet + manifest +
+# validation_report.json) as a GitHub Actions artifact. Does NOT commit
+# any tick files or candle data back to the repo -- the artifact is the
+# delivery mechanism.
+
+on:
+  workflow_dispatch:
+    inputs:
+      symbol:
+        description: "Dukascopy symbol (e.g. XAUUSD)"
+        required: true
+        default: "XAUUSD"
+      years_back:
+        description: "Years of history when start_date/end_date are blank"
+        required: true
+        default: "6"
+      start_date:
+        description: "UTC YYYY-MM-DD (optional; pairs with end_date)"
+        required: false
+        default: ""
+      end_date:
+        description: "UTC YYYY-MM-DD (optional; exclusive)"
+        required: false
+        default: ""
+      write_csv:
+        description: "Also emit CSV copies of every timeframe (true/false)"
+        required: true
+        default: "false"
+      chunk_by:
+        description: "Chunk granularity: year | quarter | month"
+        required: true
+        default: "year"
+
+permissions:
+  contents: read
+
+jobs:
+  build:
+    runs-on: ubuntu-latest
+    timeout-minutes: 350
+
+    steps:
+      - name: Checkout repo
+        uses: actions/checkout@v4
+
+      - name: Set up Python 3.11
+        uses: actions/setup-python@v5
+        with:
+          python-version: "3.11"
+          cache: "pip"
+
+      - name: Install dependencies
+        run: |
+          python -m pip install --upgrade pip
+          pip install pandas numpy pyarrow requests tqdm
+
+      - name: Resolve date range
+        id: range
+        env:
+          SD: ${{ github.event.inputs.start_date }}
+          ED: ${{ github.event.inputs.end_date }}
+          YB: ${{ github.event.inputs.years_back }}
+        run: |
+          set -e
+          if [ -n "$SD" ] && [ -n "$ED" ]; then
+            echo "use=explicit" >> "$GITHUB_OUTPUT"
+            echo "start=$SD"   >> "$GITHUB_OUTPUT"
+            echo "end=$ED"     >> "$GITHUB_OUTPUT"
+            echo "Using explicit range: $SD -> $ED"
+          else
+            echo "use=relative" >> "$GITHUB_OUTPUT"
+            echo "yb=$YB"       >> "$GITHUB_OUTPUT"
+            echo "Using years_back=$YB (today minus YB years)"
+          fi
+
+      - name: Run Dukascopy pipeline (download -> candles -> validate -> manifest)
+        env:
+          SYMBOL:     ${{ github.event.inputs.symbol }}
+          WRITE_CSV:  ${{ github.event.inputs.write_csv }}
+          CHUNK_BY:   ${{ github.event.inputs.chunk_by }}
+          USE:        ${{ steps.range.outputs.use }}
+          START:      ${{ steps.range.outputs.start }}
+          END:        ${{ steps.range.outputs.end }}
+          YB:         ${{ steps.range.outputs.yb }}
+        run: |
+          set -e
+          ARGS=(--symbol "$SYMBOL" --output-dir output/dukascopy --chunk-by "$CHUNK_BY")
+          if [ "$WRITE_CSV" = "true" ]; then ARGS+=(--write-csv); fi
+          if [ "$USE" = "explicit" ]; then
+            ARGS+=(--start-date "$START" --end-date "$END")
+          else
+            ARGS+=(--years-back "$YB")
+          fi
+          echo "+ python scripts/run_dukascopy_pipeline.py ${ARGS[@]}"
+          python scripts/run_dukascopy_pipeline.py "${ARGS[@]}"
+
+      - name: Tree of output/dukascopy
+        if: always()
+        run: |
+          echo "=== output/dukascopy contents ==="
+          find output/dukascopy -maxdepth 5 -type f -printf '%s\t%p\n' | sort
+          echo "=== manifest ==="
+          if [ -f output/dukascopy/${{ github.event.inputs.symbol }}/manifest.json ]; then
+            cat output/dukascopy/${{ github.event.inputs.symbol }}/manifest.json
+          fi
+
+      - name: Zip candle dataset
+        run: |
+          set -e
+          ZIP_NAME="${{ github.event.inputs.symbol }}_dukascopy_candles.zip"
+          # Don't include the raw/ tick cache even if --keep-raw was passed.
+          (cd output/dukascopy && zip -r "../../${ZIP_NAME}" "${{ github.event.inputs.symbol }}")
+          ls -la "${ZIP_NAME}"
+          echo "ZIP_NAME=${ZIP_NAME}" >> "$GITHUB_ENV"
+
+      - name: Upload candle artifact
+        uses: actions/upload-artifact@v4
+        with:
+          name: ${{ github.event.inputs.symbol }}_dukascopy_candles
+          path: ${{ env.ZIP_NAME }}
+          if-no-files-found: error
+          retention-days: 30
+
+      - name: Upload validation report (separate, for quick inspection)
+        uses: actions/upload-artifact@v4
+        if: always()
+        with:
+          name: ${{ github.event.inputs.symbol }}_dukascopy_validation
+          path: |
+            output/dukascopy/${{ github.event.inputs.symbol }}/manifest.json
+            output/dukascopy/${{ github.event.inputs.symbol }}/validation_report.json
+            output/dukascopy/download_log.csv
+          if-no-files-found: warn
+          retention-days: 30
