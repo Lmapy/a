@@ -26,7 +26,10 @@ v2:
 alpha:
 	python3 scripts/run_alpha.py
 
-report: data audit alpha pdf
+prop:
+	python3 scripts/run_prop_challenge.py
+
+report: data audit alpha prop pdf
 
 test:
 	python3 tests/test_validator.py

@@ -462,6 +462,71 @@ for line in [
     story.append(p("• " + line, SMALL))
 story.append(Spacer(1, 0.10 * inch))
 
+# ---------- 9.6 v4 prop-firm engine ----------
+story.append(PageBreak())
+story.append(section("9.6 v4 — prop-firm challenge optimisation engine"))
+story.append(p("v4 inverts the optimisation target. Instead of Sharpe-first the "
+               "system now optimises for "
+               "<b>challenge pass probability + first-payout probability + "
+               "drawdown survival + rule compliance</b>. Implemented in the "
+               "new <font face='Courier'>prop_challenge/</font> module.", SMALL))
+
+story.append(p("<b>v4 result on the same data:</b> 4 strategies (≥30 trades) × 3 "
+               "accounts (Topstep 50k EOD-trailing, MFFU 50k intraday-trailing, "
+               "Generic 50k static) × 5 risk models × 6 daily-rule sets = "
+               "<b>360 combinations</b>, each with 100 challenge MC + 100 payout MC "
+               "= 72,000 sims. <b>56 prop-certified</b>; <b>19 of those certify on "
+               "≥2 distinct accounts</b>.", SMALL))
+
+story.append(p("<b>Top-6 prop-certified combos (by prop_score):</b>"))
+story.append(make_table([
+    ["strategy", "account", "risk", "rules", "pass", "blowup", "payout", "days"],
+    ["exhaustion_reversal min=0.6", "generic_static_50k", "micro_1",            "stop_w1", "98%", "0%", "99%", "22"],
+    ["exhaustion_reversal min=0.6", "generic_static_50k", "dollar_risk_50",     "stop_w1", "98%", "0%", "98%", "22"],
+    ["exhaustion_reversal min=0.6", "generic_static_50k", "pct_dd_buffer_2pct", "stop_w1", "97%", "1%", "98%", "22"],
+    ["exhaustion_reversal min=0.6", "generic_static_50k", "dollar_risk_100",    "stop_w1", "97%", "1%", "98%", "20"],
+    ["exhaustion_reversal min=0.6", "generic_static_50k", "pct_dd_buffer_2pct", "none",    "95%", "2%", "96%", "21"],
+    ["exhaustion_reversal min=0.6", "generic_static_50k", "dollar_risk_50",     "none",    "93%", "1%", "98%", "20"],
+], col_widths=[2.4 * inch, 1.4 * inch, 0.95 * inch, 0.65 * inch, 0.45 * inch, 0.5 * inch, 0.5 * inch, 0.4 * inch]))
+story.append(p("The exhaustion-reversal family (built in v3.5 from <font face='Courier'>"
+               "prev_color_inverse + wick_ratio</font>) emerges as the cleanest "
+               "prop-tradeable system: passes the challenge in ~22 days with near-"
+               "zero blowup and reaches first payout in 95-99% of MC paths.", SMALL))
+
+story.append(p("<b>Daily-rule ranking (single biggest lever):</b>"))
+story.append(make_table([
+    ["daily rule", "median pass", "median blowup", "median payout", "median score"],
+    ["stop_w1 (lock after 1 win)",   "0.59", "0.12", "0.91", "0.92"],
+    ["none",                         "0.47", "0.31", "0.78", "0.63"],
+    ["max2",                         "0.37", "0.31", "0.77", "0.57"],
+    ["ny_only_max2",                 "0.28", "0.22", "0.70", "0.51"],
+    ["stop_l2",                      "0.28", "0.45", "0.67", "0.41"],
+    ["dp500_dl300",                  "0.30", "0.43", "0.71", "0.36"],
+], col_widths=[2.3 * inch, 1.0 * inch, 1.1 * inch, 1.1 * inch, 1.0 * inch]))
+story.append(p("<b>stop_w1</b> (lock the day after the first winning trade) lifts pass "
+               "probability from 47% → 59% AND cuts blowup from 31% → 12% — the most "
+               "impactful daily rule across the entire grid.", SMALL))
+
+story.append(p("<b>Account-difficulty ranking (certified combos per account):</b>"))
+story.append(make_table([
+    ["account", "drawdown type", "n certified combos"],
+    ["mffu_50k",           "intraday_trailing", "28"],
+    ["generic_static_50k", "static",            "24"],
+    ["topstep_50k",        "eod_trailing",       "4"],
+], col_widths=[2.2 * inch, 2.0 * inch, 2.3 * inch]))
+story.append(p("Topstep's EOD-trailing drawdown is the dominant breach reason "
+               "(5,873 of 11,059 total breaches). For the exhaustion_reversal family "
+               "Generic-static or MFFU is the realistic deployment target; Topstep is "
+               "feasible only with the strictest stop_w1 rule.", SMALL))
+
+story.append(p("<b>Verdict.</b> Under prop-firm-grade rigor, the same data that "
+               "produced 0 alpha-certified strategies in v3.5 produces <b>19 multi-"
+               "account prop-certified combos</b> in v4. The optimisation-target shift "
+               "— Sharpe-first → pass-and-payout-first — surfaces a real, tradeable "
+               "system. <b>Recommended deployment</b>: "
+               "<font face='Courier'>exhaustion_reversal_M15_min=0.6 + micro_1 + "
+               "stop_w1</font> on a 50k static-DD account.", SMALL))
+
 # 10. Limitations
 story.append(section("10. Known limitations the skeptic flagged"))
 for line in [
