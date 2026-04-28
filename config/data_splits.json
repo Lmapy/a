@@ -1,0 +1,18 @@
+{
+  "_meta": {
+    "purpose": "Date-bound splits for the Dukascopy-only pipeline. Walk-forward folds are generated from `train`; final OOS is `validation` then `holdout`. holdout is never tuned against — it is only revealed once per spec, by the certifier.",
+    "policy": "Source must be dukascopy."
+  },
+  "research_train": {
+    "start": "2008-01-01T00:00:00Z",
+    "end":   "2022-01-01T00:00:00Z"
+  },
+  "validation": {
+    "start": "2022-01-01T00:00:00Z",
+    "end":   "2024-01-01T00:00:00Z"
+  },
+  "holdout": {
+    "start": "2024-01-01T00:00:00Z",
+    "end":   "2026-05-01T00:00:00Z"
+  }
+}

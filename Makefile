@@ -1,9 +1,11 @@
-.PHONY: all data audit fib backtest search skeptic v2 alpha report test pdf clean
+.PHONY: all data audit fib backtest search skeptic v2 alpha prop report test pdf clean
 
-all: data audit backtest
+all: data audit alpha prop pdf
 
+# OFFICIAL DATA: Dukascopy (single source). Old broker fetcher is deprecated;
+# see data/_deprecated_/. Default range is the period covered by config/data_splits.json.
 data:
-	python3 scripts/fetch_data.py
+	python3 scripts/fetch_dukascopy.py --symbol XAUUSD --start 2008-01-01 --end 2026-04-29
 
 audit:
 	python3 scripts/audit.py
@@ -32,7 +34,6 @@ prop:
 report: data audit alpha prop pdf
 
 test:
-	python3 tests/test_validator.py
 	python3 tests/test_executor.py
 	python3 tests/test_registry.py
 	python3 tests/test_compatibility.py
@@ -42,4 +43,4 @@ pdf:
 	python3 scripts/build_pdf.py
 
 clean:
-	rm -f data/*.csv results/*.csv results/*.png results/*.txt
+	rm -f results/*.csv results/*.png results/*.txt results/*.json

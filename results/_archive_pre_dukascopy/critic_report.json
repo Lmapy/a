@@ -1,0 +1,745 @@
+{
+  "generated_by": "agent_05_robustness_critic",
+  "n": 23,
+  "critic_results": [
+    {
+      "strategy_id": "strong_body_continuation_M15_filters[0].min=0.5",
+      "passes_critic": true,
+      "failure_reasons": [],
+      "detail": {
+        "base_total_return": 0.060377,
+        "total_return_minus_top1": 0.042074,
+        "total_return_minus_top5pct": 0.010145,
+        "n_dropped_top5pct": 3,
+        "biggest_winner_share_of_winners": 0.0899,
+        "worst_7d_window_ret": -0.0203,
+        "max_consecutive_losses": 5,
+        "session_total_return": {
+          "asia": 0.0157,
+          "london": 0.0014,
+          "ny": 0.043
+        },
+        "sessions_positive": 3,
+        "segment_returns": [
+          0.0147,
+          0.0222,
+          0.0223
+        ],
+        "long_total_return": 0.0262,
+        "short_total_return": 0.0333,
+        "n_long_trades": 20,
+        "n_short_trades": 32,
+        "cluster_max_7d_share_of_positive_pnl": 0.3789
+      }
+    },
+    {
+      "strategy_id": "strong_body_continuation_M15_filters[0].min=0.7",
+      "passes_critic": true,
+      "failure_reasons": [],
+      "detail": {
+        "base_total_return": 0.054086,
+        "total_return_minus_top1": 0.03698,
+        "total_return_minus_top5pct": 0.021728,
+        "n_dropped_top5pct": 2,
+        "biggest_winner_share_of_winners": 0.1207,
+        "worst_7d_window_ret": -0.0175,
+        "max_consecutive_losses": 4,
+        "session_total_return": {
+          "asia": -0.0017,
+          "london": 0.0131,
+          "ny": 0.0423
+        },
+        "sessions_positive": 2,
+        "segment_returns": [
+          0.0145,
+          0.0167,
+          0.022
+        ],
+        "long_total_return": 0.0144,
+        "short_total_return": 0.0391,
+        "n_long_trades": 12,
+        "n_short_trades": 22,
+        "cluster_max_7d_share_of_positive_pnl": 0.3439
+      }
+    },
+    {
+      "strategy_id": "strong_body_continuation_M15_filters[0].min=1.0",
+      "passes_critic": false,
+      "failure_reasons": [
+        "profit concentrated in 1 session ({'asia': -0.016306207895276988, 'london': -0.004555689554289788, 'ny': 0.044874933117504}); needs >=2 positive sessions"
+      ],
+      "detail": {
+        "base_total_return": 0.023908,
+        "total_return_minus_top1": 0.007343,
+        "total_return_minus_top5pct": 0.007343,
+        "n_dropped_top5pct": 1,
+        "biggest_winner_share_of_winners": 0.322,
+        "worst_7d_window_ret": -0.0067,
+        "max_consecutive_losses": 2,
+        "session_total_return": {
+          "asia": -0.0163,
+          "london": -0.0046,
+          "ny": 0.0449
+        },
+        "sessions_positive": 1,
+        "segment_returns": [
+          -0.0031,
+          0.0149,
+          0.012
+        ],
+        "long_total_return": 0.006,
+        "short_total_return": 0.0178,
+        "n_long_trades": 3,
+        "n_short_trades": 11,
+        "cluster_max_7d_share_of_positive_pnl": 0.438
+      }
+    },
+    {
+      "strategy_id": "exhaustion_reversal_M15_filters[0].min=0.6",
+      "passes_critic": false,
+      "failure_reasons": [
+        "profit disappears after removing top 5% trades (0.0468 -> -0.0044, n_dropped=3)",
+        "profit concentrated in 1 session ({'asia': -0.023629568279794975, 'london': -0.00021971776690431384, 'ny': 0.07147740199119139}); needs >=2 positive sessions"
+      ],
+      "detail": {
+        "base_total_return": 0.04676,
+        "total_return_minus_top1": 0.002114,
+        "total_return_minus_top5pct": -0.004395,
+        "n_dropped_top5pct": 3,
+        "biggest_winner_share_of_winners": 0.2775,
+        "worst_7d_window_ret": -0.0176,
+        "max_consecutive_losses": 4,
+        "session_total_return": {
+          "asia": -0.0236,
+          "london": -0.0002,
+          "ny": 0.0715
+        },
+        "sessions_positive": 1,
+        "segment_returns": [
+          0.0323,
+          0.0101,
+          0.0039
+        ],
+        "long_total_return": 0.0274,
+        "short_total_return": 0.0188,
+        "n_long_trades": 30,
+        "n_short_trades": 26,
+        "cluster_max_7d_share_of_positive_pnl": 0.3709
+      }
+    },
+    {
+      "strategy_id": "exhaustion_reversal_M15_filters[0].min=0.75",
+      "passes_critic": false,
+      "failure_reasons": [
+        "profit disappears after removing top 1 trade (0.0209 -> -0.0034)",
+        "profit disappears after removing top 5% trades (0.0209 -> -0.0159, n_dropped=2)",
+        "profit concentrated in 1 session ({'asia': -0.002091304403477347, 'london': -0.006059737521547846, 'ny': 0.029467495344026144}); needs >=2 positive sessions"
+      ],
+      "detail": {
+        "base_total_return": 0.020899,
+        "total_return_minus_top1": -0.003416,
+        "total_return_minus_top5pct": -0.01591,
+        "n_dropped_top5pct": 2,
+        "biggest_winner_share_of_winners": 0.3017,
+        "worst_7d_window_ret": -0.0166,
+        "max_consecutive_losses": 4,
+        "session_total_return": {
+          "asia": -0.0021,
+          "london": -0.0061,
+          "ny": 0.0295
+        },
+        "sessions_positive": 1,
+        "segment_returns": [
+          0.028,
+          0.0172,
+          -0.0237
+        ],
+        "long_total_return": -0.0011,
+        "short_total_return": 0.022,
+        "n_long_trades": 17,
+        "n_short_trades": 15,
+        "cluster_max_7d_share_of_positive_pnl": 0.4657
+      }
+    },
+    {
+      "strategy_id": "fib_continuation_M15_entry.level=0.382",
+      "passes_critic": false,
+      "failure_reasons": [
+        "profit concentrated in 1 session ({'asia': 0.03028061654155836, 'london': -0.012726335927089598, 'ny': -0.010776347469739149}); needs >=2 positive sessions"
+      ],
+      "detail": {
+        "base_total_return": 0.005379,
+        "total_return_minus_top1": 0.037804,
+        "total_return_minus_top5pct": 0.009136,
+        "n_dropped_top5pct": 2,
+        "biggest_winner_share_of_winners": 0.2766,
+        "worst_7d_window_ret": -0.0292,
+        "max_consecutive_losses": 3,
+        "session_total_return": {
+          "asia": 0.0303,
+          "london": -0.0127,
+          "ny": -0.0108
+        },
+        "sessions_positive": 1,
+        "segment_returns": [
+          0.0153,
+          0.0112,
+          -0.0207
+        ],
+        "long_total_return": -0.0053,
+        "short_total_return": 0.0108,
+        "n_long_trades": 8,
+        "n_short_trades": 23,
+        "cluster_max_7d_share_of_positive_pnl": 0.3783
+      }
+    },
+    {
+      "strategy_id": "fib_continuation_M15_entry.level=0.5",
+      "passes_critic": false,
+      "failure_reasons": [
+        "profit concentrated in 1 session ({'asia': 0.015109545051341575, 'london': -0.007210763011838563, 'ny': -0.017850698662509542}); needs >=2 positive sessions"
+      ],
+      "detail": {
+        "base_total_return": -0.01051,
+        "total_return_minus_top1": 0.01499,
+        "total_return_minus_top5pct": 0.000239,
+        "n_dropped_top5pct": 2,
+        "biggest_winner_share_of_winners": 0.3054,
+        "worst_7d_window_ret": -0.0283,
+        "max_consecutive_losses": 3,
+        "session_total_return": {
+          "asia": 0.0151,
+          "london": -0.0072,
+          "ny": -0.0179
+        },
+        "sessions_positive": 1,
+        "segment_returns": [
+          0.0143,
+          0.0071,
+          -0.0314
+        ],
+        "long_total_return": 0.0028,
+        "short_total_return": -0.0133,
+        "n_long_trades": 5,
+        "n_short_trades": 18,
+        "cluster_max_7d_share_of_positive_pnl": 0.3901
+      }
+    },
+    {
+      "strategy_id": "fib_continuation_M15_entry.level=0.618",
+      "passes_critic": false,
+      "failure_reasons": [
+        "profit concentrated in 1 session ({'asia': -0.0026621319961202187, 'london': -0.0017176512171779303, 'ny': -0.01216883779815552}); needs >=2 positive sessions",
+        "only 1/3 holdout segments positive (early=+0.0044, mid=-0.0004, late=-0.0206)"
+      ],
+      "detail": {
+        "base_total_return": -0.016648,
+        "total_return_minus_top1": 0.002474,
+        "total_return_minus_top5pct": 0.002474,
+        "n_dropped_top5pct": 1,
+        "biggest_winner_share_of_winners": 0.3043,
+        "worst_7d_window_ret": -0.0225,
+        "max_consecutive_losses": 3,
+        "session_total_return": {
+          "asia": -0.0027,
+          "london": -0.0017,
+          "ny": -0.0122
+        },
+        "sessions_positive": 0,
+        "segment_returns": [
+          0.0044,
+          -0.0004,
+          -0.0206
+        ],
+        "long_total_return": 0.0031,
+        "short_total_return": -0.0197,
+        "n_long_trades": 5,
+        "n_short_trades": 12,
+        "cluster_max_7d_share_of_positive_pnl": 0.5882
+      }
+    },
+    {
+      "strategy_id": "fib_continuation_M15_entry.level=0.705",
+      "passes_critic": false,
+      "failure_reasons": [
+        "profit concentrated in 1 session ({'asia': 0.00197522775020457, 'london': -0.00012079344662081618, 'ny': -0.005157703908501876}); needs >=2 positive sessions",
+        ">70% of positive PnL (86%) clusters in a single rolling 7-day window \u2014 reject"
+      ],
+      "detail": {
+        "base_total_return": -0.003466,
+        "total_return_minus_top1": 0.011361,
+        "total_return_minus_top5pct": 0.011361,
+        "n_dropped_top5pct": 1,
+        "biggest_winner_share_of_winners": 0.3755,
+        "worst_7d_window_ret": -0.0162,
+        "max_consecutive_losses": 4,
+        "session_total_return": {
+          "asia": 0.002,
+          "london": -0.0001,
+          "ny": -0.0052
+        },
+        "sessions_positive": 1,
+        "segment_returns": [
+          0.0097,
+          0.0025,
+          -0.0155
+        ],
+        "long_total_return": 0.0069,
+        "short_total_return": -0.0103,
+        "n_long_trades": 4,
+        "n_short_trades": 9,
+        "cluster_max_7d_share_of_positive_pnl": 0.8564
+      }
+    },
+    {
+      "strategy_id": "fib_continuation_M15_entry.level=0.786",
+      "passes_critic": false,
+      "failure_reasons": [
+        ">70% of positive PnL (88%) clusters in a single rolling 7-day window \u2014 reject"
+      ],
+      "detail": {
+        "base_total_return": 0.011132,
+        "total_return_minus_top1": 0.021949,
+        "total_return_minus_top5pct": 0.021949,
+        "n_dropped_top5pct": 1,
+        "biggest_winner_share_of_winners": 0.3878,
+        "worst_7d_window_ret": -0.0105,
+        "max_consecutive_losses": 3,
+        "session_total_return": {
+          "asia": 0.0071,
+          "london": 0.0018,
+          "ny": 0.0023
+        },
+        "sessions_positive": 3,
+        "segment_returns": [
+          0.0139,
+          0.0075,
+          -0.0102
+        ],
+        "long_total_return": 0.011,
+        "short_total_return": 0.0002,
+        "n_long_trades": 4,
+        "n_short_trades": 8,
+        "cluster_max_7d_share_of_positive_pnl": 0.8804
+      }
+    },
+    {
+      "strategy_id": "vwap_mean_reversion_M15_filters[0].max_z=2.0",
+      "passes_critic": false,
+      "failure_reasons": [
+        "profit disappears after removing top 5% trades (0.0540 -> -0.0371, n_dropped=6)",
+        "longest losing streak 7 > 6 max",
+        "only 1/3 holdout segments positive (early=-0.0022, mid=-0.0252, late=+0.0837)"
+      ],
+      "detail": {
+        "base_total_return": 0.053969,
+        "total_return_minus_top1": 0.009009,
+        "total_return_minus_top5pct": -0.037133,
+        "n_dropped_top5pct": 6,
+        "biggest_winner_share_of_winners": 0.1705,
+        "worst_7d_window_ret": -0.0327,
+        "max_consecutive_losses": 7,
+        "session_total_return": {
+          "asia": -0.006,
+          "london": 0.0287,
+          "ny": 0.0324
+        },
+        "sessions_positive": 2,
+        "segment_returns": [
+          -0.0022,
+          -0.0252,
+          0.0837
+        ],
+        "long_total_return": 0.0459,
+        "short_total_return": 0.0077,
+        "n_long_trades": 69,
+        "n_short_trades": 46,
+        "cluster_max_7d_share_of_positive_pnl": 0.3836
+      }
+    },
+    {
+      "strategy_id": "vwap_mean_reversion_M15_filters[0].max_z=2.5",
+      "passes_critic": false,
+      "failure_reasons": [
+        "profit disappears after removing top 1 trade (0.0332 -> -0.0109)",
+        "profit disappears after removing top 5% trades (0.0332 -> -0.0476, n_dropped=7)",
+        "longest losing streak 7 > 6 max"
+      ],
+      "detail": {
+        "base_total_return": 0.033162,
+        "total_return_minus_top1": -0.010904,
+        "total_return_minus_top5pct": -0.047567,
+        "n_dropped_top5pct": 7,
+        "biggest_winner_share_of_winners": 0.1561,
+        "worst_7d_window_ret": -0.0329,
+        "max_consecutive_losses": 7,
+        "session_total_return": {
+          "asia": -0.0094,
+          "london": 0.0269,
+          "ny": 0.018
+        },
+        "sessions_positive": 2,
+        "segment_returns": [
+          0.0104,
+          -0.0087,
+          0.0314
+        ],
+        "long_total_return": 0.0065,
+        "short_total_return": 0.0265,
+        "n_long_trades": 75,
+        "n_short_trades": 52,
+        "cluster_max_7d_share_of_positive_pnl": 0.3509
+      }
+    },
+    {
+      "strategy_id": "vwap_mean_reversion_M15_filters[0].max_z=3.0",
+      "passes_critic": false,
+      "failure_reasons": [
+        "profit disappears after removing top 1 trade (0.0213 -> -0.0223)",
+        "profit disappears after removing top 5% trades (0.0213 -> -0.0585, n_dropped=7)",
+        "longest losing streak 7 > 6 max"
+      ],
+      "detail": {
+        "base_total_return": 0.0213,
+        "total_return_minus_top1": -0.022253,
+        "total_return_minus_top5pct": -0.058525,
+        "n_dropped_top5pct": 7,
+        "biggest_winner_share_of_winners": 0.155,
+        "worst_7d_window_ret": -0.0329,
+        "max_consecutive_losses": 7,
+        "session_total_return": {
+          "asia": -0.0178,
+          "london": 0.0288,
+          "ny": 0.0131
+        },
+        "sessions_positive": 2,
+        "segment_returns": [
+          0.0094,
+          -0.0179,
+          0.0302
+        ],
+        "long_total_return": 0.0065,
+        "short_total_return": 0.0147,
+        "n_long_trades": 75,
+        "n_short_trades": 57,
+        "cluster_max_7d_share_of_positive_pnl": 0.3487
+      }
+    },
+    {
+      "strategy_id": "compression_breakout_continuation_M15_filters[0].hi=0.2",
+      "passes_critic": false,
+      "failure_reasons": [
+        "single biggest winner is 100% of all winning PnL \u2014 concentration risk",
+        ">70% of positive PnL (100%) clusters in a single rolling 7-day window \u2014 reject"
+      ],
+      "detail": {
+        "base_total_return": -0.000723,
+        "total_return_minus_top1": 0.002066,
+        "total_return_minus_top5pct": 0.002066,
+        "n_dropped_top5pct": 1,
+        "biggest_winner_share_of_winners": 1.0,
+        "worst_7d_window_ret": -0.0028,
+        "max_consecutive_losses": 1,
+        "session_total_return": {
+          "ny": -0.0007
+        },
+        "sessions_positive": 0,
+        "long_total_return": 0.0021,
+        "short_total_return": -0.0028,
+        "n_long_trades": 1,
+        "n_short_trades": 1,
+        "cluster_max_7d_share_of_positive_pnl": 1.0
+      }
+    },
+    {
+      "strategy_id": "compression_breakout_continuation_M15_filters[0].hi=0.3",
+      "passes_critic": false,
+      "failure_reasons": [
+        "profit disappears after removing top 1 trade (-0.0062 -> -0.0007)",
+        "profit disappears after removing top 5% trades (-0.0062 -> -0.0007, n_dropped=1)",
+        "single biggest winner is 100% of all winning PnL \u2014 concentration risk",
+        "profit concentrated in 1 session ({'asia': -0.005456630799076178, 'ny': -0.0007168867004557645}); needs >=2 positive sessions",
+        ">70% of positive PnL (100%) clusters in a single rolling 7-day window \u2014 reject"
+      ],
+      "detail": {
+        "base_total_return": -0.006175,
+        "total_return_minus_top1": -0.000723,
+        "total_return_minus_top5pct": -0.000723,
+        "n_dropped_top5pct": 1,
+        "biggest_winner_share_of_winners": 1.0,
+        "worst_7d_window_ret": -0.0082,
+        "max_consecutive_losses": 2,
+        "session_total_return": {
+          "asia": -0.0055,
+          "ny": -0.0007
+        },
+        "sessions_positive": 0,
+        "long_total_return": 0.0021,
+        "short_total_return": -0.0082,
+        "n_long_trades": 1,
+        "n_short_trades": 2,
+        "cluster_max_7d_share_of_positive_pnl": 1.0
+      }
+    },
+    {
+      "strategy_id": "compression_breakout_continuation_M15_filters[0].hi=0.4",
+      "passes_critic": false,
+      "failure_reasons": [
+        "single biggest winner is 71% of all winning PnL \u2014 concentration risk",
+        "profit concentrated in 1 session ({'asia': -0.0053951427856054265, 'ny': 0.004267301931584927}); needs >=2 positive sessions",
+        ">70% of positive PnL (71%) clusters in a single rolling 7-day window \u2014 reject"
+      ],
+      "detail": {
+        "base_total_return": -0.00116,
+        "total_return_minus_top1": 0.004258,
+        "total_return_minus_top5pct": 0.004258,
+        "n_dropped_top5pct": 1,
+        "biggest_winner_share_of_winners": 0.7053,
+        "worst_7d_window_ret": -0.0032,
+        "max_consecutive_losses": 2,
+        "session_total_return": {
+          "asia": -0.0054,
+          "ny": 0.0043
+        },
+        "sessions_positive": 1,
+        "long_total_return": 0.0021,
+        "short_total_return": -0.0032,
+        "n_long_trades": 1,
+        "n_short_trades": 3,
+        "cluster_max_7d_share_of_positive_pnl": 0.7053
+      }
+    },
+    {
+      "strategy_id": "displacement_continuation_M15_signal.min_body_atr=0.7",
+      "passes_critic": false,
+      "failure_reasons": [
+        "profit disappears after removing top 1 trade (-0.0311 -> -0.0226)",
+        "profit disappears after removing top 5% trades (-0.0311 -> -0.0226, n_dropped=1)",
+        "profit concentrated in 1 session ({'asia': -0.02129252077959187, 'london': -0.003843398940092507, 'ny': -0.006342706177547656}); needs >=2 positive sessions"
+      ],
+      "detail": {
+        "base_total_return": -0.03108,
+        "total_return_minus_top1": -0.022572,
+        "total_return_minus_top5pct": -0.022572,
+        "n_dropped_top5pct": 1,
+        "worst_7d_window_ret": -0.021,
+        "max_consecutive_losses": 6,
+        "session_total_return": {
+          "asia": -0.0213,
+          "london": -0.0038,
+          "ny": -0.0063
+        },
+        "sessions_positive": 0,
+        "long_total_return": -0.0253,
+        "short_total_return": -0.0059,
+        "n_long_trades": 5,
+        "n_short_trades": 1
+      }
+    },
+    {
+      "strategy_id": "displacement_continuation_M15_signal.min_body_atr=1.0",
+      "passes_critic": false,
+      "failure_reasons": [
+        "profit disappears after removing top 1 trade (-0.0065 -> 0.0000)",
+        "profit disappears after removing top 5% trades (-0.0065 -> 0.0000, n_dropped=1)"
+      ],
+      "detail": {
+        "base_total_return": -0.006458,
+        "total_return_minus_top1": 0.0,
+        "total_return_minus_top5pct": 0.0,
+        "n_dropped_top5pct": 1,
+        "worst_7d_window_ret": -0.0065,
+        "max_consecutive_losses": 1,
+        "session_total_return": {
+          "ny": -0.0065
+        },
+        "sessions_positive": 0,
+        "long_total_return": -0.0065,
+        "short_total_return": 0.0,
+        "n_long_trades": 1,
+        "n_short_trades": 0
+      }
+    },
+    {
+      "strategy_id": "sweep_rejection_reversal_M15_filters[0].allow=['range']",
+      "passes_critic": false,
+      "failure_reasons": [
+        "profit disappears after removing top 1 trade (-0.0058 -> -0.0272)",
+        "profit disappears after removing top 5% trades (-0.0058 -> -0.0272, n_dropped=1)",
+        "single biggest winner is 56% of all winning PnL \u2014 concentration risk",
+        "longest losing streak 8 > 6 max",
+        "profit concentrated in 1 session ({'asia': -0.003544587193514784, 'london': -0.000990138134487124, 'ny': -0.0008744220287179374}); needs >=2 positive sessions",
+        "only 1/3 holdout segments positive (early=-0.0032, mid=-0.0206, late=+0.0183)"
+      ],
+      "detail": {
+        "base_total_return": -0.005797,
+        "total_return_minus_top1": -0.027235,
+        "total_return_minus_top5pct": -0.027235,
+        "n_dropped_top5pct": 1,
+        "biggest_winner_share_of_winners": 0.562,
+        "worst_7d_window_ret": -0.0177,
+        "max_consecutive_losses": 8,
+        "session_total_return": {
+          "asia": -0.0035,
+          "london": -0.001,
+          "ny": -0.0009
+        },
+        "sessions_positive": 0,
+        "segment_returns": [
+          -0.0032,
+          -0.0206,
+          0.0183
+        ],
+        "long_total_return": -0.0128,
+        "short_total_return": 0.0071,
+        "n_long_trades": 9,
+        "n_short_trades": 11,
+        "cluster_max_7d_share_of_positive_pnl": 0.6361
+      }
+    },
+    {
+      "strategy_id": "sweep_rejection_reversal_M15_filters[0].allow=['range','compression']",
+      "passes_critic": false,
+      "failure_reasons": [
+        "profit disappears after removing top 1 trade (0.0026 -> -0.0191)",
+        "profit disappears after removing top 5% trades (0.0026 -> -0.0101, n_dropped=2)",
+        "only 1/3 holdout segments positive (early=-0.0066, mid=-0.0032, late=+0.0125)",
+        ">70% of positive PnL (73%) clusters in a single rolling 7-day window \u2014 reject"
+      ],
+      "detail": {
+        "base_total_return": 0.002577,
+        "total_return_minus_top1": -0.019087,
+        "total_return_minus_top5pct": -0.010149,
+        "n_dropped_top5pct": 2,
+        "biggest_winner_share_of_winners": 0.3729,
+        "worst_7d_window_ret": -0.0124,
+        "max_consecutive_losses": 4,
+        "session_total_return": {
+          "asia": -0.0104,
+          "london": 0.0,
+          "ny": 0.0134
+        },
+        "sessions_positive": 2,
+        "segment_returns": [
+          -0.0066,
+          -0.0032,
+          0.0125
+        ],
+        "long_total_return": -0.0116,
+        "short_total_return": 0.0143,
+        "n_long_trades": 10,
+        "n_short_trades": 16,
+        "cluster_max_7d_share_of_positive_pnl": 0.7344
+      }
+    },
+    {
+      "strategy_id": "failed_continuation_reversal_M15",
+      "passes_critic": false,
+      "failure_reasons": [
+        "profit disappears after removing top 1 trade (-0.0345 -> -0.0200)",
+        "profit disappears after removing top 5% trades (-0.0345 -> -0.0200, n_dropped=1)",
+        "profit concentrated in 1 session ({'asia': -0.00899488339616487, 'london': 0.00020921375403774837, 'ny': -0.02600533189758347}); needs >=2 positive sessions",
+        "only 1/3 holdout segments positive (early=+0.0080, mid=-0.0152, late=-0.0273)"
+      ],
+      "detail": {
+        "base_total_return": -0.03447,
+        "total_return_minus_top1": -0.019963,
+        "total_return_minus_top5pct": -0.019963,
+        "n_dropped_top5pct": 1,
+        "biggest_winner_share_of_winners": 0.2737,
+        "worst_7d_window_ret": -0.0217,
+        "max_consecutive_losses": 3,
+        "session_total_return": {
+          "asia": -0.009,
+          "london": 0.0002,
+          "ny": -0.026
+        },
+        "sessions_positive": 1,
+        "segment_returns": [
+          0.008,
+          -0.0152,
+          -0.0273
+        ],
+        "long_total_return": -0.0072,
+        "short_total_return": -0.0274,
+        "n_long_trades": 10,
+        "n_short_trades": 6,
+        "cluster_max_7d_share_of_positive_pnl": 0.5467
+      }
+    },
+    {
+      "strategy_id": "multi_bar_momentum_M15_signal.k=2",
+      "passes_critic": false,
+      "failure_reasons": [
+        "profit disappears after removing top 1 trade (-0.0431 -> -0.0571)",
+        "profit disappears after removing top 5% trades (-0.0431 -> -0.0444, n_dropped=2)",
+        "single biggest winner is 42% of all winning PnL \u2014 concentration risk",
+        "longest losing streak 7 > 6 max",
+        "profit concentrated in 1 session ({'asia': -0.021810913830370177, 'london': -0.002484529455846274, 'ny': -0.01933932583583463}); needs >=2 positive sessions",
+        "only 0/3 holdout segments positive (early=-0.0023, mid=-0.0067, late=-0.0345)"
+      ],
+      "detail": {
+        "base_total_return": -0.043142,
+        "total_return_minus_top1": -0.057143,
+        "total_return_minus_top5pct": -0.044383,
+        "n_dropped_top5pct": 2,
+        "biggest_winner_share_of_winners": 0.4194,
+        "worst_7d_window_ret": -0.0354,
+        "max_consecutive_losses": 7,
+        "session_total_return": {
+          "asia": -0.0218,
+          "london": -0.0025,
+          "ny": -0.0193
+        },
+        "sessions_positive": 0,
+        "segment_returns": [
+          -0.0023,
+          -0.0067,
+          -0.0345
+        ],
+        "long_total_return": -0.03,
+        "short_total_return": -0.0136,
+        "n_long_trades": 10,
+        "n_short_trades": 13,
+        "cluster_max_7d_share_of_positive_pnl": 0.6526
+      }
+    },
+    {
+      "strategy_id": "multi_bar_momentum_M15_signal.k=3",
+      "passes_critic": false,
+      "failure_reasons": [
+        "profit disappears after removing top 1 trade (-0.0241 -> -0.0384)",
+        "profit disappears after removing top 5% trades (-0.0241 -> -0.0384, n_dropped=1)",
+        "single biggest winner is 94% of all winning PnL \u2014 concentration risk",
+        "profit concentrated in 1 session ({'asia': -0.014644614464460201, 'london': -0.002511850839678837, 'ny': -0.006966830655478245}); needs >=2 positive sessions",
+        "only 1/3 holdout segments positive (early=+0.0083, mid=-0.0027, late=-0.0295)",
+        ">70% of positive PnL (94%) clusters in a single rolling 7-day window \u2014 reject"
+      ],
+      "detail": {
+        "base_total_return": -0.024101,
+        "total_return_minus_top1": -0.038366,
+        "total_return_minus_top5pct": -0.038366,
+        "n_dropped_top5pct": 1,
+        "biggest_winner_share_of_winners": 0.9404,
+        "worst_7d_window_ret": -0.0325,
+        "max_consecutive_losses": 6,
+        "session_total_return": {
+          "asia": -0.0146,
+          "london": -0.0025,
+          "ny": -0.007
+        },
+        "sessions_positive": 0,
+        "segment_returns": [
+          0.0083,
+          -0.0027,
+          -0.0295
+        ],
+        "long_total_return": -0.0155,
+        "short_total_return": -0.0087,
+        "n_long_trades": 3,
+        "n_short_trades": 7,
+        "cluster_max_7d_share_of_positive_pnl": 0.9404
+      }
+    }
+  ]
+}

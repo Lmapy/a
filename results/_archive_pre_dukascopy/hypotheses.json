@@ -1,0 +1,157 @@
+{
+  "generated_by": "agent_02_hypothesis_generator",
+  "n_hypotheses": 11,
+  "hypotheses": [
+    {
+      "hypothesis_id": "strong_body_continuation",
+      "market_logic": "Prior H4 candle body >= X * ATR(14); trade in same direction only if regime agrees.",
+      "expected_failure_mode": "Range-bound low-volatility sessions where strong bodies still revert.",
+      "required_data": [
+        "H4",
+        "M15"
+      ],
+      "preferred_entry_timeframes": [
+        "M15",
+        "M5"
+      ],
+      "strategy_family": "continuation"
+    },
+    {
+      "hypothesis_id": "exhaustion_reversal",
+      "market_logic": "Prior H4 candle has a large wick (body / range <= wick_ratio) and closes back inside the prior bar's range; trade reversal.",
+      "expected_failure_mode": "Trend continuation days where the wick is just a brief retest before the trend resumes.",
+      "required_data": [
+        "H4",
+        "M15"
+      ],
+      "preferred_entry_timeframes": [
+        "M15",
+        "M5"
+      ],
+      "strategy_family": "reversal"
+    },
+    {
+      "hypothesis_id": "sweep_reclaim_back_to_value",
+      "market_logic": "Previous H4 high or low is swept then reclaimed; trade back toward value/midpoint.",
+      "expected_failure_mode": "Real breakouts where the sweep is the start of a new leg, not a stop hunt.",
+      "required_data": [
+        "H4",
+        "M5"
+      ],
+      "preferred_entry_timeframes": [
+        "M5",
+        "M3"
+      ],
+      "strategy_family": "reversal"
+    },
+    {
+      "hypothesis_id": "fib_continuation",
+      "market_logic": "Trade shallow-to-deep retracement of previous H4 candle only when trend/regime agrees.",
+      "expected_failure_mode": "Deep retracements that turn into full reversals -- 32% of bars retrace fully.",
+      "required_data": [
+        "H4",
+        "M15"
+      ],
+      "preferred_entry_timeframes": [
+        "M15",
+        "M5"
+      ],
+      "strategy_family": "continuation"
+    },
+    {
+      "hypothesis_id": "asia_compression_session_breakout",
+      "market_logic": "Asia session compresses into a tight range; London or NY session breaks the range with displacement.",
+      "expected_failure_mode": "Fakeout breakouts during low-impact news; range expands then immediately reverses.",
+      "required_data": [
+        "H4",
+        "M15"
+      ],
+      "preferred_entry_timeframes": [
+        "M5",
+        "M15"
+      ],
+      "strategy_family": "breakout"
+    },
+    {
+      "hypothesis_id": "vwap_mean_reversion",
+      "market_logic": "Price extends > N std from VWAP/MA in a range regime; fade back to mean.",
+      "expected_failure_mode": "Trending regime where the extension keeps extending instead of reverting.",
+      "required_data": [
+        "H4",
+        "M15"
+      ],
+      "preferred_entry_timeframes": [
+        "M15",
+        "M5"
+      ],
+      "strategy_family": "mean_reversion"
+    },
+    {
+      "hypothesis_id": "compression_breakout_continuation",
+      "market_logic": "After a low-ATR-percentile compression, an ATR expansion bar breaks out; trade continuation.",
+      "expected_failure_mode": "Late entries after the move has already spent most of its ATR.",
+      "required_data": [
+        "H4",
+        "M15"
+      ],
+      "preferred_entry_timeframes": [
+        "M15",
+        "M5"
+      ],
+      "strategy_family": "breakout"
+    },
+    {
+      "hypothesis_id": "displacement_continuation",
+      "market_logic": "Strong directional H4 candle: body >= 0.7*ATR(14) with close in top/bottom 30% of range. Trade in same direction with HTF context.",
+      "expected_failure_mode": "Displacement at the END of a multi-bar move tends to mean-revert.",
+      "required_data": [
+        "H4",
+        "M15"
+      ],
+      "preferred_entry_timeframes": [
+        "M15",
+        "M5"
+      ],
+      "strategy_family": "continuation"
+    },
+    {
+      "hypothesis_id": "sweep_rejection_reversal",
+      "market_logic": "Previous H4 swept the prior-prior H4 high or low and closed back inside. Trade against the sweep.",
+      "expected_failure_mode": "Real breakouts where the sweep is the start of a new leg.",
+      "required_data": [
+        "H4",
+        "M15"
+      ],
+      "preferred_entry_timeframes": [
+        "M15"
+      ],
+      "strategy_family": "reversal"
+    },
+    {
+      "hypothesis_id": "failed_continuation_reversal",
+      "market_logic": "Two same-color H4s, then the third closes against the prior body. Trade WITH the new direction.",
+      "expected_failure_mode": "Whipsaw chop where colors alternate at every bar \u2014 no real reversal.",
+      "required_data": [
+        "H4",
+        "M15"
+      ],
+      "preferred_entry_timeframes": [
+        "M15"
+      ],
+      "strategy_family": "reversal"
+    },
+    {
+      "hypothesis_id": "multi_bar_momentum",
+      "market_logic": "k consecutive same-color H4s; trade in the streak's direction (with PDH/PDL guard).",
+      "expected_failure_mode": "Late-stage trends where the third or fourth bar is the exhaustion top/bottom.",
+      "required_data": [
+        "H4",
+        "M15"
+      ],
+      "preferred_entry_timeframes": [
+        "M15"
+      ],
+      "strategy_family": "continuation"
+    }
+  ]
+}

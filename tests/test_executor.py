@@ -11,7 +11,18 @@ from data.loader import load_all
 from execution.executor import ExecutionModel, run as run_exec
 
 
+def _skip_if_no_data() -> bool:
+    try:
+        load_all()
+        return False
+    except FileNotFoundError:
+        print("  SKIP  no Dukascopy data on disk; run scripts/fetch_dukascopy.py first")
+        return True
+
+
 def test_executor_runs_and_records_excursions():
+    if _skip_if_no_data():
+        return
     ds = load_all()
     spec = Spec(
         id="t",
@@ -30,6 +41,8 @@ def test_executor_runs_and_records_excursions():
 
 
 def test_stress_reduces_returns():
+    if _skip_if_no_data():
+        return
     ds = load_all()
     spec = Spec(
         id="t",

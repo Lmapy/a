@@ -1,0 +1,627 @@
+{
+  "generated_by": "agent_07b_prop_simulator",
+  "n": 23,
+  "results": [
+    {
+      "strategy_id": "strong_body_continuation_M15_filters[0].min=0.5",
+      "25k": {
+        "blowup_probability": 0.0,
+        "prop_survival_score": 1.0,
+        "end_balance_p10": 24906.44,
+        "end_balance_p50": 25269.91,
+        "end_balance_p90": 25633.67,
+        "passes_25k": true
+      },
+      "50k": {
+        "blowup_probability": 0.0,
+        "prop_survival_score": 1.0,
+        "end_balance_p10": 49906.44,
+        "end_balance_p50": 50269.91,
+        "end_balance_p90": 50633.67,
+        "passes_50k": true
+      },
+      "150k": {
+        "blowup_probability": 0.0,
+        "prop_survival_score": 1.0,
+        "end_balance_p10": 149906.44,
+        "end_balance_p50": 150269.91,
+        "end_balance_p90": 150633.67,
+        "passes_150k": true
+      }
+    },
+    {
+      "strategy_id": "strong_body_continuation_M15_filters[0].min=0.7",
+      "25k": {
+        "blowup_probability": 0.0,
+        "prop_survival_score": 1.0,
+        "end_balance_p10": 25061.08,
+        "end_balance_p50": 25252.86,
+        "end_balance_p90": 25457.84,
+        "passes_25k": true
+      },
+      "50k": {
+        "blowup_probability": 0.0,
+        "prop_survival_score": 1.0,
+        "end_balance_p10": 50061.08,
+        "end_balance_p50": 50252.86,
+        "end_balance_p90": 50457.84,
+        "passes_50k": true
+      },
+      "150k": {
+        "blowup_probability": 0.0,
+        "prop_survival_score": 1.0,
+        "end_balance_p10": 150061.08,
+        "end_balance_p50": 150252.86,
+        "end_balance_p90": 150457.84,
+        "passes_150k": true
+      }
+    },
+    {
+      "strategy_id": "strong_body_continuation_M15_filters[0].min=1.0",
+      "25k": {
+        "blowup_probability": 0.0,
+        "prop_survival_score": 1.0,
+        "end_balance_p10": 25034.18,
+        "end_balance_p50": 25123.55,
+        "end_balance_p90": 25213.98,
+        "passes_25k": true
+      },
+      "50k": {
+        "blowup_probability": 0.0,
+        "prop_survival_score": 1.0,
+        "end_balance_p10": 50034.18,
+        "end_balance_p50": 50123.55,
+        "end_balance_p90": 50213.98,
+        "passes_50k": true
+      },
+      "150k": {
+        "blowup_probability": 0.0,
+        "prop_survival_score": 1.0,
+        "end_balance_p10": 150034.18,
+        "end_balance_p50": 150123.55,
+        "end_balance_p90": 150213.98,
+        "passes_150k": true
+      }
+    },
+    {
+      "strategy_id": "exhaustion_reversal_M15_filters[0].min=0.6",
+      "25k": {
+        "blowup_probability": 0.0,
+        "prop_survival_score": 1.0,
+        "end_balance_p10": 25025.22,
+        "end_balance_p50": 25223.85,
+        "end_balance_p90": 25472.37,
+        "passes_25k": true
+      },
+      "50k": {
+        "blowup_probability": 0.0,
+        "prop_survival_score": 1.0,
+        "end_balance_p10": 50025.22,
+        "end_balance_p50": 50223.85,
+        "end_balance_p90": 50472.37,
+        "passes_50k": true
+      },
+      "150k": {
+        "blowup_probability": 0.0,
+        "prop_survival_score": 1.0,
+        "end_balance_p10": 150025.22,
+        "end_balance_p50": 150223.85,
+        "end_balance_p90": 150472.37,
+        "passes_150k": true
+      }
+    },
+    {
+      "strategy_id": "exhaustion_reversal_M15_filters[0].min=0.75",
+      "25k": {
+        "blowup_probability": 0.0,
+        "prop_survival_score": 1.0,
+        "end_balance_p10": 24887.9,
+        "end_balance_p50": 25124.62,
+        "end_balance_p90": 25365.91,
+        "passes_25k": true
+      },
+      "50k": {
+        "blowup_probability": 0.0,
+        "prop_survival_score": 1.0,
+        "end_balance_p10": 49887.9,
+        "end_balance_p50": 50124.62,
+        "end_balance_p90": 50365.91,
+        "passes_50k": true
+      },
+      "150k": {
+        "blowup_probability": 0.0,
+        "prop_survival_score": 1.0,
+        "end_balance_p10": 149887.9,
+        "end_balance_p50": 150124.62,
+        "end_balance_p90": 150365.91,
+        "passes_150k": true
+      }
+    },
+    {
+      "strategy_id": "fib_continuation_M15_entry.level=0.382",
+      "25k": {
+        "blowup_probability": 0.0,
+        "prop_survival_score": 1.0,
+        "end_balance_p10": 24867.45,
+        "end_balance_p50": 25056.12,
+        "end_balance_p90": 25213.64,
+        "passes_25k": true
+      },
+      "50k": {
+        "blowup_probability": 0.0,
+        "prop_survival_score": 1.0,
+        "end_balance_p10": 49867.45,
+        "end_balance_p50": 50056.12,
+        "end_balance_p90": 50213.64,
+        "passes_50k": true
+      },
+      "150k": {
+        "blowup_probability": 0.0,
+        "prop_survival_score": 1.0,
+        "end_balance_p10": 149867.45,
+        "end_balance_p50": 150056.12,
+        "end_balance_p90": 150213.64,
+        "passes_150k": true
+      }
+    },
+    {
+      "strategy_id": "fib_continuation_M15_entry.level=0.5",
+      "25k": {
+        "blowup_probability": 0.0,
+        "prop_survival_score": 1.0,
+        "end_balance_p10": 24769.82,
+        "end_balance_p50": 24975.69,
+        "end_balance_p90": 25160.35,
+        "passes_25k": false
+      },
+      "50k": {
+        "blowup_probability": 0.0,
+        "prop_survival_score": 1.0,
+        "end_balance_p10": 49769.82,
+        "end_balance_p50": 49975.69,
+        "end_balance_p90": 50160.35,
+        "passes_50k": false
+      },
+      "150k": {
+        "blowup_probability": 0.0,
+        "prop_survival_score": 1.0,
+        "end_balance_p10": 149769.82,
+        "end_balance_p50": 149975.69,
+        "end_balance_p90": 150160.35,
+        "passes_150k": false
+      }
+    },
+    {
+      "strategy_id": "fib_continuation_M15_entry.level=0.618",
+      "25k": {
+        "blowup_probability": 0.0,
+        "prop_survival_score": 1.0,
+        "end_balance_p10": 24799.93,
+        "end_balance_p50": 24933.12,
+        "end_balance_p90": 25058.76,
+        "passes_25k": false
+      },
+      "50k": {
+        "blowup_probability": 0.0,
+        "prop_survival_score": 1.0,
+        "end_balance_p10": 49799.93,
+        "end_balance_p50": 49933.12,
+        "end_balance_p90": 50058.76,
+        "passes_50k": false
+      },
+      "150k": {
+        "blowup_probability": 0.0,
+        "prop_survival_score": 1.0,
+        "end_balance_p10": 149799.93,
+        "end_balance_p50": 149933.12,
+        "end_balance_p90": 150058.76,
+        "passes_150k": false
+      }
+    },
+    {
+      "strategy_id": "fib_continuation_M15_entry.level=0.705",
+      "25k": {
+        "blowup_probability": 0.0,
+        "prop_survival_score": 1.0,
+        "end_balance_p10": 24872.79,
+        "end_balance_p50": 24995.44,
+        "end_balance_p90": 25130.86,
+        "passes_25k": false
+      },
+      "50k": {
+        "blowup_probability": 0.0,
+        "prop_survival_score": 1.0,
+        "end_balance_p10": 49872.79,
+        "end_balance_p50": 49995.44,
+        "end_balance_p90": 50130.86,
+        "passes_50k": false
+      },
+      "150k": {
+        "blowup_probability": 0.0,
+        "prop_survival_score": 1.0,
+        "end_balance_p10": 149872.79,
+        "end_balance_p50": 149995.44,
+        "end_balance_p90": 150130.86,
+        "passes_150k": false
+      }
+    },
+    {
+      "strategy_id": "fib_continuation_M15_entry.level=0.786",
+      "25k": {
+        "blowup_probability": 0.0,
+        "prop_survival_score": 1.0,
+        "end_balance_p10": 24914.6,
+        "end_balance_p50": 25067.83,
+        "end_balance_p90": 25211.02,
+        "passes_25k": true
+      },
+      "50k": {
+        "blowup_probability": 0.0,
+        "prop_survival_score": 1.0,
+        "end_balance_p10": 49914.6,
+        "end_balance_p50": 50067.83,
+        "end_balance_p90": 50211.02,
+        "passes_50k": true
+      },
+      "150k": {
+        "blowup_probability": 0.0,
+        "prop_survival_score": 1.0,
+        "end_balance_p10": 149914.6,
+        "end_balance_p50": 150067.83,
+        "end_balance_p90": 150211.02,
+        "passes_150k": true
+      }
+    },
+    {
+      "strategy_id": "vwap_mean_reversion_M15_filters[0].max_z=2.0",
+      "25k": {
+        "blowup_probability": 0.0,
+        "prop_survival_score": 1.0,
+        "end_balance_p10": 24797.31,
+        "end_balance_p50": 25191.56,
+        "end_balance_p90": 25711.95,
+        "passes_25k": true
+      },
+      "50k": {
+        "blowup_probability": 0.0,
+        "prop_survival_score": 1.0,
+        "end_balance_p10": 49797.31,
+        "end_balance_p50": 50191.56,
+        "end_balance_p90": 50711.95,
+        "passes_50k": true
+      },
+      "150k": {
+        "blowup_probability": 0.0,
+        "prop_survival_score": 1.0,
+        "end_balance_p10": 149797.31,
+        "end_balance_p50": 150191.56,
+        "end_balance_p90": 150711.95,
+        "passes_150k": true
+      }
+    },
+    {
+      "strategy_id": "vwap_mean_reversion_M15_filters[0].max_z=2.5",
+      "25k": {
+        "blowup_probability": 0.0,
+        "prop_survival_score": 1.0,
+        "end_balance_p10": 24782.3,
+        "end_balance_p50": 25147.77,
+        "end_balance_p90": 25547.36,
+        "passes_25k": true
+      },
+      "50k": {
+        "blowup_probability": 0.0,
+        "prop_survival_score": 1.0,
+        "end_balance_p10": 49782.3,
+        "end_balance_p50": 50147.77,
+        "end_balance_p90": 50547.36,
+        "passes_50k": true
+      },
+      "150k": {
+        "blowup_probability": 0.0,
+        "prop_survival_score": 1.0,
+        "end_balance_p10": 149782.3,
+        "end_balance_p50": 150147.77,
+        "end_balance_p90": 150547.36,
+        "passes_150k": true
+      }
+    },
+    {
+      "strategy_id": "vwap_mean_reversion_M15_filters[0].max_z=3.0",
+      "25k": {
+        "blowup_probability": 0.0,
+        "prop_survival_score": 1.0,
+        "end_balance_p10": 24754.8,
+        "end_balance_p50": 25092.84,
+        "end_balance_p90": 25465.87,
+        "passes_25k": true
+      },
+      "50k": {
+        "blowup_probability": 0.0,
+        "prop_survival_score": 1.0,
+        "end_balance_p10": 49754.8,
+        "end_balance_p50": 50092.84,
+        "end_balance_p90": 50465.87,
+        "passes_50k": true
+      },
+      "150k": {
+        "blowup_probability": 0.0,
+        "prop_survival_score": 1.0,
+        "end_balance_p10": 149754.8,
+        "end_balance_p50": 150092.84,
+        "end_balance_p90": 150465.87,
+        "passes_150k": true
+      }
+    },
+    {
+      "strategy_id": "compression_breakout_continuation_M15_filters[0].hi=0.2",
+      "25k": {
+        "blowup_probability": 0.0,
+        "prop_survival_score": 1.0,
+        "end_balance_p10": 24997.22,
+        "end_balance_p50": 24997.22,
+        "end_balance_p90": 24997.22,
+        "passes_25k": false
+      },
+      "50k": {
+        "blowup_probability": 0.0,
+        "prop_survival_score": 1.0,
+        "end_balance_p10": 49997.22,
+        "end_balance_p50": 49997.22,
+        "end_balance_p90": 49997.22,
+        "passes_50k": false
+      },
+      "150k": {
+        "blowup_probability": 0.0,
+        "prop_survival_score": 1.0,
+        "end_balance_p10": 149997.22,
+        "end_balance_p50": 149997.22,
+        "end_balance_p90": 149997.22,
+        "passes_150k": false
+      }
+    },
+    {
+      "strategy_id": "compression_breakout_continuation_M15_filters[0].hi=0.3",
+      "25k": {
+        "blowup_probability": 0.0,
+        "prop_survival_score": 1.0,
+        "end_balance_p10": 24970.9,
+        "end_balance_p50": 24970.9,
+        "end_balance_p90": 24970.9,
+        "passes_25k": false
+      },
+      "50k": {
+        "blowup_probability": 0.0,
+        "prop_survival_score": 1.0,
+        "end_balance_p10": 49970.9,
+        "end_balance_p50": 49970.9,
+        "end_balance_p90": 49970.9,
+        "passes_50k": false
+      },
+      "150k": {
+        "blowup_probability": 0.0,
+        "prop_survival_score": 1.0,
+        "end_balance_p10": 149970.9,
+        "end_balance_p50": 149970.9,
+        "end_balance_p90": 149970.9,
+        "passes_150k": false
+      }
+    },
+    {
+      "strategy_id": "compression_breakout_continuation_M15_filters[0].hi=0.4",
+      "25k": {
+        "blowup_probability": 0.0,
+        "prop_survival_score": 1.0,
+        "end_balance_p10": 24996.33,
+        "end_balance_p50": 24996.33,
+        "end_balance_p90": 24996.33,
+        "passes_25k": false
+      },
+      "50k": {
+        "blowup_probability": 0.0,
+        "prop_survival_score": 1.0,
+        "end_balance_p10": 49996.33,
+        "end_balance_p50": 49996.33,
+        "end_balance_p90": 49996.33,
+        "passes_50k": false
+      },
+      "150k": {
+        "blowup_probability": 0.0,
+        "prop_survival_score": 1.0,
+        "end_balance_p10": 149996.33,
+        "end_balance_p50": 149996.33,
+        "end_balance_p90": 149996.33,
+        "passes_150k": false
+      }
+    },
+    {
+      "strategy_id": "displacement_continuation_M15_signal.min_body_atr=0.7",
+      "25k": {
+        "blowup_probability": 0.0,
+        "prop_survival_score": 1.0,
+        "end_balance_p10": 24837.68,
+        "end_balance_p50": 24852.1,
+        "end_balance_p90": 24864.24,
+        "passes_25k": false
+      },
+      "50k": {
+        "blowup_probability": 0.0,
+        "prop_survival_score": 1.0,
+        "end_balance_p10": 49837.68,
+        "end_balance_p50": 49852.1,
+        "end_balance_p90": 49864.24,
+        "passes_50k": false
+      },
+      "150k": {
+        "blowup_probability": 0.0,
+        "prop_survival_score": 1.0,
+        "end_balance_p10": 149837.68,
+        "end_balance_p50": 149852.1,
+        "end_balance_p90": 149864.24,
+        "passes_150k": false
+      }
+    },
+    {
+      "strategy_id": "displacement_continuation_M15_signal.min_body_atr=1.0",
+      "25k": {
+        "blowup_probability": 0.0,
+        "prop_survival_score": 1.0,
+        "end_balance_p10": 24971.23,
+        "end_balance_p50": 24971.23,
+        "end_balance_p90": 24971.23,
+        "passes_25k": false
+      },
+      "50k": {
+        "blowup_probability": 0.0,
+        "prop_survival_score": 1.0,
+        "end_balance_p10": 49971.23,
+        "end_balance_p50": 49971.23,
+        "end_balance_p90": 49971.23,
+        "passes_50k": false
+      },
+      "150k": {
+        "blowup_probability": 0.0,
+        "prop_survival_score": 1.0,
+        "end_balance_p10": 149971.23,
+        "end_balance_p50": 149971.23,
+        "end_balance_p90": 149971.23,
+        "passes_150k": false
+      }
+    },
+    {
+      "strategy_id": "sweep_rejection_reversal_M15_filters[0].allow=['range']",
+      "25k": {
+        "blowup_probability": 0.0,
+        "prop_survival_score": 1.0,
+        "end_balance_p10": 24781.7,
+        "end_balance_p50": 24975.35,
+        "end_balance_p90": 25170.55,
+        "passes_25k": false
+      },
+      "50k": {
+        "blowup_probability": 0.0,
+        "prop_survival_score": 1.0,
+        "end_balance_p10": 49781.7,
+        "end_balance_p50": 49975.35,
+        "end_balance_p90": 50170.55,
+        "passes_50k": false
+      },
+      "150k": {
+        "blowup_probability": 0.0,
+        "prop_survival_score": 1.0,
+        "end_balance_p10": 149781.7,
+        "end_balance_p50": 149975.35,
+        "end_balance_p90": 150170.55,
+        "passes_150k": false
+      }
+    },
+    {
+      "strategy_id": "sweep_rejection_reversal_M15_filters[0].allow=['range','compression']",
+      "25k": {
+        "blowup_probability": 0.0,
+        "prop_survival_score": 1.0,
+        "end_balance_p10": 24880.51,
+        "end_balance_p50": 25007.57,
+        "end_balance_p90": 25148.22,
+        "passes_25k": true
+      },
+      "50k": {
+        "blowup_probability": 0.0,
+        "prop_survival_score": 1.0,
+        "end_balance_p10": 49880.51,
+        "end_balance_p50": 50007.57,
+        "end_balance_p90": 50148.22,
+        "passes_50k": true
+      },
+      "150k": {
+        "blowup_probability": 0.0,
+        "prop_survival_score": 1.0,
+        "end_balance_p10": 149880.51,
+        "end_balance_p50": 150007.57,
+        "end_balance_p90": 150148.22,
+        "passes_150k": true
+      }
+    },
+    {
+      "strategy_id": "failed_continuation_reversal_M15",
+      "25k": {
+        "blowup_probability": 0.0,
+        "prop_survival_score": 1.0,
+        "end_balance_p10": 24753.5,
+        "end_balance_p50": 24834.21,
+        "end_balance_p90": 24926.9,
+        "passes_25k": false
+      },
+      "50k": {
+        "blowup_probability": 0.0,
+        "prop_survival_score": 1.0,
+        "end_balance_p10": 49753.5,
+        "end_balance_p50": 49834.21,
+        "end_balance_p90": 49926.9,
+        "passes_50k": false
+      },
+      "150k": {
+        "blowup_probability": 0.0,
+        "prop_survival_score": 1.0,
+        "end_balance_p10": 149753.5,
+        "end_balance_p50": 149834.21,
+        "end_balance_p90": 149926.9,
+        "passes_150k": false
+      }
+    },
+    {
+      "strategy_id": "multi_bar_momentum_M15_signal.k=2",
+      "25k": {
+        "blowup_probability": 0.0,
+        "prop_survival_score": 1.0,
+        "end_balance_p10": 24640.73,
+        "end_balance_p50": 24798.1,
+        "end_balance_p90": 24964.78,
+        "passes_25k": false
+      },
+      "50k": {
+        "blowup_probability": 0.0,
+        "prop_survival_score": 1.0,
+        "end_balance_p10": 49640.73,
+        "end_balance_p50": 49798.1,
+        "end_balance_p90": 49964.78,
+        "passes_50k": false
+      },
+      "150k": {
+        "blowup_probability": 0.0,
+        "prop_survival_score": 1.0,
+        "end_balance_p10": 149640.73,
+        "end_balance_p50": 149798.1,
+        "end_balance_p90": 149964.78,
+        "passes_150k": false
+      }
+    },
+    {
+      "strategy_id": "multi_bar_momentum_M15_signal.k=3",
+      "25k": {
+        "blowup_probability": 0.0,
+        "prop_survival_score": 1.0,
+        "end_balance_p10": 24767.64,
+        "end_balance_p50": 24899.78,
+        "end_balance_p90": 25031.91,
+        "passes_25k": false
+      },
+      "50k": {
+        "blowup_probability": 0.0,
+        "prop_survival_score": 1.0,
+        "end_balance_p10": 49767.64,
+        "end_balance_p50": 49899.78,
+        "end_balance_p90": 50031.91,
+        "passes_50k": false
+      },
+      "150k": {
+        "blowup_probability": 0.0,
+        "prop_survival_score": 1.0,
+        "end_balance_p10": 149767.64,
+        "end_balance_p50": 149899.78,
+        "end_balance_p90": 150031.91,
+        "passes_150k": false
+      }
+    }
+  ]
+}

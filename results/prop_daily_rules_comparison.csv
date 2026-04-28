@@ -1,7 +1,0 @@
-daily_rules,n,median_pass,median_blowup,median_payout,median_score
-stop_w1,60,0.59,0.115,0.91,0.919
-none,60,0.47,0.305,0.78,0.6265
-max2,60,0.37,0.305,0.765,0.5655
-ny_only_max2,60,0.28,0.215,0.7,0.51
-stop_l2,60,0.275,0.45,0.67,0.407
-dp500_dl300,60,0.3,0.43,0.71,0.361

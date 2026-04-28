@@ -1,6 +1,0 @@
-{
-  "generated_by": "agent_07_certifier",
-  "policy": "Strategy must pass strict cert (>=20 wf folds, median Sharpe >0.5, >=60% positive folds, PF >1.2, DD>= -0.20, biggest_trade_share <=0.20, shuffle p<0.05, random_baseline p<0.05, profitable under stress, >=3 positive yearly slices) AND robustness critic (top-1 removal, top-5%-removal, worst-week, consecutive-loss, session-split, removed-best-year) AND BH-FDR significance.",
-  "n_certified": 0,
-  "certified": []
-}

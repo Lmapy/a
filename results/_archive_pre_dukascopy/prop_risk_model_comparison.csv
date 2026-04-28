@@ -1,0 +1,6 @@
+risk_model,n,median_pass,median_blowup,median_payout,median_score
+pct_dd_buffer_2pct,72,0.425,0.2,0.785,0.65
+micro_1,72,0.43,0.18,0.79,0.648
+dollar_risk_50,72,0.425,0.19,0.79,0.648
+dollar_risk_100,72,0.405,0.21,0.79,0.6395
+reduce_after_loss,72,0.34,0.505,0.61,0.248

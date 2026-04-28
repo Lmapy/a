@@ -1,32 +1,53 @@
-# 4H continuation strategy on gold — backtest pipeline
+# XAUUSD strategy research pipeline — Dukascopy-only
 
-A reproducible pipeline that tests the user's hypothesis on **real** XAUUSD
-data, with **15-minute entries on top of a 4-hour signal**:
+> **OFFICIAL DATA SOURCE: DUKASCOPY (single source).**
+> All active research, walk-forward testing, holdout testing, prop-firm
+> simulation, and certification use Dukascopy tick-derived candles only.
+> The previous broker datasets (`tiumbj/Bot_Data_Basese`, `142f/inv-cry`)
+> have been **deprecated and moved to `data/_deprecated_/`**; their
+> pre-migration results sit in `results/_archive_pre_dukascopy/` as
+> historical record only.
 
-> On every 4-hour candle open, gold tends to continue in the same direction
-> as the previous 4-hour candle.
+A reproducible pipeline that tests intraday gold strategies — H4 setup,
+sub-hour entries — with strict statistical validation, prop-firm
+challenge simulation, and an honest "no alpha" verdict when nothing
+clears the gates.
 
-No synthetic data is used anywhere in this repo.
+## Dukascopy data pipeline
 
-## Repo layout
+The official fetcher resolves Dukascopy hourly `.bi5` LZMA tick
+files, decodes them, and resamples into eight canonical timeframes.
 
 ```
-agents/        markdown specs for each pipeline stage (00-05)
-data/          real OHLC CSVs pulled by scripts/fetch_data.py
-scripts/       fetch_data.py, backtest.py
-results/       hit_rate.csv, summary.csv, trades.csv, equity.csv, equity.png
+data/
+  dukascopy/
+    raw/                                # cached .bi5 hourly tick files
+    candles/XAUUSD/
+      M1/  M3/  M5/  M15/  M30/  H1/  H4/  D1/    # year=YYYY.csv per timeframe
+    manifests/
+      XAUUSD_manifest.json              # provenance + policy + per-year SHA256
+  _deprecated_/                         # old broker CSVs + fetcher (archive)
+config/
+  data_splits.json                      # train / validation / holdout
 ```
 
-## Data
+Every candle row carries `dataset_source = "dukascopy"`. The loader
+(`data.loader.load_candles`) refuses anything else; the audit and
+certifier reject non-Dukascopy data with reason
+`non_official_data_source`.
 
-All bars come from public MT5 broker exports on GitHub. None of it is
-generated.
+```bash
+make data    # python3 scripts/fetch_dukascopy.py --symbol XAUUSD --start 2008-01-01 --end 2026-04-29
+make audit   # passes only when every active candle has dataset_source == dukascopy
+make alpha   # alpha discovery on Dukascopy candles
+make prop    # prop-firm challenge simulation on Dukascopy trade ledgers
+make pdf     # audit PDF
+```
 
-| File                          | Bars  | Span (UTC)                    | Source                                     |
-| ----------------------------- | ----- | ----------------------------- | ------------------------------------------ |
-| `data/XAUUSD_H4_long.csv`     | 8,607 | 2018-06-28 → 2026-04-20       | `github.com/142f/inv-cry`                  |
-| `data/XAUUSD_H4_matched.csv`  |   261 | 2026-01-30 → 2026-04-01       | `github.com/tiumbj/Bot_Data_Basese`        |
-| `data/XAUUSD_M15_matched.csv` | 3,977 | 2026-01-30 → 2026-04-01       | `github.com/tiumbj/Bot_Data_Basese`        |
+The Dukascopy CDN (`datafeed.dukascopy.com`) must be reachable from
+your network to populate the data. If it isn't, the fetcher exits with
+code 2 and a clear message; the audit then fails at "Dukascopy candle
+data on disk" with no fallback to other brokers.
 
 The matched files are H4 + M15 from the **same broker** so M15 sub-bars
 slot cleanly inside H4 buckets.

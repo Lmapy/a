@@ -1,0 +1,9 @@
+metric,value
+bars_tested,8604
+P(same direction),0.4971
+P(same) 95% CI low,0.4865
+P(same) 95% CI high,0.5077
+P(up | prev up),0.5197
+P(down | prev down),0.4723
+edge over 50% (pp),-0.291
+data span,2018-06-28 -> 2026-04-20

@@ -24,7 +24,19 @@ from reportlab.platypus import (
 ROOT = Path(__file__).resolve().parent.parent
 DATA = ROOT / "data"
 RES = ROOT / "results"
+ARCHIVE = RES / "_archive_pre_dukascopy"
 OUT = RES / "audit_pack.pdf"
+
+
+def _path(name: str) -> Path:
+    """Read result files from results/ if they exist, else from the
+    pre-Dukascopy archive (so historical sections of the PDF still
+    render after the migration). Active sections use RES paths only."""
+    direct = RES / name
+    if direct.exists():
+        return direct
+    archived = ARCHIVE / name
+    return archived
 
 styles = getSampleStyleSheet()
 H1 = styles["Heading1"]
@@ -74,7 +86,33 @@ story.append(p(
     f"Generated: {datetime.now(timezone.utc).strftime('%Y-%m-%d %H:%M UTC')}",
     SMALL,
 ))
-story.append(Spacer(1, 0.18 * inch))
+story.append(Spacer(1, 0.10 * inch))
+
+# v5 official-data banner
+import json as _json
+_manifest_p = ROOT / "data" / "dukascopy" / "manifests" / "XAUUSD_manifest.json"
+_avail_summary = "no Dukascopy data on disk yet — pipeline refuses to certify"
+if _manifest_p.exists():
+    _m = _json.loads(_manifest_p.read_text())
+    _summary = _m.get("summary", {}) or {}
+    if _summary:
+        _avail_summary = ("Dukascopy candles on disk: "
+                          + ", ".join(f"{tf} ({s.get('total_rows',0)})"
+                                      for tf, s in _summary.items()))
+story.append(p(
+    "<b>OFFICIAL DATA SOURCE: DUKASCOPY (single source).</b> "
+    "All active research, walk-forward testing, holdout testing, prop-firm "
+    "simulation, and certification use Dukascopy tick-derived candles only. "
+    "The previous broker datasets ("
+    "<font face='Courier'>tiumbj/Bot_Data_Basese</font>, "
+    "<font face='Courier'>142f/inv-cry</font>) have been deprecated and moved "
+    "to <font face='Courier'>data/_deprecated_/</font>; their pre-migration "
+    "results sit in <font face='Courier'>results/_archive_pre_dukascopy/</font> "
+    "as historical record only. "
+    f"Current state: <i>{_avail_summary}</i>.",
+    SMALL,
+))
+story.append(Spacer(1, 0.08 * inch))
 
 # 1. Hypothesis
 story.append(section("1. Hypothesis"))
@@ -173,14 +211,14 @@ story.append(p("All three variants lose without filters, consistent with §5.1."
 story.append(Spacer(1, 0.10 * inch))
 
 # Equity png if present
-eq_png = RES / "equity.png"
+eq_png = _path("equity.png")
 if eq_png.exists():
     story.append(p("Equity curves of the three single-spec variants:", SMALL))
     story.append(Image(str(eq_png), width=5.6 * inch, height=2.6 * inch))
     story.append(Spacer(1, 0.10 * inch))
 
 story.append(section("5.3 Fib level reaction on long history", level=3))
-fib_levels = RES / "fib_levels.csv"
+fib_levels = _path("fib_levels.csv")
 if fib_levels.exists():
     df = pd.read_csv(fib_levels)
     df = df[df["dataset"] == "h4_long_2018_2026"].sort_values("level")
@@ -201,7 +239,7 @@ story.append(p("0.618 is the deepest level whose win-rate-from-touch is ≥ 50%.
 story.append(Spacer(1, 0.12 * inch))
 
 story.append(section("5.4 Agentic search — 1,632 specs, 16 certified", level=3))
-lb_path = RES / "leaderboard.csv"
+lb_path = _path("leaderboard.csv")
 if lb_path.exists():
     lb = pd.read_csv(lb_path)
     cert = lb[lb["certified"].astype(str).str.lower() == "true"].copy()

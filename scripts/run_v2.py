@@ -141,6 +141,10 @@ def evaluate_spec(spec: Spec, ds: dict) -> dict:
     prop = simulate_all(trades)
 
     # 8. certify
+    src = "unknown"
+    if "dataset_source" in h4.columns and not h4.empty:
+        src = str(h4["dataset_source"].iloc[0])
+
     cr = certify(
         wf=wf,
         holdout_metrics=ho,
@@ -148,6 +152,7 @@ def evaluate_spec(spec: Spec, ds: dict) -> dict:
         stat_shuffle=sh,
         stat_random=rb,
         yearly=ym,
+        dataset_source=src,
     )
 
     # regime breakdown for reporting

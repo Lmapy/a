@@ -28,12 +28,19 @@ class CertResult:
 
 def certify(*, wf: dict, holdout_metrics: dict, holdout_stress: dict,
             stat_shuffle: dict, stat_random: dict, yearly: dict,
+            dataset_source: str = "unknown",
             min_folds: int = 20, min_median_sharpe: float = 0.5,
             min_positive_folds: float = 0.60, min_profit_factor: float = 1.2,
             max_drawdown_floor: float = -0.20, max_biggest_share: float = 0.20,
             ) -> CertResult:
     fails: list[str] = []
-    detail: dict = {}
+    detail: dict = {"dataset_source": dataset_source}
+
+    # 0. Official-source gate (added in Dukascopy migration).
+    if dataset_source != "dukascopy":
+        fails.append(f"non_official_data_source (got {dataset_source!r}); "
+                     "active certifier accepts dataset_source='dukascopy' only")
+        return CertResult(certified=False, failures=fails, detail=detail)
 
     # 1. WF folds
     n_folds = wf.get("folds", 0)

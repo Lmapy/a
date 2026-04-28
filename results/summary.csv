@@ -1,4 +1,0 @@
-strategy,trades,wins,win_rate,avg_ret_bp,total_return,sharpe_ann,max_drawdown,avg_hold_min,diag_skipped_no_signal,diag_skipped_no_subbars,diag_skipped_no_confirm
-m15_open,260,127,0.4885,-2.421,-0.074,-0.924,-0.1883,214.1,1,0,0
-m15_confirm,260,123,0.4731,-3.497,-0.098,-1.425,-0.1764,197.5,1,0,0
-m15_atr_stop,260,69,0.2654,-0.956,-0.0312,-0.518,-0.1439,99.5,1,0,0

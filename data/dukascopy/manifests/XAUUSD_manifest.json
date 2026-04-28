@@ -1,0 +1,12 @@
+{
+  "official_source": "dukascopy",
+  "symbol": "XAUUSD",
+  "timeframes": ["M1", "M3", "M5", "M15", "M30", "H1", "H4", "D1"],
+  "old_sources_deprecated": true,
+  "generated_from_tick_data": true,
+  "point_size": 0.001,
+  "policy": "Dukascopy is the single official data source for the active research, validation, holdout, prop simulation, and reporting pipeline. No mixing of broker sources. Old broker data lives under data/_deprecated_/ and is marked dataset_source != dukascopy; the audit and certifier reject it for active use.",
+  "state": "no_data_on_disk_yet",
+  "summary": {},
+  "instructions_to_populate": "Run scripts/fetch_dukascopy.py from an environment with internet access to datafeed.dukascopy.com. See README § Dukascopy data pipeline."
+}

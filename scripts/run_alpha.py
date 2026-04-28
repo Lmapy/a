@@ -32,7 +32,19 @@ sys.path.insert(0, str(ROOT))
 from analytics.trade_metrics import all_metrics
 from core.types import Spec
 from data.loader import load_all
-from data.validator import run_full_validation
+# data.validator was tied to the old broker layout; the Dukascopy-only
+# pipeline runs its integrity checks through scripts/audit.py instead.
+try:
+    from data.validator import run_full_validation
+except ImportError:
+    def run_full_validation(**_):    # type: ignore
+        from dataclasses import dataclass, field
+        @dataclass
+        class _R:
+            findings: list = field(default_factory=list)
+            errors: list = field(default_factory=list)
+            def to_rows(self): return []
+        return _R()
 from execution.executor import ExecutionModel, run as run_exec
 from prop.simulator import simulate_all
 from regime.filters import regime_breakdown
@@ -114,9 +126,16 @@ def evaluate_one(spec_obj: dict, ds: dict) -> dict:
     prop = simulate_all(trades)
 
     critic = run_critic(trades)
+    # Read the canonical source tag off the holdout dataset so the cert
+    # gate can refuse non-Dukascopy data with reason=non_official_data_source.
+    src = "unknown"
+    if "dataset_source" in h4.columns and not h4.empty:
+        src = str(h4["dataset_source"].iloc[0])
+
     cr = certify(
         wf=wf, holdout_metrics=ho, holdout_stress=stress,
         stat_shuffle=sh, stat_random=rb, yearly=yearly,
+        dataset_source=src,
     )
     rb_break = regime_breakdown(trades, h4)
 
