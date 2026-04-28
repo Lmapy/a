@@ -37,25 +37,37 @@ OUT.mkdir(parents=True, exist_ok=True)
 def collect_strategies() -> list[tuple[str, pd.DataFrame]]:
     """Return list of (strategy_id, trades_df) from the existing pipeline.
 
-    To keep run-time interactive we filter to:
-      - any strategy with >= 30 trades (enough to bootstrap from), and
-      - the top-N by trade count if there are too many.
+    Selection rule: by leaderboard wf_median_sharpe (the long-history
+    edge signal), NOT by raw trade count. This keeps compression_breakout
+    (1.11/wk, wf Sharpe 2.93) and fib_continuation (1.72/wk, wf 1.16)
+    in the prop test even though they trade less than the high-frequency
+    specs would.
     """
+    LEADERBOARD = ROOT / "results" / "leaderboard.csv"
     out: list[tuple[str, pd.DataFrame]] = []
-    if TRADES_DIR.exists():
-        for f in sorted(TRADES_DIR.glob("*.csv")):
-            sid = f.stem
-            df = pd.read_csv(f)
-            if df.empty or len(df) < 30:
-                continue
-            out.append((sid, df))
-    # Sort by trade count desc and keep at most TOP_N strategies; this is the
-    # set the prop pipeline focuses on.
-    out.sort(key=lambda x: -len(x[1]))
+    if not TRADES_DIR.exists():
+        return out
+    # Build a wf_median_sharpe score map from the leaderboard if available.
+    score_map: dict[str, float] = {}
+    if LEADERBOARD.exists():
+        try:
+            lb = pd.read_csv(LEADERBOARD)
+            for _, r in lb.iterrows():
+                score_map[str(r["id"])] = float(r.get("wf_median_sharpe", 0.0) or 0.0)
+        except Exception:
+            score_map = {}
+    for f in sorted(TRADES_DIR.glob("*.csv")):
+        sid = f.stem
+        df = pd.read_csv(f)
+        if df.empty or len(df) < 30:
+            continue
+        out.append((sid, df))
+    # Sort by leaderboard wf_median_sharpe desc; fall back to trade count.
+    out.sort(key=lambda x: (-score_map.get(x[0], -1e9), -len(x[1])))
     return out[:TOP_N_STRATEGIES]
 
 
-TOP_N_STRATEGIES = 4        # focus on the 4 strategies with the longest ledgers
+TOP_N_STRATEGIES = 6        # top-6 by walk-forward median Sharpe
 N_RUNS_CHALLENGE = 100      # MC paths per (strategy x account x risk x rules) for challenge sim
 N_RUNS_PAYOUT    = 100      # MC paths for payout sim
 
