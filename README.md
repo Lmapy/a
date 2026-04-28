@@ -1,12 +1,75 @@
 # XAUUSD strategy research pipeline — Dukascopy-only
 
+> **HARDENING PASS LANDED — see `docs/HARDENING_REPORT.md`.**
+> Batches A-D of the audit hardening are in. The harness can no longer
+> falsely certify a strategy on the four most dangerous failure modes
+> the original code exhibited:
+>
+>   1. Spread costs were undercharged by ~1000× (price-units field was
+>      multiplied by `POINT_SIZE`). Fixed.
+>   2. Walk-forward silently downgraded M15 entries to `h4_open`,
+>      meaning WF was not testing the strategy holdout would certify.
+>      Fixed; WF now uses the same executor as holdout.
+>   3. Prop-firm risk sizing took the realised trade PnL as an input
+>      (`trade_pnl_price`), making position size a function of the
+>      future. Fixed; sizing uses pre-trade info only.
+>   4. The "shuffle test" was a no-op (Sharpe is invariant to
+>      permutation). Fixed; replaced by label permutation, random
+>      eligible-entry baseline, and stationary day-block bootstrap
+>      with Wilson CIs.
+>
+> Pre-hardening results in `results/_archive_pre_dukascopy/` and any
+> uncommitted leaderboards from before this PR are research-only and
+> must be regenerated under the hardened harness before any spec is
+> treated as certified.
+
 > **OFFICIAL DATA SOURCE: DUKASCOPY (single source).**
 > All active research, walk-forward testing, holdout testing, prop-firm
 > simulation, and certification use Dukascopy tick-derived candles only.
-> The previous broker datasets (`tiumbj/Bot_Data_Basese`, `142f/inv-cry`)
-> have been **deprecated and moved to `data/_deprecated_/`**; their
-> pre-migration results sit in `results/_archive_pre_dukascopy/` as
-> historical record only.
+> The previous broker datasets have been **deprecated and moved to
+> `data/_deprecated_/`**; their pre-migration results sit in
+> `results/_archive_pre_dukascopy/` as historical record only.
+
+## Canonical pipeline
+
+The single hardened entrypoint:
+
+```bash
+make pull-data         # fetch Dukascopy candles from the sidecar branch
+make test              # full unit test suite (gates everything below)
+make audit             # structural audit (splits, lookahead, spread units,
+                       # walk-forward kernel, prop-sim leakage, account verification)
+make pipeline          # canonical pipeline: splits -> WF train -> validation
+                       # -> holdout -> prop sim -> leaderboard_hardened.csv (+ .meta.json)
+make pdf               # regenerate audit PDF
+make all               # test + audit + pipeline + pdf
+```
+
+Each target is implemented in `scripts/`:
+
+| Target | Script | What it does |
+|---|---|---|
+| `make pull-data` | `scripts/pull_sidecar.py` | Pulls per-year Parquet candles from the `data-dukascopy` sidecar branch into `data/dukascopy/candles/`. |
+| `make test` | `scripts/run_tests.py` | Runs each of `tests/test_*.py` as a script; exits non-zero on the first failure. **`make all` and `make report` gate on this.** |
+| `make audit` | `scripts/audit.py` | Structural audit. Fails loudly on split overlap / coverage gaps, lookahead in filters, ambiguous spread units, walk-forward M15→H4 downgrade markers, prop-sim future-leakage, prop-account verification metadata, missing leaderboard provenance. |
+| `make pipeline` | `scripts/run_pipeline.py` | Canonical orchestrator. Loads `Splits` from `data/splits.py`; runs walk-forward on `research_train` only; runs validation on `validation`; runs single-revelation holdout on `holdout`; runs `prop_challenge.simulate_all` on the holdout trade ledger with day-block bootstrap and Wilson CIs; writes `results/leaderboard_hardened.csv` plus a `.meta.json` provenance sidecar (commit SHA, config hashes, schema versions, runtime). |
+| `make pdf` | `scripts/build_pdf.py` | Renders the audit PDF. |
+
+### Legacy entrypoints (pre-hardening, kept for back-compat)
+
+These predate Batches A-D. They use `data.loader.load_all()` instead
+of `data.splits.load_splits()`, so they don't enforce the
+train/validation/holdout boundary. Use `make pipeline` instead.
+
+| Target | Script | Notes |
+|---|---|---|
+| `make alpha` | `scripts/run_alpha.py` | Agentic alpha search (agents 02 + 03 + 06). |
+| `make prop` | `scripts/run_prop_challenge.py` | Prop-firm sim sweep across all `prop_accounts.json` accounts. |
+
+Files in `scripts/_deprecated_/` (`backtest.py`, `fib_analysis.py`,
+`orchestrate.py`, `skeptic.py`, `walkforward.py`, `run_v2.py`) are NOT
+on the canonical path — they were superseded during hardening and are
+retained for archeology only.
 
 A reproducible pipeline that tests intraday gold strategies — H4 setup,
 sub-hour entries — with strict statistical validation, prop-firm

@@ -617,11 +617,13 @@ def run_full_sim(spec: dict, h4: pd.DataFrame, m15: pd.DataFrame,
         if cost_model == "bps":
             cost_price = entry_price * (cost_bps / 10_000.0)
         else:  # 'spread'
-            # Use the spread from the actual EXIT sub-bar, not the bucket's
-            # last bar. This matters when a stop or TP fires intra-bucket --
-            # spreads can shift materially during the H4 window.
-            sp = float(sub["spread"].iloc[entry_idx]) + float(sub["spread"].iloc[exit_sub_idx])
-            cost_price = sp * POINT_SIZE
+            # Dukascopy candles store `spread = ask - bid` in price units, so
+            # round-trip cost is just (entry_spread + exit_spread). Use the
+            # spread from the actual EXIT sub-bar (not the bucket's last bar)
+            # because spreads can shift materially intra-bucket when stops/TPs
+            # fire early. Do NOT multiply by POINT_SIZE -- that was the
+            # 1000x-undercharge bug.
+            cost_price = float(sub["spread"].iloc[entry_idx]) + float(sub["spread"].iloc[exit_sub_idx])
 
         gross = s * (exit_price - entry_price)
         pnl = gross - cost_price

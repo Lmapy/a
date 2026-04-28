@@ -38,7 +38,10 @@ from validation.certify import certify
 from validation.critic import run_critic
 from validation.holdout import yearly_segments
 from validation.statistical_tests import (
-    random_baseline_test, shuffled_outcome_test,
+    daily_block_bootstrap_test,
+    label_permutation_test,
+    random_eligible_entry_test,
+    N_PERM_EXPLORATION,
 )
 from validation.walkforward import walk_forward, WFConfig
 
@@ -144,17 +147,19 @@ def _evaluate(spec: Spec, ds: dict) -> dict:
     h4_long, h4, m15 = ds["h4_long"], ds["h4"], ds["m15"]
     weeks = (h4["time"].iloc[-1] - h4["time"].iloc[0]).total_seconds() / 604_800.0
 
-    wf = walk_forward(spec, h4_long, WFConfig())
+    wf = walk_forward(spec, h4_long, m15, WFConfig())
     trades = run_exec(spec, h4, m15, ExecutionModel())
     stress_trades = run_exec(spec, h4, m15, ExecutionModel().stress())
     ho = all_metrics(trades, window_weeks=weeks)
     stress = all_metrics(stress_trades, window_weeks=weeks)
-    sh = shuffled_outcome_test(trades, n_perm=300)
-    rb = random_baseline_test(trades, h4_long, n_runs=200)
-    yearly = yearly_segments(spec, h4_long, min_positive_years=3)
+    lp = label_permutation_test(trades, n_perm=N_PERM_EXPLORATION)
+    rb = random_eligible_entry_test(trades, h4_long, n_runs=N_PERM_EXPLORATION)
+    bb = daily_block_bootstrap_test(trades, n_runs=N_PERM_EXPLORATION)
+    yearly = yearly_segments(spec, h4_long, m15, min_positive_years=3)
     crit = run_critic(trades)
     cr = certify(wf=wf, holdout_metrics=ho, holdout_stress=stress,
-                 stat_shuffle=sh, stat_random=rb, yearly=yearly)
+                 stat_label_perm=lp, stat_random=rb, stat_block_boot=bb,
+                 yearly=yearly)
     return {
         "id": spec.id,
         "wf_folds": wf["folds"],
@@ -166,8 +171,9 @@ def _evaluate(spec: Spec, ds: dict) -> dict:
         "ho_profit_factor": ho.get("profit_factor", 0.0),
         "ho_max_drawdown": ho.get("max_drawdown", 0.0),
         "stress_total_return": stress.get("total_return", 0.0),
-        "shuffle_p_value": sh["p_value"],
+        "label_perm_p_value": lp["p_value"],
         "random_p_value": rb.get("p_value", 1.0),
+        "block_boot_p_value": bb.get("p_value", 1.0),
         "passes_critic": crit.passes_critic,
         "certified": cr.certified,
         "cert_failures": cr.failures,

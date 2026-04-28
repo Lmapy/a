@@ -1,10 +1,11 @@
 {
   "_meta": {
-    "purpose": "Date-bound splits for the Dukascopy-only pipeline. Walk-forward folds are generated from `train`; final OOS is `validation` then `holdout`. holdout is never tuned against — it is only revealed once per spec, by the certifier.",
-    "policy": "Source must be dukascopy."
+    "purpose": "Date-bound splits for the Dukascopy-only pipeline. Walk-forward folds are generated from `research_train`; final OOS is `validation` then `holdout`. holdout is never tuned against — it is only revealed once per spec, by the certifier.",
+    "policy": "Source must be dukascopy.",
+    "coverage_note": "On-disk Dukascopy candles start 2020-07-01. The earlier 2008-2020 range is not currently fetched; if that data is later backfilled, widen `research_train.start` accordingly."
   },
   "research_train": {
-    "start": "2008-01-01T00:00:00Z",
+    "start": "2020-07-01T00:00:00Z",
     "end":   "2022-01-01T00:00:00Z"
   },
   "validation": {

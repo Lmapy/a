@@ -74,8 +74,10 @@ class DrawdownState:
 
     def _check_breach(self, day_index: int) -> None:
         s = self.spec
-        # 1. Daily loss limit -- per-day floor measured from day start
-        if self.daily_pnl <= -s.daily_loss_limit:
+        # 1. Daily loss limit -- per-day floor measured from day start.
+        # Some firms (MFFU 2026 onwards) do not have a DLL; spec sets
+        # daily_loss_limit=None and the check is skipped.
+        if s.daily_loss_limit is not None and self.daily_pnl <= -s.daily_loss_limit:
             self.last_breach = "daily_loss"
             self.breach_day = day_index
             return

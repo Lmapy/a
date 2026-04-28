@@ -36,7 +36,11 @@ from regime.filters import regime_breakdown
 from validation.certify import certify
 from validation.holdout import yearly_segments
 from validation.statistical_tests import (
-    benjamini_hochberg, random_baseline_test, shuffled_outcome_test,
+    benjamini_hochberg,
+    daily_block_bootstrap_test,
+    label_permutation_test,
+    random_eligible_entry_test,
+    N_PERM_EXPLORATION,
 )
 from validation.walkforward import walk_forward, WFConfig
 
@@ -118,9 +122,10 @@ def evaluate_spec(spec: Spec, ds: dict) -> dict:
     h4_long, h4, m15 = ds["h4_long"], ds["h4"], ds["m15"]
     weeks = (h4["time"].iloc[-1] - h4["time"].iloc[0]).total_seconds() / 604_800.0
 
-    # 1. walk-forward
-    wf = walk_forward(spec, h4_long, WFConfig(train_months=9, test_months=3,
-                                              step_months=3, min_folds=20))
+    # 1. walk-forward (M15-aware: same executor + entry semantics as holdout)
+    wf = walk_forward(spec, h4_long, m15,
+                      WFConfig(train_months=9, test_months=3,
+                               step_months=3, min_folds=20))
 
     # 2. holdout normal exec
     trades = run_exec(spec, h4, m15, ExecutionModel())
@@ -131,11 +136,12 @@ def evaluate_spec(spec: Spec, ds: dict) -> dict:
     stress = all_metrics(stress_trades, window_weeks=weeks)
 
     # 4-5. statistical tests on the realistic-exec trades
-    sh = shuffled_outcome_test(trades, n_perm=500)
-    rb = random_baseline_test(trades, h4_long, n_runs=200)
+    lp = label_permutation_test(trades, n_perm=N_PERM_EXPLORATION)
+    rb = random_eligible_entry_test(trades, h4_long, n_runs=N_PERM_EXPLORATION)
+    bb = daily_block_bootstrap_test(trades, n_runs=N_PERM_EXPLORATION)
 
-    # 6. multi-year holdout
-    ym = yearly_segments(spec, h4_long, min_positive_years=3)
+    # 6. multi-year holdout (M15-aware)
+    ym = yearly_segments(spec, h4_long, m15, min_positive_years=3)
 
     # 7. prop firm sim
     prop = simulate_all(trades)
@@ -149,8 +155,9 @@ def evaluate_spec(spec: Spec, ds: dict) -> dict:
         wf=wf,
         holdout_metrics=ho,
         holdout_stress=stress,
-        stat_shuffle=sh,
+        stat_label_perm=lp,
         stat_random=rb,
+        stat_block_boot=bb,
         yearly=ym,
         dataset_source=src,
     )
@@ -164,8 +171,9 @@ def evaluate_spec(spec: Spec, ds: dict) -> dict:
         "wf": wf,
         "ho": ho,
         "stress": stress,
-        "stat_shuffle": sh,
+        "stat_label_perm": lp,
         "stat_random": rb,
+        "stat_block_boot": bb,
         "yearly": ym,
         "prop": prop,
         "cert": {"certified": cr.certified, "failures": cr.failures, "detail": cr.detail},
@@ -175,9 +183,12 @@ def evaluate_spec(spec: Spec, ds: dict) -> dict:
 
 
 def write_reports(results: list[dict]) -> None:
-    # Apply BH-FDR across shuffle p-values for a population-corrected significance flag.
-    p_shuffle = [r["stat_shuffle"]["p_value"] for r in results]
-    fdr_keep = benjamini_hochberg(p_shuffle, q=0.05)
+    # Apply BH-FDR across label-permutation p-values (the directional-edge
+    # test). Use this single family of p-values for the leaderboard FDR
+    # decision; a spec must also pass the random baseline + block bootstrap
+    # gates in the certifier.
+    p_label_perm = [r["stat_label_perm"]["p_value"] for r in results]
+    fdr_keep = benjamini_hochberg(p_label_perm, q=0.05)
 
     rows_lb = []
     rows_stats = []
@@ -202,8 +213,9 @@ def write_reports(results: list[dict]) -> None:
             "ho_max_drawdown": r["ho"].get("max_drawdown", 0.0),
             "biggest_trade_share": r["ho"].get("biggest_trade_share", 0.0),
             "stress_total_return": r["stress"].get("total_return", 0.0),
-            "shuffle_p_value": r["stat_shuffle"]["p_value"],
+            "label_perm_p_value": r["stat_label_perm"]["p_value"],
             "random_p_value": r["stat_random"]["p_value"],
+            "block_boot_p_value": r["stat_block_boot"]["p_value"],
             "yearly_positive": r["yearly"]["n_positive_years"],
             "yearly_total": r["yearly"]["n_years"],
             "regime_consistency": r["yearly"]["regime_consistency_score"],
@@ -217,14 +229,18 @@ def write_reports(results: list[dict]) -> None:
 
         rows_stats.append({
             "id": r["id"],
-            "shuffle_p_value": r["stat_shuffle"]["p_value"],
-            "shuffle_passes": r["stat_shuffle"]["passes"],
-            "shuffle_real_sharpe": r["stat_shuffle"].get("real_sharpe"),
-            "shuffle_p95_sharpe": r["stat_shuffle"].get("shuffled_p95_sharpe"),
+            "label_perm_p_value": r["stat_label_perm"]["p_value"],
+            "label_perm_passes": r["stat_label_perm"]["passes"],
+            "label_perm_real_sharpe": r["stat_label_perm"].get("real_sharpe"),
+            "label_perm_p95_sharpe": r["stat_label_perm"].get("permuted_p95_sharpe"),
             "random_p_value": r["stat_random"].get("p_value"),
             "random_passes": r["stat_random"].get("passes"),
             "random_real_sharpe": r["stat_random"].get("real_sharpe"),
             "random_p95_sharpe": r["stat_random"].get("random_p95_sharpe"),
+            "block_boot_p_value": r["stat_block_boot"].get("p_value"),
+            "block_boot_passes": r["stat_block_boot"].get("passes"),
+            "block_boot_real_total": r["stat_block_boot"].get("real_total_return"),
+            "block_boot_p95_total": r["stat_block_boot"].get("boot_p95"),
             "fdr_significant": bool(keep),
         })
 

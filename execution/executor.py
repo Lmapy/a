@@ -139,6 +139,17 @@ def _signal_series(h4: pd.DataFrame, signal_spec: dict) -> np.ndarray:
     raise ValueError(f"unknown signal: {t}")
 
 
+def _shift1(arr: np.ndarray) -> np.ndarray:
+    """Shift `arr` by one bar (NaN at index 0). Used to enforce the
+    no-lookahead invariant: a filter at index i may only consume values
+    that were known by the close of bar i-1."""
+    out = np.empty_like(arr, dtype=float) if arr.dtype != object else \
+          np.empty_like(arr, dtype=object)
+    out[0] = np.nan if arr.dtype != object else None
+    out[1:] = arr[:-1]
+    return out
+
+
 def _apply_filters(h4: pd.DataFrame, sig: np.ndarray, filters: list[dict]) -> np.ndarray:
     n = len(h4)
     if n == 0:
@@ -186,7 +197,10 @@ def _apply_filters(h4: pd.DataFrame, sig: np.ndarray, filters: list[dict]) -> np
             lo_p, hi_p = float(f.get("lo", 0.0)), float(f.get("hi", 1.0))
             atr_arr = _atr(h4, int(f.get("atr_n", 14)))
             ranks = pd.Series(atr_arr).rolling(ap_n).rank(pct=True).values
-            mask &= np.isfinite(ranks) & (ranks >= lo_p) & (ranks <= hi_p)
+            # No-lookahead: rank uses bar-i HLC; shift by 1 so the filter
+            # at bar i can only see ranks computed through bar i-1.
+            ranks_prev = _shift1(ranks)
+            mask &= np.isfinite(ranks_prev) & (ranks_prev >= lo_p) & (ranks_prev <= hi_p)
         elif t == "pdh_pdl":
             # Position vs prior-day high/low. Default rule: don't long
             # above PDH and don't short below PDL (conservative
@@ -196,18 +210,20 @@ def _apply_filters(h4: pd.DataFrame, sig: np.ndarray, filters: list[dict]) -> np
             window_h4 = 6  # 24h / 4h = 6 H4 bars per day
             pdh = pd.Series(hi).rolling(window_h4).max().shift(1).values
             pdl = pd.Series(lo).rolling(window_h4).min().shift(1).values
+            # No-lookahead: at bar i the *current* close c[i] is unknown; use
+            # the prior close c[i-1] (the last fully-formed close before the
+            # entry decision).
+            prev_close = _shift1(c)
             ok = np.ones(n, dtype=bool)
-            cur_close = c
             if mode == "inside":
-                # long must be at-or-below PDH; short must be at-or-above PDL
-                long_ok = (sig <= 0) | (cur_close <= pdh)
-                short_ok = (sig >= 0) | (cur_close >= pdl)
+                long_ok = (sig <= 0) | (prev_close <= pdh)
+                short_ok = (sig >= 0) | (prev_close >= pdl)
                 ok = long_ok & short_ok
             elif mode == "breakout":
-                long_ok = (sig <= 0) | (cur_close > pdh)
-                short_ok = (sig >= 0) | (cur_close < pdl)
+                long_ok = (sig <= 0) | (prev_close > pdh)
+                short_ok = (sig >= 0) | (prev_close < pdl)
                 ok = long_ok & short_ok
-            valid = np.isfinite(pdh) & np.isfinite(pdl)
+            valid = np.isfinite(pdh) & np.isfinite(pdl) & np.isfinite(prev_close)
             mask &= valid & ok
         elif t == "regime_class":
             # Classify the *previous* H4 by ATR-percentile and directional
@@ -252,10 +268,12 @@ def _apply_filters(h4: pd.DataFrame, sig: np.ndarray, filters: list[dict]) -> np
             std = pd.Series((tp - vwap) ** 2).rolling(window).mean().pow(0.5).values
             with np.errstate(divide="ignore", invalid="ignore"):
                 z = (c - vwap) / std
+            # No-lookahead: vwap and z at bar i use bar-i HLC; shift by 1.
+            z_prev = _shift1(z)
             ok = np.ones(n, dtype=bool)
-            ok &= (sig <= 0) | (z <= max_above)
-            ok &= (sig >= 0) | (z >= -max_below)
-            mask &= np.isfinite(z) & ok
+            ok &= (sig <= 0) | (z_prev <= max_above)
+            ok &= (sig >= 0) | (z_prev >= -max_below)
+            mask &= np.isfinite(z_prev) & ok
         elif t == "wick_ratio":
             # Require previous H4 candle's wick share of the range to be >= min.
             # wick_share = 1 - body/range. Large value = large wick = exhaustion.
@@ -279,7 +297,9 @@ def _apply_filters(h4: pd.DataFrame, sig: np.ndarray, filters: list[dict]) -> np
             std = pd.Series((tp - vwap) ** 2).rolling(window).mean().pow(0.5).values
             with np.errstate(divide="ignore", invalid="ignore"):
                 z = (c - vwap) / std
-            mask &= np.isfinite(z) & (np.abs(z) <= max_z)
+            # No-lookahead: shift z by 1 so we only test z computed through bar i-1.
+            z_prev = _shift1(z)
+            mask &= np.isfinite(z_prev) & (np.abs(z_prev) <= max_z)
         else:
             raise ValueError(f"unknown filter: {t}")
     return np.where(mask, sig, 0)
@@ -377,8 +397,11 @@ def run(spec, h4: pd.DataFrame, m15: pd.DataFrame,
         entry_price_filled = fill.price + s * slip_price  # adverse direction
 
         # --- spread paid on each leg ---
-        sp_pts = float(sub["spread"].iloc[fill.sub_idx]) * execution.spread_mult
-        spread_one_leg = sp_pts * POINT_SIZE
+        # Dukascopy candles store `spread = ask - bid` in **price units**
+        # (codec: data/_dukascopy_codec.py decodes ask/bid by `* 1/price_scale`
+        # then computes spread = ask - bid). One leg of cost is therefore the
+        # spread value directly; do NOT multiply by POINT_SIZE.
+        spread_one_leg = float(sub["spread"].iloc[fill.sub_idx]) * execution.spread_mult
         # market orders cross the spread on entry; limits typically don't
         if fill.kind == "market":
             entry_price_filled += s * spread_one_leg
@@ -465,8 +488,8 @@ def run(spec, h4: pd.DataFrame, m15: pd.DataFrame,
 
         # --- spread paid on exit (from the actual exit bar, not the
         # bucket-final bar; matters when stop/TP fires intra-bucket) ---
-        exit_sp_pts = float(sub["spread"].iloc[exit_sub_idx_in_bucket]) * execution.spread_mult
-        exit_spread_one_leg = exit_sp_pts * POINT_SIZE
+        # Spread already in price units; see entry-leg comment above.
+        exit_spread_one_leg = float(sub["spread"].iloc[exit_sub_idx_in_bucket]) * execution.spread_mult
         exit_price_filled = exit_price - s * exit_spread_one_leg
 
         gross = s * (exit_price_filled - entry_price_filled)

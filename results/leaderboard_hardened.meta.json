@@ -1,0 +1,55 @@
+{
+  "produced_by": "scripts/run_pipeline.py",
+  "produced_at_utc": "2026-04-28T22:42:03+00:00",
+  "git_head": "f9437b6360f0e31639d93fbc1c4ee3a48addeffc",
+  "config_hashes": {
+    "config/data_splits.json": "a295cff1bdc622b3",
+    "config/prop_accounts.json": "2247fdb0833a4a08"
+  },
+  "splits": {
+    "research_train": {
+      "config_start": "2020-07-01 00:00:00+00:00",
+      "config_end": "2022-01-01 00:00:00+00:00",
+      "actual_first_bar": "2020-07-01 00:00:00+00:00",
+      "actual_last_bar": "2021-12-31 20:00:00+00:00",
+      "h4_rows": 2408
+    },
+    "validation": {
+      "config_start": "2022-01-01 00:00:00+00:00",
+      "config_end": "2024-01-01 00:00:00+00:00",
+      "actual_first_bar": "2022-01-02 20:00:00+00:00",
+      "actual_last_bar": "2023-12-29 20:00:00+00:00",
+      "h4_rows": 3192
+    },
+    "holdout": {
+      "config_start": "2024-01-01 00:00:00+00:00",
+      "config_end": "2026-05-01 00:00:00+00:00",
+      "actual_first_bar": "2024-01-01 20:00:00+00:00",
+      "actual_last_bar": "2026-04-27 20:00:00+00:00",
+      "h4_rows": 3709
+    }
+  },
+  "n_specs_evaluated": 72,
+  "n_perm": 500,
+  "runtime_seconds": 3814.3,
+  "harness_version": "hardened_v1 (Batches A-D)",
+  "hardening_report": "docs/HARDENING_REPORT.md",
+  "prop_account_verification_summary": {
+    "topstep_50k": "verified",
+    "topstep_100k": "verified",
+    "topstep_150k": "verified",
+    "mffu_rapid_25k": "verified",
+    "mffu_pro_50k": "verified",
+    "mffu_pro_100k": "verified",
+    "mffu_pro_150k": "verified",
+    "generic_static_50k": "synthetic",
+    "generic_eod_trailing_50k": "synthetic",
+    "generic_intraday_trailing_50k": "synthetic"
+  },
+  "schema_versions": {
+    "prop_accounts": "3",
+    "data_splits": "1"
+  },
+  "research_only_until_each_account_verified": true,
+  "notes": "Walk-forward gates relaxed (min_folds=4, min_median_sharpe=0) because train slice (2020-07 -> 2022-01, ~1.5y) yields at most 4 disjoint folds. To restore the 20-fold gate, fetch older Dukascopy years (2008-2020) and widen research_train.start."
+}

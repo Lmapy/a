@@ -52,7 +52,11 @@ from validation.certify import certify
 from validation.critic import run_critic
 from validation.holdout import yearly_segments
 from validation.statistical_tests import (
-    benjamini_hochberg, random_baseline_test, shuffled_outcome_test,
+    benjamini_hochberg,
+    daily_block_bootstrap_test,
+    label_permutation_test,
+    random_eligible_entry_test,
+    N_PERM_EXPLORATION,
 )
 from validation.walkforward import walk_forward, WFConfig
 
@@ -114,15 +118,16 @@ def evaluate_one(spec_obj: dict, ds: dict) -> dict:
     h4_long, h4, m15 = ds["h4_long"], ds["h4"], ds["m15"]
     weeks = (h4["time"].iloc[-1] - h4["time"].iloc[0]).total_seconds() / 604_800.0
 
-    wf = walk_forward(spec, h4_long, WFConfig())
+    wf = walk_forward(spec, h4_long, m15, WFConfig())
     trades = run_exec(spec, h4, m15, ExecutionModel())
     stress_trades = run_exec(spec, h4, m15, ExecutionModel().stress())
     ho = all_metrics(trades, window_weeks=weeks)
     stress = all_metrics(stress_trades, window_weeks=weeks)
 
-    sh = shuffled_outcome_test(trades, n_perm=300)
-    rb = random_baseline_test(trades, h4_long, n_runs=200)
-    yearly = yearly_segments(spec, h4_long, min_positive_years=3)
+    lp = label_permutation_test(trades, n_perm=N_PERM_EXPLORATION)
+    rb = random_eligible_entry_test(trades, h4_long, n_runs=N_PERM_EXPLORATION)
+    bb = daily_block_bootstrap_test(trades, n_runs=N_PERM_EXPLORATION)
+    yearly = yearly_segments(spec, h4_long, m15, min_positive_years=3)
     prop = simulate_all(trades)
 
     critic = run_critic(trades)
@@ -134,8 +139,8 @@ def evaluate_one(spec_obj: dict, ds: dict) -> dict:
 
     cr = certify(
         wf=wf, holdout_metrics=ho, holdout_stress=stress,
-        stat_shuffle=sh, stat_random=rb, yearly=yearly,
-        dataset_source=src,
+        stat_label_perm=lp, stat_random=rb, stat_block_boot=bb,
+        yearly=yearly, dataset_source=src,
     )
     rb_break = regime_breakdown(trades, h4)
 
@@ -155,8 +160,9 @@ def evaluate_one(spec_obj: dict, ds: dict) -> dict:
         "wf": wf,
         "ho": ho,
         "stress": stress,
-        "stat_shuffle": sh,
+        "stat_label_perm": lp,
         "stat_random": rb,
+        "stat_block_boot": bb,
         "yearly": yearly,
         "prop": prop,
         "critic": {"passes_critic": critic.passes_critic,
@@ -199,9 +205,9 @@ def main() -> None:
                          if r["cert"]["certified"] and r["critic"]["passes_critic"])
             print(f"  evaluated {i}/{len(runnable)}  (passing both gates: {n_cert})")
 
-    # FDR across the realistic-exec shuffled-outcome p-values.
-    p_shuffle = [r["stat_shuffle"]["p_value"] for r in results]
-    fdr_keep = benjamini_hochberg(p_shuffle, q=0.05) if p_shuffle else []
+    # FDR across the label-permutation p-values (the directional-edge family).
+    p_label_perm = [r["stat_label_perm"]["p_value"] for r in results]
+    fdr_keep = benjamini_hochberg(p_label_perm, q=0.05) if p_label_perm else []
 
     # ---------- write reports ----------
     rows_lb = []
@@ -227,8 +233,9 @@ def main() -> None:
             "ho_profit_factor": r["ho"].get("profit_factor", 0.0),
             "ho_max_drawdown": r["ho"].get("max_drawdown", 0.0),
             "stress_total_return": r["stress"].get("total_return", 0.0),
-            "shuffle_p_value": r["stat_shuffle"]["p_value"],
+            "label_perm_p_value": r["stat_label_perm"]["p_value"],
             "random_p_value": r["stat_random"]["p_value"],
+            "block_boot_p_value": r["stat_block_boot"]["p_value"],
             "yearly_positive": r["yearly"]["n_positive_years"],
             "yearly_total": r["yearly"]["n_years"],
             "prop_25k_passes": r["prop"]["25k"]["passes_25k"],

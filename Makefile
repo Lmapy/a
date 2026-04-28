@@ -1,9 +1,37 @@
-.PHONY: all data pull-data audit fib backtest search skeptic v2 alpha prop report test pdf clean
+.PHONY: all pipeline data pull-data audit alpha prop report test pdf clean \
+        fib backtest search skeptic v2
 
-all: data audit alpha prop pdf
+# CANONICAL TARGETS (post-hardening, Batches A-D)
+#
+#   make test       -> run the harness test suite (gates everything else)
+#   make audit      -> structural audit of the harness
+#   make pull-data  -> pull Dukascopy candles from the sidecar branch
+#   make pipeline   -> canonical hardened pipeline:
+#                       splits -> walk-forward (train) -> validation
+#                       -> holdout -> prop sim with chronological replay
+#                       -> leaderboard_hardened.csv + .meta.json
+#   make all        -> test, audit, pipeline, pdf
+#   make report     -> alias of `all`
+#   make pdf        -> regenerate the audit PDF
+#
+# LEGACY TARGETS (pre-hardening; kept for back-compat). New work should
+# go through `make pipeline`. See `scripts/_deprecated_/` for runners
+# that have been moved out of the canonical path entirely.
+#
+#   make alpha      -> scripts/run_alpha.py
+#   make prop       -> scripts/run_prop_challenge.py
+#   make data       -> scripts/fetch_dukascopy.py (network-bound)
 
-# OFFICIAL DATA: Dukascopy (single source). Old broker fetcher is deprecated;
-# see data/_deprecated_/. Default range is the period covered by config/data_splits.json.
+
+all: test audit pipeline pdf
+
+# canonical entrypoint
+pipeline:
+	python3 scripts/run_pipeline.py
+
+# OFFICIAL DATA: Dukascopy (single source). Old broker fetcher is
+# deprecated; see data/_deprecated_/. Default range is the period
+# covered by config/data_splits.json.
 data:
 	python3 scripts/fetch_dukascopy.py --symbol XAUUSD --start 2008-01-01 --end 2026-04-29
 
@@ -13,37 +41,38 @@ pull-data:
 audit:
 	python3 scripts/audit.py
 
-fib:
-	python3 scripts/fib_analysis.py
-
-backtest:
-	python3 scripts/backtest.py
-
-search:
-	python3 scripts/orchestrate.py
-
-skeptic:
-	python3 scripts/skeptic.py
-
-v2:
-	python3 scripts/run_v2.py
-
+# legacy alpha-search runner (kept for back-compat)
 alpha:
 	python3 scripts/run_alpha.py
 
 prop:
 	python3 scripts/run_prop_challenge.py
 
-report: data audit alpha prop pdf
+report: test audit pipeline pdf
+
+# `make test` runs every test file as a script. Each file's __main__
+# block prints PASS lines and exits non-zero on the first failure.
+TEST_FILES := \
+	tests/test_executor.py \
+	tests/test_registry.py \
+	tests/test_compatibility.py \
+	tests/test_stop_exit_spread.py \
+	tests/test_validator.py \
+	tests/test_splits.py \
+	tests/test_no_lookahead.py \
+	tests/test_walkforward_parity.py \
+	tests/test_statistical_tests.py \
+	tests/test_trade_metrics.py \
+	tests/test_prop_simulator.py
 
 test:
-	python3 tests/test_executor.py
-	python3 tests/test_registry.py
-	python3 tests/test_compatibility.py
-	python3 tests/test_stop_exit_spread.py
+	@set -e; for f in $(TEST_FILES); do \
+		echo "=== $$f ==="; \
+		python3 $$f || exit 1; \
+	done
 
 pdf:
 	python3 scripts/build_pdf.py
 
 clean:
-	rm -f results/*.csv results/*.png results/*.txt results/*.json
+	rm -f results/*.csv results/*.png results/*.txt results/*.json results/*.meta.json

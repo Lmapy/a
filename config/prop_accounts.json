@@ -1,6 +1,7 @@
 {
   "_meta": {
-    "purpose": "Prop-firm account templates. Numbers based on public rule sheets at the time of authoring; verify against the firm's current docs before live use. Each account is one combination of starting balance, profit target, drawdown rules, and behavioural constraints. The challenge engine reads these directly.",
+    "purpose": "Prop-firm account templates. Each account is one combination of starting balance, profit target, drawdown rules, and behavioural constraints. The challenge engine reads these directly.",
+    "warning": "RULES MUST BE VERIFIED MANUALLY BEFORE LIVE USE. Numbers below were captured at the dates noted in each account's `last_verified` field. Prop firms change rules; if `last_verified` is more than 90 days old or absent, the certifier marks the strategy result as research_only.",
     "currency": "USD",
     "instrument_default": "MGC",
     "instrument_dollar_per_price_unit": {
@@ -8,114 +9,155 @@
       "GC":  100.0,
       "XAUUSD_micro": 0.1,
       "XAUUSD_mini":  1.0
-    }
+    },
+    "schema_version": "3",
+    "schema_notes": [
+      "daily_loss_limit may be null (some firms, e.g. MyFundedFutures 2026, do not have one).",
+      "max_challenge_days may be null for untimed evaluations.",
+      "max_contracts on MGC is in MICRO contracts unless noted; many firms also publish a mini limit (1 mini = 10 micros)."
+    ]
   },
 
   "topstep_50k": {
     "firm": "Topstep",
     "starting_balance": 50000,
     "profit_target":     3000,
-    "daily_loss_limit":  1100,
+    "daily_loss_limit":  1000,
     "max_loss":          2000,
     "trailing_drawdown": 2000,
-    "drawdown_type":     "eod_trailing",
+    "drawdown_type":     "intraday_trailing",
     "max_contracts":     5,
-    "minimum_trading_days": 5,
+    "minimum_trading_days": 2,
     "consistency_rule_percent": 50.0,
     "payout_target":     1000,
-    "payout_min_days":   8,
-    "max_challenge_days": 60
+    "payout_min_days":   5,
+    "max_challenge_days": null,
+    "_verification": {
+      "source_url": "https://help.topstep.com/en/articles/8284197-trading-combine-parameters",
+      "last_verified": "2026-04-29",
+      "notes": "MGC max_contracts=5 (5 minis OR 50 micros). Daily-loss-limit OPTIONAL at checkout; modelling the elected $1000 case. MLL trails EOD highs but is monitored intraday with realised+unrealised PnL — closer to intraday_trailing than pure eod_trailing. min_days=2 to satisfy 50% consistency. payout_min_days=5 (winning days). max_challenge_days=null in 2026 — no time limit."
+    }
   },
   "topstep_100k": {
     "firm": "Topstep",
     "starting_balance": 100000,
     "profit_target":     6000,
-    "daily_loss_limit":  2200,
+    "daily_loss_limit":  2000,
     "max_loss":          3000,
     "trailing_drawdown": 3000,
-    "drawdown_type":     "eod_trailing",
+    "drawdown_type":     "intraday_trailing",
     "max_contracts":    10,
-    "minimum_trading_days": 5,
+    "minimum_trading_days": 2,
     "consistency_rule_percent": 50.0,
     "payout_target":     2000,
-    "payout_min_days":   8,
-    "max_challenge_days": 60
+    "payout_min_days":   5,
+    "max_challenge_days": null,
+    "_verification": {
+      "source_url": "https://help.topstep.com/en/articles/8284197-trading-combine-parameters",
+      "last_verified": "2026-04-29",
+      "notes": "10 minis or 100 micros. Same model assumptions as topstep_50k."
+    }
   },
   "topstep_150k": {
     "firm": "Topstep",
     "starting_balance": 150000,
     "profit_target":     9000,
-    "daily_loss_limit":  3300,
+    "daily_loss_limit":  3000,
     "max_loss":          4500,
     "trailing_drawdown": 4500,
-    "drawdown_type":     "eod_trailing",
+    "drawdown_type":     "intraday_trailing",
     "max_contracts":    15,
-    "minimum_trading_days": 5,
+    "minimum_trading_days": 2,
     "consistency_rule_percent": 50.0,
     "payout_target":     3000,
-    "payout_min_days":   8,
-    "max_challenge_days": 60
+    "payout_min_days":   5,
+    "max_challenge_days": null,
+    "_verification": {
+      "source_url": "https://help.topstep.com/en/articles/8284197-trading-combine-parameters",
+      "last_verified": "2026-04-29",
+      "notes": "15 minis or 150 micros. Same model assumptions as topstep_50k."
+    }
   },
 
-  "mffu_25k": {
+  "mffu_rapid_25k": {
     "firm": "MyFundedFutures",
     "starting_balance":  25000,
     "profit_target":      1500,
-    "daily_loss_limit":    500,
-    "max_loss":           1500,
-    "trailing_drawdown":  1500,
+    "daily_loss_limit":   null,
+    "max_loss":           1000,
+    "trailing_drawdown":  1000,
     "drawdown_type":     "intraday_trailing",
     "max_contracts":         3,
-    "minimum_trading_days":  3,
-    "consistency_rule_percent": 40.0,
+    "minimum_trading_days":  2,
+    "consistency_rule_percent": 50.0,
     "payout_target":      1000,
     "payout_min_days":       5,
-    "max_challenge_days":   45
+    "max_challenge_days": null,
+    "_verification": {
+      "source_url": "https://help.myfundedfutures.com/en/articles/14116402-rapid-plan-25k-a-comprehensive-look",
+      "last_verified": "2026-04-29",
+      "notes": "MFFU restructured Jul 2025 -> Core/Rapid/Pro; Jan 2026 Core renamed Flex. $25K only sold on Rapid. RULE-CHANGE-FROM-PRE-FIX: max_loss 1500->1000 (4% trailing of $25K); daily_loss_limit removed (no DLL on any 2026 plan); consistency_percent 40->50; min_days 3->2; max_challenge_days 45->null. drawdown_type intraday_trailing confirmed (Rapid uses 4% intraday). Verify max_contracts on the help-center article before live use."
+    }
   },
-  "mffu_50k": {
+  "mffu_pro_50k": {
     "firm": "MyFundedFutures",
     "starting_balance":  50000,
     "profit_target":      3000,
-    "daily_loss_limit":   1200,
-    "max_loss":           2500,
-    "trailing_drawdown":  2500,
-    "drawdown_type":     "intraday_trailing",
-    "max_contracts":         5,
-    "minimum_trading_days":  3,
-    "consistency_rule_percent": 40.0,
+    "daily_loss_limit":   null,
+    "max_loss":           2000,
+    "trailing_drawdown":  2000,
+    "drawdown_type":     "eod_trailing",
+    "max_contracts":         3,
+    "minimum_trading_days":  2,
+    "consistency_rule_percent": 50.0,
     "payout_target":      1000,
-    "payout_min_days":       5,
-    "max_challenge_days":   45
+    "payout_min_days":      14,
+    "max_challenge_days": null,
+    "_verification": {
+      "source_url": "https://help.myfundedfutures.com/en/articles/11802674-pro-plan-sim-funded-and-live-account-highlights",
+      "last_verified": "2026-04-29",
+      "notes": "Replaces 2025 'Expert' tier. RULE-CHANGE-FROM-PRE-FIX: max_loss 2500->2000 (3% of $50K); daily_loss_limit removed; drawdown_type intraday_trailing->eod_trailing (Pro uses EOD); max_contracts 5->3 (Pro 50K = 3 minis or 30 micros); consistency 40->50; min_days 3->2; payout_min_days 5->14 (Pro funded payout cadence); max_challenge_days 45->null. Contract limit cross-referenced with secondary review (imantrading.org); confirm on help-center before live."
+    }
   },
-  "mffu_100k": {
+  "mffu_pro_100k": {
     "firm": "MyFundedFutures",
     "starting_balance": 100000,
     "profit_target":      6000,
-    "daily_loss_limit":   2400,
-    "max_loss":           3500,
-    "trailing_drawdown":  3500,
-    "drawdown_type":     "intraday_trailing",
-    "max_contracts":        10,
-    "minimum_trading_days":  3,
-    "consistency_rule_percent": 40.0,
+    "daily_loss_limit":   null,
+    "max_loss":           3000,
+    "trailing_drawdown":  3000,
+    "drawdown_type":     "eod_trailing",
+    "max_contracts":         6,
+    "minimum_trading_days":  2,
+    "consistency_rule_percent": 50.0,
     "payout_target":      2000,
-    "payout_min_days":       5,
-    "max_challenge_days":   45
+    "payout_min_days":      14,
+    "max_challenge_days": null,
+    "_verification": {
+      "source_url": "https://help.myfundedfutures.com/en/articles/11802674-pro-plan-sim-funded-and-live-account-highlights",
+      "last_verified": "2026-04-29",
+      "notes": "Replaces 2025 'Expert' tier. Same rule-change pattern as mffu_pro_50k. max_contracts 10->6 (Pro 100K = 6 minis or 60 micros)."
+    }
   },
-  "mffu_150k": {
+  "mffu_pro_150k": {
     "firm": "MyFundedFutures",
     "starting_balance": 150000,
     "profit_target":      9000,
-    "daily_loss_limit":   3600,
-    "max_loss":           5000,
-    "trailing_drawdown":  5000,
-    "drawdown_type":     "intraday_trailing",
-    "max_contracts":        15,
-    "minimum_trading_days":  3,
-    "consistency_rule_percent": 40.0,
+    "daily_loss_limit":   null,
+    "max_loss":           4500,
+    "trailing_drawdown":  4500,
+    "drawdown_type":     "eod_trailing",
+    "max_contracts":         9,
+    "minimum_trading_days":  2,
+    "consistency_rule_percent": 50.0,
     "payout_target":      3000,
-    "payout_min_days":       5,
-    "max_challenge_days":   45
+    "payout_min_days":      14,
+    "max_challenge_days": null,
+    "_verification": {
+      "source_url": "https://help.myfundedfutures.com/en/articles/11802674-pro-plan-sim-funded-and-live-account-highlights",
+      "last_verified": "2026-04-29",
+      "notes": "Replaces 2025 'Expert' tier. max_contracts 15->9 (Pro 150K = 9 minis or 90 micros)."
+    }
   },
 
   "generic_static_50k": {
@@ -131,7 +173,12 @@
     "consistency_rule_percent": 50.0,
     "payout_target":       1000,
     "payout_min_days":        8,
-    "max_challenge_days":    60
+    "max_challenge_days":    60,
+    "_verification": {
+      "source_url": "synthetic",
+      "last_verified": "2026-04-28",
+      "notes": "Generic synthetic account for harness tests; not a real firm. Always verified."
+    }
   },
   "generic_eod_trailing_50k": {
     "firm": "Generic",
@@ -146,7 +193,12 @@
     "consistency_rule_percent": 50.0,
     "payout_target":       1000,
     "payout_min_days":        8,
-    "max_challenge_days":    60
+    "max_challenge_days":    60,
+    "_verification": {
+      "source_url": "synthetic",
+      "last_verified": "2026-04-28",
+      "notes": "Generic synthetic account for harness tests; not a real firm. Always verified."
+    }
   },
   "generic_intraday_trailing_50k": {
     "firm": "Generic",
@@ -161,6 +213,11 @@
     "consistency_rule_percent": 50.0,
     "payout_target":       1000,
     "payout_min_days":        8,
-    "max_challenge_days":    60
+    "max_challenge_days":    60,
+    "_verification": {
+      "source_url": "synthetic",
+      "last_verified": "2026-04-28",
+      "notes": "Generic synthetic account for harness tests; not a real firm. Always verified."
+    }
   }
 }

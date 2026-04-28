@@ -1,8 +1,8 @@
 XAUUSD Dukascopy-only pipeline audit
 ============================================================
 
-=== manifest â€” single Dukascopy source ===
-  [PASS] data/dukascopy/manifests/XAUUSD_manifest.json exists   (/home/user/a/data/dukascopy/manifests/XAUUSD_manifest.json)
+=== manifest — single Dukascopy source ===
+  [PASS] data/dukascopy/manifests/XAUUSD_manifest.json exists   (C:\Users\skmac\New folder (2)\repo\data\dukascopy\manifests\XAUUSD_manifest.json)
   [PASS] official_source == dukascopy   (got=dukascopy)
   [PASS] old_sources_deprecated == true
   [PASS] generated_from_tick_data == true
@@ -29,5 +29,42 @@ XAUUSD Dukascopy-only pipeline audit
   [PASS] M15 timestamps land on a 15-min boundary
   [PASS] H4 OHLC valid (low <= open,close <= high)
   [PASS] every M15 bar maps to a known H4 bucket   (outside=0)
+
+=== data splits — non-overlap + coverage ===
+  [PASS] config/data_splits.json parses with non-overlapping splits   (research_train, validation, holdout)
+  [PASS] research_train: at least one H4 bar in window   (2408 H4 rows (2020-07-01 00:00:00+00:00 -> 2021-12-31 20:00:00+00:00))
+  [PASS] research_train: data covers declared start (config=2020-07-01 00:00:00+00:00)   (first bar is 0 days after declared start)
+  [PASS] validation: at least one H4 bar in window   (3192 H4 rows (2022-01-02 20:00:00+00:00 -> 2023-12-29 20:00:00+00:00))
+  [PASS] validation: data covers declared start (config=2022-01-01 00:00:00+00:00)   (first bar is 1 days after declared start)
+  [PASS] holdout: at least one H4 bar in window   (3709 H4 rows (2024-01-01 20:00:00+00:00 -> 2026-04-27 20:00:00+00:00))
+  [PASS] holdout: data covers declared start (config=2024-01-01 00:00:00+00:00)   (first bar is 0 days after declared start)
+
+=== spread unit convention (price units, no POINT_SIZE rescale) ===
+  [PASS] canonical paths do not multiply `spread` by POINT_SIZE
+
+=== walk-forward uses M15-aware executor ===
+  [PASS] walk-forward does not downgrade M15 entries to h4_open
+  [PASS] walk-forward imports execution.executor.run   (ensures WF kernel == holdout kernel)
+
+=== prop sim risk sizing + bootstrap (Phase 7) ===
+  [PASS] RiskModel.size() does not accept realised trade PnL
+  [PASS] RiskModel.size() consumes pre-trade risk inputs
+  [PASS] challenge engine has chronological replay mode
+  [PASS] challenge MC uses day-level block bootstrap
+  [PASS] challenge result carries Wilson CI on pass/blowup probabilities
+
+=== prop_accounts.json verification metadata (Phase 8) ===
+  [PASS] prop_accounts.json passes schema validation   (10 accounts)
+  [PASS] every account has a `_verification` block
+  status histogram: {'verified': 7, 'synthetic': 3}
+  [PASS] no real-firm accounts left as `unverified` or `stale`
+
+=== statistical test validity ===
+  [PASS] certifier accepts stat_label_perm
+  [PASS] certifier does not silently consume the no-op shuffle test
+  [PASS] statistical_tests.shuffled_outcome_test is deprecated   (shuffled_outcome_test must raise; see Phase 5 hardening)
+
+=== results provenance ===
+  [PASS] leaderboard_hardened.csv: provenance metadata present   (missing .meta.json — treat as research-only)
 
 === audit summary: 0 failures ===

@@ -11,6 +11,17 @@ Hard rules (any failure → exit 1):
   - timeframe alignment / OHLC sanity / gap detection (when data is on disk)
   - parent/child mapping H4 ↔ M15 (when both are on disk)
 
+Hardening checks (added in the audit pass):
+
+  - data_splits.json windows are non-overlapping and ordered
+  - actual data coverage matches each split window (warning if config
+    declares more history than is on disk)
+  - canonical executor charges spread in price units, NOT *POINT_SIZE
+  - validation/walkforward.py does not silently downgrade M15 entries
+    to h4_open
+  - prop sim risk-sizing path does not consume realised PnL
+  - shuffle-of-returns statistical test is not used (it is a no-op)
+
 If `data/dukascopy/candles/XAUUSD/H4/` is empty, the audit reports
 `no_dukascopy_data_yet` as a fatal failure with instructions, NOT a
 warning. The pipeline refuses to certify anything until the official
@@ -19,6 +30,7 @@ source is populated.
 from __future__ import annotations
 
 import json
+import re
 import sys
 from pathlib import Path
 
@@ -28,11 +40,13 @@ ROOT = Path(__file__).resolve().parent.parent
 sys.path.insert(0, str(ROOT))
 
 from data.loader import load_candles, list_available
+from data.splits import load_split_config, load_splits, coverage_summary
 
 RESULTS = ROOT / "results"
 DUKA_MANIFEST = ROOT / "data" / "dukascopy" / "manifests" / "XAUUSD_manifest.json"
 CANDLES = ROOT / "data" / "dukascopy" / "candles" / "XAUUSD"
 DEPRECATED = ROOT / "data" / "_deprecated_"
+SPLITS_CFG = ROOT / "config" / "data_splits.json"
 
 
 class Report:
@@ -173,6 +187,266 @@ def audit_timeframe_integrity(rep: Report, avail: dict[str, list[int]]) -> None:
               n_outside == 0, detail=f"outside={n_outside}")
 
 
+def audit_splits(rep: Report, avail: dict[str, list[int]]) -> None:
+    """Phase 1: split config is valid, windows do not overlap, and the
+    on-disk data actually covers each declared window."""
+    rep.section("data splits — non-overlap + coverage")
+    if not SPLITS_CFG.exists():
+        rep.check("config/data_splits.json exists", False,
+                  detail=str(SPLITS_CFG))
+        return
+    try:
+        cfg = load_split_config(SPLITS_CFG)
+    except Exception as exc:
+        rep.check("config/data_splits.json parses with non-overlapping splits",
+                  False, detail=str(exc))
+        return
+    rep.check("config/data_splits.json parses with non-overlapping splits",
+              True, detail=", ".join(cfg.keys()))
+    if not avail.get("H4") or not avail.get("M15"):
+        rep.write("  (skipping coverage check — H4/M15 not on disk)")
+        return
+    splits = load_splits()
+    cov = coverage_summary(splits)
+    for name, info in cov.items():
+        ok = info["h4_rows"] > 0
+        rep.check(f"{name}: at least one H4 bar in window",
+                  ok,
+                  detail=f"{info['h4_rows']} H4 rows "
+                         f"({info['actual_first_bar']} -> "
+                         f"{info['actual_last_bar']})")
+        # Coverage warning: actual_first_bar should be near config_start.
+        # If the data starts much later, the split is shorter than declared.
+        if info["actual_first_bar"] is not None:
+            actual = pd.Timestamp(info["actual_first_bar"])
+            declared = pd.Timestamp(info["config_start"])
+            gap_days = (actual - declared).days
+            rep.check(
+                f"{name}: data covers declared start (config={info['config_start']})",
+                gap_days < 90,
+                detail=f"first bar is {gap_days} days after declared start")
+
+
+def audit_spread_unit_convention(rep: Report) -> None:
+    """Phase 4: canonical executor must NOT multiply spread by POINT_SIZE.
+
+    Dukascopy stores spread = ask - bid in price units (codec scales
+    asks/bids by 1/price_scale before computing spread). The cost per
+    leg is therefore the spread value directly. Any `spread * POINT_SIZE`
+    in active code paths is the 1000x undercharge bug.
+    """
+    rep.section("spread unit convention (price units, no POINT_SIZE rescale)")
+
+    def scan(path: Path) -> list[tuple[int, str]]:
+        hits = []
+        text = path.read_text()
+        for i, line in enumerate(text.splitlines(), 1):
+            stripped = line.strip()
+            if stripped.startswith("#") or stripped.startswith('"'):
+                continue
+            # crude pattern: a `spread`-named token combined with POINT_SIZE
+            if re.search(r"spread[^=]*\*\s*POINT_SIZE", line) or \
+               re.search(r"POINT_SIZE\s*\*[^=]*spread", line):
+                hits.append((i, line.rstrip()))
+        return hits
+
+    # canonical executor + v1 strategy. Skip _deprecated_ paths.
+    paths = [
+        ROOT / "execution" / "executor.py",
+        ROOT / "scripts" / "strategy.py",
+    ]
+    offenders = []
+    for p in paths:
+        if not p.exists():
+            continue
+        for ln, txt in scan(p):
+            offenders.append(f"{p.relative_to(ROOT)}:{ln}: {txt}")
+    rep.check("canonical paths do not multiply `spread` by POINT_SIZE",
+              not offenders,
+              detail=("\n    " + "\n    ".join(offenders)) if offenders else "")
+
+
+def audit_walkforward_no_downgrade(rep: Report) -> None:
+    """Phase 2: walk-forward must use the same executor as holdout.
+    Failure modes:
+      * walkforward.py contains old downgrade strings ("treat as
+        h4_open", "can't replay M15 entries", etc.)
+      * walkforward.py does not import from execution.executor
+    """
+    rep.section("walk-forward uses M15-aware executor")
+    wf_path = ROOT / "validation" / "walkforward.py"
+    if not wf_path.exists():
+        rep.check("validation/walkforward.py exists", False)
+        return
+    text = wf_path.read_text()
+    downgrade_markers = [
+        "can't replay M15 entries",
+        "treat as h4_open",
+        "downgrades many M15 entry models",
+    ]
+    found = [m for m in downgrade_markers if m in text]
+    rep.check("walk-forward does not downgrade M15 entries to h4_open",
+              not found,
+              detail=("KNOWN: " + "; ".join(found)) if found else "")
+    rep.check("walk-forward imports execution.executor.run",
+              "from execution.executor import" in text and "run as run_executor" in text,
+              detail="ensures WF kernel == holdout kernel")
+
+
+def audit_prop_sim_no_future_leak(rep: Report) -> None:
+    """Phase 7: prop simulator's risk-sizing path must not consume the
+    realised trade PnL (`trade_pnl_price` parameter) for sizing, and
+    the Monte Carlo must use day-level (not trade-level) bootstrap so
+    real intraday clustering is preserved."""
+    rep.section("prop sim risk sizing + bootstrap (Phase 7)")
+    risk_path = ROOT / "prop_challenge" / "risk.py"
+    chal_path = ROOT / "prop_challenge" / "challenge.py"
+    if not risk_path.exists():
+        rep.check("prop_challenge/risk.py exists", False)
+        return
+    risk_text = risk_path.read_text()
+    chal_text = chal_path.read_text() if chal_path.exists() else ""
+
+    # 1. risk sizing: no trade_pnl_price as a parameter or call kw.
+    # Match `trade_pnl_price:` (annotation) or `trade_pnl_price=` (call/assign)
+    # but not bare mentions in docstrings.
+    leak_uses = re.findall(r"trade_pnl_price\s*[:=]", risk_text)
+    rep.check("RiskModel.size() does not accept realised trade PnL",
+              not leak_uses,
+              detail=("trade_pnl_price still used in risk.py: "
+                      + ", ".join(leak_uses)) if leak_uses else "")
+
+    # 2. risk sizing must use stop_distance_price or atr_pre_entry
+    rep.check("RiskModel.size() consumes pre-trade risk inputs",
+              "stop_distance_price" in risk_text or "atr_pre_entry" in risk_text,
+              detail="size() signature missing stop_distance_price/atr_pre_entry"
+                     if not ("stop_distance_price" in risk_text or "atr_pre_entry" in risk_text)
+                     else "")
+
+    # 3. challenge engine must expose chronological replay
+    rep.check("challenge engine has chronological replay mode",
+              "run_chronological_replay" in chal_text,
+              detail="run_chronological_replay() not exported"
+                     if "run_chronological_replay" not in chal_text else "")
+
+    # 4. bootstrap must be day-level
+    rep.check("challenge MC uses day-level block bootstrap",
+              "_sample_day_blocks" in chal_text or "block_days" in chal_text,
+              detail="trade-level bootstrap still in use"
+                     if "_sample_day_blocks" not in chal_text and "block_days" not in chal_text
+                     else "")
+
+    # 5. Wilson CI is reported on the headline probabilities
+    rep.check("challenge result carries Wilson CI on pass/blowup probabilities",
+              "pass_probability_ci" in chal_text and "blowup_probability_ci" in chal_text,
+              detail="missing CI fields on ChallengeResult"
+                     if not ("pass_probability_ci" in chal_text)
+                     else "")
+
+
+def audit_shuffle_test_disabled(rep: Report) -> None:
+    """Phase 5: the no-op shuffle-of-returns test must not be a gate.
+
+    Sharpe is invariant under permutation, so the test always returned
+    p ~= 1.0. The new statistical_tests module has it deprecated to
+    raise on call. The certifier must accept `stat_label_perm` and
+    must not depend on `stat_shuffle`.
+    """
+    rep.section("statistical test validity")
+    cert = ROOT / "validation" / "certify.py"
+    stat = ROOT / "validation" / "statistical_tests.py"
+    if not cert.exists():
+        rep.check("validation/certify.py exists", False)
+        return
+    cert_text = cert.read_text()
+    stat_text = stat.read_text() if stat.exists() else ""
+
+    rep.check("certifier accepts stat_label_perm",
+              "stat_label_perm" in cert_text,
+              detail="missing label-permutation gate"
+                     if "stat_label_perm" not in cert_text else "")
+    rep.check("certifier does not silently consume the no-op shuffle test",
+              "stat_shuffle" not in cert_text or "DeprecationWarning" in cert_text,
+              detail="certifier still wires stat_shuffle as a gate"
+                     if "stat_shuffle" in cert_text and
+                        "DeprecationWarning" not in cert_text else "")
+    rep.check("statistical_tests.shuffled_outcome_test is deprecated",
+              "DEPRECATED" in stat_text and "RuntimeError" in stat_text,
+              detail="shuffled_outcome_test must raise; see Phase 5 hardening")
+
+
+def audit_prop_accounts_metadata(rep: Report) -> None:
+    """Phase 8: every account in config/prop_accounts.json must declare
+    a `_verification` block with source_url, last_verified, notes.
+    The certifier later treats unverified accounts as research_only."""
+    rep.section("prop_accounts.json verification metadata (Phase 8)")
+    cfg_path = ROOT / "config" / "prop_accounts.json"
+    if not cfg_path.exists():
+        rep.check("config/prop_accounts.json exists", False)
+        return
+    raw = json.loads(cfg_path.read_text())
+
+    # schema is parseable
+    try:
+        from prop_challenge.accounts import (
+            validate_schema, load_all, verification_status,
+        )
+        validate_schema(raw)
+        accounts = load_all()
+        rep.check("prop_accounts.json passes schema validation", True,
+                  detail=f"{len(accounts)} accounts")
+    except Exception as exc:
+        rep.check("prop_accounts.json passes schema validation", False,
+                  detail=str(exc))
+        return
+
+    # every account has a _verification block
+    missing_meta = []
+    statuses: dict[str, int] = {}
+    for k, v in raw.items():
+        if k.startswith("_"):
+            continue
+        if "_verification" not in v:
+            missing_meta.append(k)
+            continue
+    rep.check("every account has a `_verification` block",
+              not missing_meta,
+              detail=("missing on: " + ", ".join(missing_meta))
+                     if missing_meta else "")
+
+    # status summary
+    for name, spec in accounts.items():
+        st = verification_status(spec)
+        statuses[st] = statuses.get(st, 0) + 1
+    rep.write(f"  status histogram: {statuses}")
+    n_unver = statuses.get("unverified", 0) + statuses.get("stale", 0)
+    real_ones = sum(1 for spec in accounts.values()
+                    if (spec.source_url or "") != "synthetic")
+    if real_ones:
+        rep.check(
+            "no real-firm accounts left as `unverified` or `stale`",
+            n_unver == 0,
+            detail=(f"{n_unver}/{real_ones} real-firm accounts need a "
+                    f"`last_verified` ISO date set within "
+                    f"90 days; certifier marks their results research_only.")
+                   if n_unver else "")
+
+
+def audit_results_provenance(rep: Report) -> None:
+    """Active leaderboard files should declare the commit / config they
+    were produced from. Lacking that, we mark them as research-only."""
+    rep.section("results provenance")
+    for f in sorted(RESULTS.glob("*.csv")):
+        if "_archive" in str(f):
+            continue
+        # heuristic: a leaderboard sidecar JSON of the same stem with
+        # `commit` and `produced_at` keys would satisfy provenance.
+        sidecar = f.with_suffix(".meta.json")
+        rep.check(f"{f.name}: provenance metadata present",
+                  sidecar.exists(),
+                  detail="missing .meta.json — treat as research-only")
+
+
 def main() -> int:
     rep = Report()
     rep.write("XAUUSD Dukascopy-only pipeline audit")
@@ -183,6 +457,14 @@ def main() -> int:
     audit_dataset_source(rep, avail)
     audit_no_active_use_of_deprecated(rep)
     audit_timeframe_integrity(rep, avail)
+    # Hardening checks
+    audit_splits(rep, avail)
+    audit_spread_unit_convention(rep)
+    audit_walkforward_no_downgrade(rep)
+    audit_prop_sim_no_future_leak(rep)
+    audit_prop_accounts_metadata(rep)
+    audit_shuffle_test_disabled(rep)
+    audit_results_provenance(rep)
 
     rep.write("")
     rep.write(f"=== audit summary: {rep.failures} failures ===")
