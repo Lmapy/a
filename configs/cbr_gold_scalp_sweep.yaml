@@ -1,0 +1,25 @@
+# CBR scalp parameter sweep (~100 combos with these defaults).
+#
+# Each list value is a knob; the runner takes the cartesian product.
+# Keep lists short -- adding one more value to a 4-value knob doubles
+# total runtime. Run after a working single-config backtest.
+
+grid:
+  expansion_lookback_bars:           [15, 20, 25, 30]
+  min_directional_candle_percent:    [0.55, 0.65, 0.70]
+  min_net_move_atr_multiple:         [0.75, 1.0, 1.5]
+  trigger_mode:                      [SWEEP_ONLY, REBALANCE_ONLY,
+                                       SWEEP_OR_REBALANCE]
+  pivot_left:                        [2, 3]
+  pivot_right:                       [2, 3]
+  entry_mode:                        [LIMIT_50_RETRACE, LIMIT_618_RETRACE,
+                                       MARKET_ON_MSB_CLOSE]
+  risk_reward:                       [1.0, 1.5, 2.0]
+  bias_mode:                         [OFF, PREVIOUS_1H_CANDLE_DIRECTION]
+
+# example "broad asia" + "default second hour" alternates can be added
+# under the execution_window_* keys but kept off by default to keep the
+# sweep focused. Add this when you're ready to compare windows:
+#
+# execution_window_start: ["09:00", "10:00"]
+# execution_window_end:   ["12:00", "11:00"]

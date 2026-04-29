@@ -105,6 +105,26 @@ under Batches A–E. Use it when you want a per-spec deep dive on a
 specific strategy with the full statistical-test machinery; it does
 **not** rank by prop-firm passing score.
 
+### CBR-style gold scalp module (Batch K)
+
+A separate engine that approximates the public TomTrades / CBR-style
+gold scalping model — 1m execution + H1 bias + Asia "second hour"
+session window + 20-minute one-sided expansion + sweep / rebalance
+trigger + confirmed-pivot market structure shift + 50% retracement
+limit entry. Runs entirely outside the prop-passing pipeline above.
+
+```bash
+make cbr-scalp                # full available data
+make cbr-scalp-smoke          # 100k M1 bars, ~1 min
+make cbr-scalp-sweep          # ~100-combo parameter sweep
+```
+
+Outputs to `results/cbr_gold_scalp/{trades.csv, setups.csv,
+summary.json, config_used.json, validation_report.json}`. See
+`docs/CBR_SCALP.md` for the full spec, knob list, and known
+limitations (this is a mechanical approximation, not the
+proprietary TomTrades system).
+
 ### Local research control room (Batch J)
 
 ```bash

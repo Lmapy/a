@@ -1,0 +1,134 @@
+// XAUUSD H4 fib-0.618 retracement, prev-color continuation, prev-H4-extreme stop.
+//
+// Mirrors strategies.families.previous_h4_range_retracement_fib0.618_prev_h4_extreme
+// from the prop-firm passing engine:
+//
+//   signal:  prev_color (trade in the direction of the previous H4 candle's color)
+//   filters: body_atr   (prev H4 body >= 0.5 x ATR(14)  on H4)
+//            regime     (prev H4 close vs H4 SMA(50), side="with")
+//   entry:   fib_limit_entry at level 0.618 of the prev-H4 body, valid for the
+//            duration of the new H4 bucket
+//   stop:    prev_h4_extreme (long: prev H4 low, short: prev H4 high)
+//   exit:    h4_close (close at the end of the H4 bucket the trade is in)
+//
+// All H4 reads use [1] inside request.security and lookahead=barmerge.lookahead_off
+// so we never read into the future. Add this to a chart of XAUUSD on M15 (or M5).
+//
+// In the harness this candidate landed at certification_level=research_only with
+// WF median Sharpe +6.68 and label-perm p=0.216. The Pinescript here is the
+// literal trade rule -- TradingView's strategy tester won't be hardened against
+// label permutation, so treat its results as illustrative, not certified.
+
+//@version=5
+strategy("H4 fib0.618 retracement (prev-color + regime)",
+     overlay = true,
+     initial_capital = 50000,
+     default_qty_type = strategy.fixed,
+     default_qty_value = 1,
+     pyramiding = 0,
+     calc_on_every_tick = false,
+     process_orders_on_close = true,
+     commission_type = strategy.commission.percent,
+     commission_value = 0.0,
+     slippage = 0)
+
+// ---------- inputs ----------
+
+htfStr      = input.timeframe("240", "Bias / setup timeframe", options=["60","120","240","480"])
+fibLevel    = input.float(0.618, "Fib retracement level", minval=0.1, maxval=0.99, step=0.05)
+bodyAtrMin  = input.float(0.5,   "Min body / ATR ratio (filter)", minval=0.0, step=0.05)
+atrLen      = input.int(14,      "H4 ATR length", minval=2)
+maLen       = input.int(50,      "H4 SMA length (regime)", minval=2)
+useRegime   = input.bool(true,   "Use regime filter (with-trend only)")
+useBodyAtr  = input.bool(true,   "Use body/ATR filter")
+showLevels  = input.bool(true,   "Plot prev-H4 levels + fib entry")
+
+// ---------- H4 reference data, all lagged by [1] = previously-closed bar ----------
+
+// Use lookahead_off + [1] to ensure we read only completed-prior-H4 values.
+prev_h4_open  = request.security(syminfo.tickerid, htfStr, open[1],  lookahead=barmerge.lookahead_off)
+prev_h4_high  = request.security(syminfo.tickerid, htfStr, high[1],  lookahead=barmerge.lookahead_off)
+prev_h4_low   = request.security(syminfo.tickerid, htfStr, low[1],   lookahead=barmerge.lookahead_off)
+prev_h4_close = request.security(syminfo.tickerid, htfStr, close[1], lookahead=barmerge.lookahead_off)
+
+// ATR + SMA computed inside the security call so they use the H4 bar series.
+h4_atr_prev = request.security(syminfo.tickerid, htfStr, ta.atr(atrLen)[1],
+     lookahead=barmerge.lookahead_off)
+h4_ma_prev  = request.security(syminfo.tickerid, htfStr, ta.sma(close, maLen)[1],
+     lookahead=barmerge.lookahead_off)
+
+// ---------- signal + filters ----------
+
+prev_body  = math.abs(prev_h4_close - prev_h4_open)
+body_atr   = h4_atr_prev > 0 ? prev_body / h4_atr_prev : 0.0
+
+prev_color = prev_h4_close > prev_h4_open ? 1 : prev_h4_close < prev_h4_open ? -1 : 0
+
+// regime: prev close above MA -> uptrend (1); below -> downtrend (-1)
+trend = prev_h4_close > h4_ma_prev ? 1 : prev_h4_close < h4_ma_prev ? -1 : 0
+
+body_ok   = not useBodyAtr or body_atr >= bodyAtrMin
+regime_ok = not useRegime  or trend == prev_color
+
+direction = (prev_color != 0 and body_ok and regime_ok) ? prev_color : 0
+
+// ---------- entry price + stop ----------
+
+// fib_limit_entry at `fibLevel` of the prev-H4 body, applied symmetrically:
+//   long  (prev_color = +1):  entry = prev_h4_close - fib*(prev_h4_close - prev_h4_open)
+//                               = below the close, inside the green body
+//   short (prev_color = -1):  entry = prev_h4_close - fib*(prev_h4_close - prev_h4_open)
+//                               = above the close, inside the red body
+fib_entry = prev_h4_close - fibLevel * (prev_h4_close - prev_h4_open)
+
+// Stop = previous H4 extreme on the trade side.
+long_stop  = prev_h4_low
+short_stop = prev_h4_high
+
+// ---------- detect new H4 bar boundary on the lower-tf chart ----------
+
+// time(htfStr) returns the open time of the H4 bucket. When that value
+// changes between two consecutive lower-tf bars we are on the FIRST bar of
+// a new H4 bucket -- the moment to (a) close any open position from the
+// previous bucket and (b) place the new bucket's limit/stop orders.
+htfTime  = time(htfStr)
+isNewH4  = ta.change(htfTime) != 0
+
+// ---------- order management ----------
+
+// 1. On the first bar of a new H4 bucket, exit any prior position (h4_close exit).
+if isNewH4
+    strategy.close_all(comment="h4_close")
+
+// 2. On the same bar, if direction != 0 and the data is valid, place the new
+//    bucket's limit + stop. The order is good for the rest of the bucket only;
+//    we cancel any unfilled order at the next H4 boundary (next isNewH4).
+hasValidData = not na(prev_h4_open) and not na(prev_h4_close)
+        and not na(prev_h4_low) and not na(prev_h4_high)
+        and not na(h4_atr_prev) and not na(h4_ma_prev)
+
+if isNewH4 and direction != 0 and hasValidData
+    strategy.cancel_all()
+    if direction == 1
+        strategy.entry("Long",  strategy.long,  limit=fib_entry)
+        strategy.exit ("Long X", from_entry="Long",  stop=long_stop)
+    else
+        strategy.entry("Short", strategy.short, limit=fib_entry)
+        strategy.exit ("Short X", from_entry="Short", stop=short_stop)
+else if isNewH4
+    // No trade this bucket -- cancel any leftover orders so the chart stays clean.
+    strategy.cancel_all()
+
+// ---------- visuals ----------
+
+plot(showLevels ? prev_h4_high  : na, "prev H4 high",  color=color.new(color.gray, 50), style=plot.style_circles)
+plot(showLevels ? prev_h4_low   : na, "prev H4 low",   color=color.new(color.gray, 50), style=plot.style_circles)
+plot(showLevels ? prev_h4_open  : na, "prev H4 open",  color=color.new(color.aqua, 60), style=plot.style_circles)
+plot(showLevels ? prev_h4_close : na, "prev H4 close", color=color.new(color.aqua, 60), style=plot.style_circles)
+plot(showLevels ? fib_entry     : na, "fib entry",     color=direction == 1 ? color.green
+                                                          : direction == -1 ? color.red
+                                                          : color.new(color.silver, 70),
+     style=plot.style_linebr, linewidth=2)
+
+bgcolor(direction == 1  ? color.new(color.green, 92) :
+        direction == -1 ? color.new(color.red,   92) : na)

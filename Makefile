@@ -1,5 +1,6 @@
 .PHONY: all pipeline prop-passing prop-passing-smoke data pull-data audit \
         alpha prop report test pdf clean ui ui-stdlib \
+        cbr-scalp cbr-scalp-smoke cbr-scalp-sweep \
         fib backtest search skeptic v2
 
 # CANONICAL TARGETS (post-hardening, Batches A-D)
@@ -83,7 +84,8 @@ TEST_FILES := \
 	tests/test_run_events.py \
 	tests/test_strategies.py \
 	tests/test_batch_h.py \
-	tests/test_ui.py
+	tests/test_ui.py \
+	tests/test_cbr_scalp.py
 
 test:
 	@set -e; for f in $(TEST_FILES); do \
@@ -102,6 +104,18 @@ ui:
 
 ui-stdlib:
 	python3 ui/server.py --no-fastapi
+
+# Batch K -- CBR-style gold scalp module.
+# Mechanical approximation of a public TomTrades / CBR scalping
+# model; runs separately from the prop-passing / pipeline paths.
+cbr-scalp:
+	python3 scripts/run_cbr_backtest.py
+
+cbr-scalp-smoke:
+	python3 scripts/run_cbr_backtest.py --start 2024-01-01 --limit-bars 100000 --output-stem cbr_smoke
+
+cbr-scalp-sweep:
+	python3 scripts/run_cbr_sweep.py --start 2024-01-01 --limit-bars 200000
 
 clean:
 	rm -f results/*.csv results/*.png results/*.txt results/*.json results/*.meta.json

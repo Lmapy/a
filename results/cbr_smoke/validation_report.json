@@ -1,0 +1,8 @@
+{
+  "issues": [],
+  "warnings": [
+    "dxy_mode=False but no DXY data; DXY filter will be silently disabled"
+  ],
+  "ok": true,
+  "dxy_available": false
+}
