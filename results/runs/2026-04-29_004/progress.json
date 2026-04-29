@@ -1,0 +1,237 @@
+{
+  "run_id": "2026-04-29_004",
+  "started_at": "2026-04-29T01:19:23+00:00",
+  "updated_at": "2026-04-29T01:38:25+00:00",
+  "status": "passed",
+  "current_stage": "judge",
+  "counts": {
+    "generated": 42,
+    "rejected_unavailable_data": 0,
+    "rejected_broken": 0,
+    "backtested": 0,
+    "walk_forward_passed": 0,
+    "walk_forward_failed": 0,
+    "holdout_passed": 0,
+    "holdout_failed": 0,
+    "candidates": 0,
+    "prop_candidates": 0,
+    "certified": 0,
+    "failed": 0,
+    "skipped": 0
+  },
+  "active_candidates": [
+    "previous_h4_sweep_reclaim__k1__prev_h4_extreme"
+  ],
+  "recent_events": [
+    {
+      "timestamp": "2026-04-29T01:37:01+00:00",
+      "candidate_id": "previous_h4_range_retracement__fib0.382__prev_h4_open__entry_delayed_entry_2",
+      "stage": "entry_model_lab",
+      "status": "failed",
+      "certification_level": null
+    },
+    {
+      "timestamp": "2026-04-29T01:37:04+00:00",
+      "candidate_id": "session_sweep_reclaim__london__prev_h4_extreme__risk_fixed_micro_1",
+      "stage": "risk_sweep",
+      "status": "failed",
+      "certification_level": null
+    },
+    {
+      "timestamp": "2026-04-29T01:37:07+00:00",
+      "candidate_id": "session_sweep_reclaim__london__prev_h4_extreme__risk_fixed_micro_2",
+      "stage": "risk_sweep",
+      "status": "failed",
+      "certification_level": null
+    },
+    {
+      "timestamp": "2026-04-29T01:37:10+00:00",
+      "candidate_id": "session_sweep_reclaim__london__prev_h4_extreme__risk_dollar_risk_50",
+      "stage": "risk_sweep",
+      "status": "failed",
+      "certification_level": null
+    },
+    {
+      "timestamp": "2026-04-29T01:37:12+00:00",
+      "candidate_id": "session_sweep_reclaim__london__prev_h4_extreme__risk_dollar_risk_100",
+      "stage": "risk_sweep",
+      "status": "failed",
+      "certification_level": null
+    },
+    {
+      "timestamp": "2026-04-29T01:37:15+00:00",
+      "candidate_id": "session_sweep_reclaim__london__prev_h4_extreme__risk_pct_dd_buffer_2pct",
+      "stage": "risk_sweep",
+      "status": "failed",
+      "certification_level": null
+    },
+    {
+      "timestamp": "2026-04-29T01:37:18+00:00",
+      "candidate_id": "session_sweep_reclaim__london__prev_h4_extreme__risk_reduce_after_loss",
+      "stage": "risk_sweep",
+      "status": "failed",
+      "certification_level": null
+    },
+    {
+      "timestamp": "2026-04-29T01:37:21+00:00",
+      "candidate_id": "session_sweep_reclaim__london__prev_h4_extreme__risk_scale_after_high",
+      "stage": "risk_sweep",
+      "status": "failed",
+      "certification_level": null
+    },
+    {
+      "timestamp": "2026-04-29T01:37:24+00:00",
+      "candidate_id": "session_sweep_reclaim__london__prev_h4_extreme__rules_none",
+      "stage": "daily_rule_optimiser",
+      "status": "failed",
+      "certification_level": null
+    },
+    {
+      "timestamp": "2026-04-29T01:37:27+00:00",
+      "candidate_id": "session_sweep_reclaim__london__prev_h4_extreme__rules_max1",
+      "stage": "daily_rule_optimiser",
+      "status": "failed",
+      "certification_level": null
+    },
+    {
+      "timestamp": "2026-04-29T01:37:30+00:00",
+      "candidate_id": "session_sweep_reclaim__london__prev_h4_extreme__rules_max2",
+      "stage": "daily_rule_optimiser",
+      "status": "failed",
+      "certification_level": null
+    },
+    {
+      "timestamp": "2026-04-29T01:37:33+00:00",
+      "candidate_id": "session_sweep_reclaim__london__prev_h4_extreme__rules_max3",
+      "stage": "daily_rule_optimiser",
+      "status": "failed",
+      "certification_level": null
+    },
+    {
+      "timestamp": "2026-04-29T01:37:36+00:00",
+      "candidate_id": "session_sweep_reclaim__london__prev_h4_extreme__rules_stop_l1",
+      "stage": "daily_rule_optimiser",
+      "status": "failed",
+      "certification_level": null
+    },
+    {
+      "timestamp": "2026-04-29T01:37:38+00:00",
+      "candidate_id": "session_sweep_reclaim__london__prev_h4_extreme__rules_stop_l2",
+      "stage": "daily_rule_optimiser",
+      "status": "failed",
+      "certification_level": null
+    },
+    {
+      "timestamp": "2026-04-29T01:37:41+00:00",
+      "candidate_id": "session_sweep_reclaim__london__prev_h4_extreme__rules_dl250",
+      "stage": "daily_rule_optimiser",
+      "status": "failed",
+      "certification_level": null
+    },
+    {
+      "timestamp": "2026-04-29T01:37:44+00:00",
+      "candidate_id": "session_sweep_reclaim__london__prev_h4_extreme__rules_dl500",
+      "stage": "daily_rule_optimiser",
+      "status": "failed",
+      "certification_level": null
+    },
+    {
+      "timestamp": "2026-04-29T01:37:47+00:00",
+      "candidate_id": "session_sweep_reclaim__london__prev_h4_extreme__rules_dp500",
+      "stage": "daily_rule_optimiser",
+      "status": "failed",
+      "certification_level": null
+    },
+    {
+      "timestamp": "2026-04-29T01:37:51+00:00",
+      "candidate_id": "session_sweep_reclaim__london__prev_h4_extreme__rules_dp500_dl300",
+      "stage": "daily_rule_optimiser",
+      "status": "failed",
+      "certification_level": null
+    },
+    {
+      "timestamp": "2026-04-29T01:37:53+00:00",
+      "candidate_id": "session_sweep_reclaim__london__prev_h4_extreme__rules_ny_only_max2",
+      "stage": "daily_rule_optimiser",
+      "status": "failed",
+      "certification_level": null
+    },
+    {
+      "timestamp": "2026-04-29T01:37:56+00:00",
+      "candidate_id": "session_sweep_reclaim__london__prev_h4_extreme__rules_london_only_max2",
+      "stage": "daily_rule_optimiser",
+      "status": "failed",
+      "certification_level": null
+    },
+    {
+      "timestamp": "2026-04-29T01:37:59+00:00",
+      "candidate_id": "session_sweep_reclaim__london__prev_h4_extreme__rules_cd60",
+      "stage": "daily_rule_optimiser",
+      "status": "failed",
+      "certification_level": null
+    },
+    {
+      "timestamp": "2026-04-29T01:38:02+00:00",
+      "candidate_id": "session_sweep_reclaim__london__prev_h4_extreme__rules_cd120",
+      "stage": "daily_rule_optimiser",
+      "status": "failed",
+      "certification_level": null
+    },
+    {
+      "timestamp": "2026-04-29T01:38:05+00:00",
+      "candidate_id": "session_sweep_reclaim__london__prev_h4_extreme__entry_touch_entry",
+      "stage": "entry_model_lab",
+      "status": "failed",
+      "certification_level": null
+    },
+    {
+      "timestamp": "2026-04-29T01:38:08+00:00",
+      "candidate_id": "session_sweep_reclaim__london__prev_h4_extreme__entry_reaction_close",
+      "stage": "entry_model_lab",
+      "status": "failed",
+      "certification_level": null
+    },
+    {
+      "timestamp": "2026-04-29T01:38:11+00:00",
+      "candidate_id": "session_sweep_reclaim__london__prev_h4_extreme__entry_fib0.382",
+      "stage": "entry_model_lab",
+      "status": "failed",
+      "certification_level": null
+    },
+    {
+      "timestamp": "2026-04-29T01:38:14+00:00",
+      "candidate_id": "session_sweep_reclaim__london__prev_h4_extreme__entry_fib0.5",
+      "stage": "entry_model_lab",
+      "status": "failed",
+      "certification_level": null
+    },
+    {
+      "timestamp": "2026-04-29T01:38:16+00:00",
+      "candidate_id": "session_sweep_reclaim__london__prev_h4_extreme__entry_fib0.618",
+      "stage": "entry_model_lab",
+      "status": "failed",
+      "certification_level": null
+    },
+    {
+      "timestamp": "2026-04-29T01:38:19+00:00",
+      "candidate_id": "session_sweep_reclaim__london__prev_h4_extreme__entry_zone_midpoint_limit",
+      "stage": "entry_model_lab",
+      "status": "failed",
+      "certification_level": null
+    },
+    {
+      "timestamp": "2026-04-29T01:38:22+00:00",
+      "candidate_id": "session_sweep_reclaim__london__prev_h4_extreme__entry_delayed_entry_1",
+      "stage": "entry_model_lab",
+      "status": "failed",
+      "certification_level": null
+    },
+    {
+      "timestamp": "2026-04-29T01:38:25+00:00",
+      "candidate_id": "session_sweep_reclaim__london__prev_h4_extreme__entry_delayed_entry_2",
+      "stage": "entry_model_lab",
+      "status": "failed",
+      "certification_level": null
+    }
+  ]
+}
