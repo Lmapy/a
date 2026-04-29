@@ -324,6 +324,79 @@ def _safe_ratio(num, den):
     return round(num / den, 3)
 
 
+# ---------------- tier-2 sweeps ----------------
+
+def _run_tier_2(survivors: list[dict], *,
+                 labs: list[str], args,
+                 h4_train, m15_train, h4_val, m15_val,
+                 h4_holdout, m15_holdout, full_h4, full_m15,
+                 events: EventWriter, state: RunState) -> list[dict]:
+    """Sweep risk / daily-rule / entry-model variants on tier-1
+    survivors. Each survivor produces ~27 variants (7 risk + 12
+    daily + 8 entry); we evaluate them through the same gates the
+    tier-1 candidates went through and append to results.
+
+    For runtime control we evaluate the variants but do NOT run
+    full prop sim on each — that stays on tier-1 winners. The
+    tier-2 sweep is mainly to surface "this setup is viable only
+    with daily-rule X" kinds of insights.
+    """
+    out: list[dict] = []
+    for survivor in survivors:
+        base = survivor["candidate"]
+        for lab in labs:
+            state.set_stage({
+                "risk": "risk_sweep",
+                "daily": "daily_rule_optimiser",
+                "entry": "entry_model_lab",
+            }[lab])
+            try:
+                variants = grid.tier_2_for_survivor(base, lab=lab,
+                                                       contracts_max=base.risk.contracts_max)
+            except Exception as exc:
+                emit_candidate(events,
+                                candidate_id=base.id, family=base.family,
+                                stage=state.current_stage,
+                                status="failed",
+                                message=f"tier-2 lab error: {exc}")
+                continue
+            for v in variants:
+                # Skip the no-op variant that re-emits the base unchanged.
+                if v.id == base.id:
+                    continue
+                try:
+                    res = _evaluate_candidate(
+                        v,
+                        h4_train=h4_train, m15_train=m15_train,
+                        h4_val=h4_val, m15_val=m15_val,
+                        h4_holdout=h4_holdout, m15_holdout=m15_holdout,
+                        full_h4=full_h4, full_m15=full_m15,
+                        n_perm=args.n_perm,
+                        fast_only=True,    # tier-2 stops at WF/holdout
+                    )
+                except Exception as exc:
+                    res = {"candidate": v,
+                           "wf": {}, "val": {}, "ho": {}, "stress": {},
+                           "stat_label_perm": {}, "stat_random": {},
+                           "stat_block_boot": {},
+                           "ho_trades": [], "stress_trades": [],
+                           "reasons": [FailureReason.FAIL_RESOLUTION_LIMITED],
+                           "n_filters": len(v.filters),
+                           "evaluator_error": str(exc)}
+                v.provenance.setdefault("tier_2_lab", lab)
+                v.provenance.setdefault("tier_2_parent_id", base.id)
+                emit_candidate(events,
+                                candidate_id=v.id, family=v.family,
+                                stage=state.current_stage,
+                                status="passed" if not res["reasons"] else "failed",
+                                metrics={
+                                    "ho_total_return": res["ho"].get("total_return", 0.0),
+                                    "ho_sharpe_trade": res["ho"].get("sharpe_trade_ann", 0.0),
+                                })
+                out.append(res)
+    return out
+
+
 # ---------------- main pipeline ----------------
 
 def main(argv: list[str] | None = None) -> int:
@@ -344,11 +417,18 @@ def main(argv: list[str] | None = None) -> int:
                     help="use the wider risk + daily-rule sweeps")
     ap.add_argument("--n-perm", type=int, default=N_PERM_EXPLORATION)
     ap.add_argument("--output-stem", default="prop_passing_leaderboard")
+    ap.add_argument("--no-tier-2", action="store_true",
+                    help="skip tier-2 risk / daily / entry sweeps on survivors")
+    ap.add_argument("--tier-2-labs", default="risk,daily,entry",
+                    help="comma-separated tier-2 labs (default: risk,daily,entry)")
+    ap.add_argument("--max-survivors-for-tier-2", type=int, default=5,
+                    help="cap how many tier-1 survivors get tier-2 sweeps")
     args = ap.parse_args(argv)
 
     if args.smoke:
         args.limit_candidates = args.limit_candidates or 4
         args.n_perm = min(args.n_perm, 80)
+        args.no_tier_2 = True       # smoke skips tier-2 to stay fast
 
     families_filter = (set(s.strip() for s in args.families.split(","))
                        if args.families else None)
@@ -457,6 +537,29 @@ def main(argv: list[str] | None = None) -> int:
                             stage="prop_firm_simulator",
                             status="passed" if not r["reasons"] else "failed",
                             metrics=r.get("prop_summary", {}))
+
+    # ---- 6b. tier-2 sweeps on top survivors ----
+    if not args.no_tier_2 and not args.fast_only:
+        labs = [s.strip() for s in args.tier_2_labs.split(",")
+                 if s.strip() in ("risk", "daily", "entry")]
+        ranked = sorted(results, key=lambda r: r["ho"].get("total_return", -1e9),
+                         reverse=True)
+        survivors = [r for r in ranked
+                      if r["ho"].get("total_return", -1e9) > -0.5
+                      and r["wf"].get("folds", 0) > 0][:args.max_survivors_for_tier_2]
+        print(f"[6b/9] tier-2 sweeps on {len(survivors)} survivors "
+              f"(labs={labs}) ...")
+        tier_2_results = _run_tier_2(
+            survivors, labs=labs, args=args,
+            h4_train=h4_train, m15_train=splits.train_m15,
+            h4_val=h4_val, m15_val=splits.validation_m15,
+            h4_holdout=h4_holdout, m15_holdout=splits.holdout_m15,
+            full_h4=full_h4, full_m15=full_m15,
+            events=events, state=state)
+        results.extend(tier_2_results)
+        print(f"[6b/9] tier-2 produced {len(tier_2_results)} variants")
+    else:
+        print("[6b/9] tier-2 skipped (--no-tier-2 or --fast-only)")
 
     # ---- 7. score + leaderboard ----
     state.set_stage("leaderboard")
