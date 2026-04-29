@@ -36,6 +36,7 @@ TEST_FILES = [
     "tests/test_run_events.py",
     "tests/test_strategies.py",
     "tests/test_batch_h.py",
+    "tests/test_ui.py",
 ]
 
 

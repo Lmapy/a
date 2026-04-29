@@ -1,5 +1,5 @@
 .PHONY: all pipeline prop-passing prop-passing-smoke data pull-data audit \
-        alpha prop report test pdf clean \
+        alpha prop report test pdf clean ui ui-stdlib \
         fib backtest search skeptic v2
 
 # CANONICAL TARGETS (post-hardening, Batches A-D)
@@ -82,7 +82,8 @@ TEST_FILES := \
 	tests/test_tpo.py \
 	tests/test_run_events.py \
 	tests/test_strategies.py \
-	tests/test_batch_h.py
+	tests/test_batch_h.py \
+	tests/test_ui.py
 
 test:
 	@set -e; for f in $(TEST_FILES); do \
@@ -92,6 +93,15 @@ test:
 
 pdf:
 	python3 scripts/build_pdf.py
+
+# Batch J -- local research control room.
+# Reads results/runs/<run_id>/ + results/prop_passing_leaderboard.csv
+# and serves a small JSON API + a vanilla-JS frontend at localhost:8765.
+ui:
+	python3 ui/server.py
+
+ui-stdlib:
+	python3 ui/server.py --no-fastapi
 
 clean:
 	rm -f results/*.csv results/*.png results/*.txt results/*.json results/*.meta.json

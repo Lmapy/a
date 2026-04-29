@@ -1,0 +1,101 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<title>XAUUSD prop-firm passing — control room</title>
+<link rel="stylesheet" href="/static/style.css">
+</head>
+<body>
+<header>
+  <h1>XAUUSD prop-firm passing — control room</h1>
+  <nav>
+    <button data-page="runs"        class="active">runs</button>
+    <button data-page="leaderboard">leaderboard</button>
+    <button data-page="candidate">candidate</button>
+    <button data-page="failure">failures</button>
+    <button data-page="audit">audit</button>
+  </nav>
+  <span id="conn" class="conn"></span>
+</header>
+
+<main>
+
+<!-- runs page -->
+<section id="page-runs" class="page active">
+  <div class="row">
+    <div class="col">
+      <h2>recent runs</h2>
+      <table id="runs-table">
+        <thead>
+          <tr>
+            <th>run_id</th><th>status</th><th>stage</th>
+            <th>started</th><th>updated</th>
+          </tr>
+        </thead>
+        <tbody></tbody>
+      </table>
+    </div>
+    <div class="col">
+      <h2>progress (selected run)</h2>
+      <pre id="run-progress" class="json">(select a run)</pre>
+      <h3>recent events</h3>
+      <ul id="run-events" class="events"></ul>
+    </div>
+  </div>
+</section>
+
+<!-- leaderboard page -->
+<section id="page-leaderboard" class="page">
+  <h2>prop passing leaderboard</h2>
+  <p class="meta" id="lb-meta"></p>
+  <table id="lb-table">
+    <thead>
+      <tr>
+        <th>id</th><th>family</th><th>cert</th><th>score</th>
+        <th>pass_p</th><th>blowup_p</th>
+        <th>wf folds</th><th>wf med sharpe</th>
+        <th>ho ret</th><th>label_p</th><th>fail reasons</th>
+      </tr>
+    </thead>
+    <tbody></tbody>
+  </table>
+</section>
+
+<!-- candidate detail -->
+<section id="page-candidate" class="page">
+  <h2>candidate detail</h2>
+  <p>Click a row in the leaderboard, or paste a candidate_id:
+    <input id="cand-id-input" placeholder="candidate_id">
+    <button id="cand-load-btn">load</button></p>
+  <pre id="cand-detail" class="json">(no candidate selected)</pre>
+</section>
+
+<!-- failure histogram -->
+<section id="page-failure" class="page">
+  <h2>failure histogram</h2>
+  <p class="meta">aggregated from the latest leaderboard.</p>
+  <table id="fail-table">
+    <thead><tr><th>failure reason</th><th>candidates</th></tr></thead>
+    <tbody></tbody>
+  </table>
+</section>
+
+<!-- audit -->
+<section id="page-audit" class="page">
+  <h2>audit log</h2>
+  <p class="meta">contents of <code>results/audit.txt</code>.
+    Re-run with <code>python3 scripts/audit.py</code> to refresh.</p>
+  <pre id="audit-log" class="audit">(loading...)</pre>
+</section>
+
+</main>
+
+<footer>
+  <small>backend: <a href="/api/runs">/api/runs</a> ·
+  <a href="/api/leaderboard">/api/leaderboard</a> ·
+  <a href="/api/audit">/api/audit</a></small>
+</footer>
+
+<script src="/static/app.js"></script>
+</body>
+</html>

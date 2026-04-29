@@ -1,0 +1,132 @@
+/* Minimal stylesheet for the prop-passing control room. No build
+   step, no framework — vanilla CSS targeting Chrome/Firefox. */
+
+:root {
+  --bg: #0e1116;
+  --panel: #161b22;
+  --border: #30363d;
+  --text: #c9d1d9;
+  --muted: #8b949e;
+  --accent: #58a6ff;
+  --good: #3fb950;
+  --bad: #f85149;
+  --warn: #d29922;
+  --mono: ui-monospace, "Cascadia Mono", "Source Code Pro", Consolas, monospace;
+}
+* { box-sizing: border-box; }
+html, body {
+  background: var(--bg);
+  color: var(--text);
+  font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", system-ui,
+               sans-serif;
+  font-size: 14px;
+  margin: 0;
+  padding: 0;
+  line-height: 1.4;
+}
+header {
+  display: flex;
+  align-items: center;
+  gap: 1.5em;
+  padding: 0.75em 1em;
+  border-bottom: 1px solid var(--border);
+  background: var(--panel);
+}
+header h1 { margin: 0; font-size: 1rem; flex: 0 0 auto; }
+header nav { display: flex; gap: 0.25em; flex: 1 1 auto; }
+header nav button {
+  background: transparent;
+  color: var(--muted);
+  border: 1px solid var(--border);
+  border-radius: 4px;
+  padding: 4px 10px;
+  font-size: 0.85rem;
+  cursor: pointer;
+}
+header nav button:hover { color: var(--text); }
+header nav button.active { color: var(--text); border-color: var(--accent); }
+.conn { color: var(--muted); font-family: var(--mono); font-size: 0.8rem; }
+.conn.ok { color: var(--good); }
+.conn.bad { color: var(--bad); }
+main { padding: 1em; }
+.page { display: none; }
+.page.active { display: block; }
+
+.row { display: flex; gap: 1em; flex-wrap: wrap; }
+.col { flex: 1 1 400px; min-width: 0; }
+
+h2 { margin: 0 0 0.4em 0; font-size: 1rem; }
+h3 { margin: 1em 0 0.4em 0; font-size: 0.9rem; color: var(--muted); }
+
+table {
+  border-collapse: collapse;
+  width: 100%;
+  font-size: 0.85rem;
+}
+th, td {
+  border: 1px solid var(--border);
+  padding: 4px 8px;
+  text-align: left;
+  font-family: var(--mono);
+  vertical-align: top;
+}
+th { background: var(--panel); color: var(--muted); font-weight: 600; }
+tr:hover td { background: rgba(88, 166, 255, 0.05); }
+
+td.cert-rejected_unavailable_data { color: var(--muted); }
+td.cert-rejected_broken            { color: var(--bad); }
+td.cert-research_only              { color: var(--warn); }
+td.cert-watchlist                  { color: var(--warn); }
+td.cert-candidate                  { color: var(--accent); }
+td.cert-prop_candidate             { color: var(--good); }
+td.cert-certified                  { color: var(--good); font-weight: 600; }
+
+.events {
+  list-style: none;
+  padding: 0; margin: 0;
+  font-family: var(--mono);
+  font-size: 0.78rem;
+  max-height: 60vh;
+  overflow-y: auto;
+}
+.events li {
+  padding: 2px 6px;
+  border-bottom: 1px solid var(--border);
+  white-space: pre-wrap;
+}
+.events li.passed   { color: var(--good); }
+.events li.failed   { color: var(--bad); }
+.events li.rejected { color: var(--muted); }
+.events li.running  { color: var(--accent); }
+
+.json, .audit {
+  background: var(--panel);
+  border: 1px solid var(--border);
+  padding: 8px;
+  margin: 0;
+  font-family: var(--mono);
+  font-size: 0.8rem;
+  white-space: pre-wrap;
+  max-height: 70vh;
+  overflow-y: auto;
+}
+
+p.meta { color: var(--muted); margin: 0 0 0.6em 0; font-size: 0.85rem; }
+
+input[type="text"], input:not([type]), button {
+  background: var(--panel);
+  color: var(--text);
+  border: 1px solid var(--border);
+  border-radius: 4px;
+  padding: 4px 8px;
+  font-family: var(--mono);
+  font-size: 0.85rem;
+}
+
+footer {
+  border-top: 1px solid var(--border);
+  padding: 0.5em 1em;
+  color: var(--muted);
+  font-size: 0.8rem;
+}
+footer a { color: var(--muted); }

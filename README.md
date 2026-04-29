@@ -105,6 +105,19 @@ under Batches A–E. Use it when you want a per-spec deep dive on a
 specific strategy with the full statistical-test machinery; it does
 **not** rank by prop-firm passing score.
 
+### Local research control room (Batch J)
+
+```bash
+make ui                  # FastAPI (if installed) or stdlib fallback
+make ui-stdlib           # force the stdlib http.server fallback
+```
+
+Listens at `http://127.0.0.1:8765`. Five pages: runs, leaderboard,
+candidate detail, failure histogram, audit log. Polls
+`results/runs/<run_id>/{progress.json, events.jsonl}` and
+`results/prop_passing_leaderboard.csv` — read-only; the pipeline
+writes, the UI reads. See `docs/UI.md` for the API contract.
+
 ### Other targets
 
 ```bash
