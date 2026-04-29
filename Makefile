@@ -68,7 +68,8 @@ TEST_FILES := \
 	tests/test_certification.py \
 	tests/test_candidate.py \
 	tests/test_tpo.py \
-	tests/test_run_events.py
+	tests/test_run_events.py \
+	tests/test_strategies.py
 
 test:
 	@set -e; for f in $(TEST_FILES); do \

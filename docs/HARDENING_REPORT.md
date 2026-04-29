@@ -1,4 +1,4 @@
-# Hardening report — Batches A through F
+# Hardening report — Batches A through G
 
 Date: 2026-04-29
 Branch: `claude/4h-candle-strategy-backtest-8kKdx`
@@ -541,12 +541,123 @@ The two formerly-known failures are gone:
 - "leaderboard_hardened.csv: provenance metadata present" — fixed in
   Batch E when `make pipeline` produced the `.meta.json` sidecar.
 
+## Batch G summary (sweep labs)
+
+The candidate-generation layer the prop-firm passing engine needs.
+
+| # | What | File | Output |
+|---|---|---|---|
+| 1 | 10 OHLC-only family generators | `strategies/families.py` | 42 base PropCandidates across 10 families |
+| 2 | Entry-model lab | `strategies/entry_lab.py` | up to 9 variants per base; only registered/compatible entries; `compare_table()` surfaces best entry per metric |
+| 3 | Risk sweep | `strategies/risk_sweep.py` | 7 default presets (`fixed_micro_1/2`, `dollar_risk_50/100`, `pct_dd_buffer_2pct`, `reduce_after_loss`, `scale_after_high`); cartesian with `contracts_max` available |
+| 4 | Daily-rule optimiser | `strategies/daily_rule_lab.py` | 12 default presets (max_trades_per_day, stop_after_n_losses, daily_loss/profit_stop_dollar, session_only); 23 in `variants_full()` |
+| 5 | Tier-1 grid composer | `strategies/grid.py` | `tier_1_grid()` returns all families' base variants (42 today); `apply_capability_filter()` partitions OHLC-only vs unavailable-data; `tier_2_for_survivor(lab=...)` dispatches per-axis sweeps; `grid_summary()` emits per-family / per-cert-level counts |
+
+### Family roster (verbatim from the brief)
+
+```
+session_sweep_reclaim
+opening_range_breakout_retest
+opening_range_failed_breakout
+previous_h4_range_retracement
+previous_h4_sweep_reclaim
+tpo_value_rejection           ← Batch H needs to wire executor TPO filters
+tpo_poc_reversion             ← same
+atr_extension_reclaim
+compression_breakout
+failed_breakout_reversal
+```
+
+Each family produces 4-6 base variants (different stop choices,
+session restrictions, threshold parameters). The grid is intentionally
+controlled — the test
+`test_default_tier_1_grid_size_is_controlled` enforces a 20-150
+candidate band.
+
+### Composition over inheritance preserved
+
+Every family generator returns `PropCandidate` objects whose
+`to_spec()` produces an executor-compatible `Spec`. The hardened
+executor / walk-forward / holdout / statistical pipeline still
+consumes `Spec` unchanged. The lab modules don't touch the
+candidates' setup logic — they only multiply variants on
+`risk` / `daily_rules` / `entry` axes.
+
+### TPO-family marker
+
+`tpo_value_rejection` and `tpo_poc_reversion` candidates pass the
+Batch F capability gate (TPO is allowed without volume) but their
+`tpo_*` filter tokens are not yet implemented as executor filters.
+Each candidate carries `provenance.requires_executor_extension =
+"tpo_filter"`. The Batch H orchestrator must:
+
+1. Either wire TPO filter implementations into
+   `execution.executor._apply_filters` (preferred), OR
+2. Detect the marker and skip TPO candidates with status
+   `data_unavailable` and a clear message.
+
+### Tier-2 expansion (per survivor)
+
+Once a tier-1 candidate clears the OHLC backtest + walk-forward
+filter, the orchestrator runs targeted tier-2 sweeps on it:
+
+  | Lab | Variants per survivor |
+  |---|---:|
+  | `risk` | 7 (default presets) — up to 21 with `variants_with_caps((1,3,5))` |
+  | `daily` | 12 (default) — up to 23 with `variants_full()` |
+  | `entry` | 8-9 (compatible entries only) |
+  | `tier_2_full` | sum of the above per survivor (~27) |
+
+So 5 survivors → ~135 tier-2 candidates → tractable in 2-3 hours
+of prop sim at `n_runs=500`. Final certification at `n_runs=5000`
+runs only on the 1-2 leaderboard top spots.
+
+### Batch G file changes
+
+```
+new file:   strategies/__init__.py
+new file:   strategies/families.py
+new file:   strategies/entry_lab.py
+new file:   strategies/risk_sweep.py
+new file:   strategies/daily_rule_lab.py
+new file:   strategies/grid.py
+new file:   tests/test_strategies.py
+modified:   scripts/run_tests.py     (test_strategies.py wired)
+modified:   Makefile                 (test_strategies.py wired)
+```
+
+### Batch G tests (22 new, 152 individual / 17 files total)
+
+`tests/test_strategies.py`:
+
+- 6 family-level (every family emits ≥1; family ids match the
+  brief; unique ids; every candidate passes capability check;
+  `to_spec()` works; TPO families carry the executor-extension
+  marker)
+- 3 entry-lab (only registered/compatible entries; unique ids;
+  `compare_table()` shape — higher-better and lower-better metrics)
+- 3 risk-sweep (default count = 7; `contracts_max` honoured;
+  cartesian with caps)
+- 3 daily-rule (default count matches `DEFAULT_PRESETS`; doesn't
+  mutate base; full preset list wider than default)
+- 7 grid (tier-1 = all families; family filter; capability filter
+  partitions clean vs dirty; tier-2 dispatch by lab name; tier-2
+  full combines all labs; `grid_summary` counts; size band)
+
+### Audit unchanged
+
+45 PASS / 0 FAIL. The new `strategies/` directory is in the audit's
+"active strategies do not reference unavailable data" sweep path
+and passes cleanly.
+
 ## What is NOT yet done
 
 | Item | Owner / Notes |
 |---|---|
-| Batch G — strategy family generators (10 OHLC-only families) + entry-model lab + risk sweep + daily-rule optimiser. | Next batch. The PropCandidate schema is the boundary; family generators emit candidates, the lab modules run sweeps, the orchestrator is tiered. |
-| Batch H/I — `scripts/run_prop_passing.py` orchestrator, `prop_passing_leaderboard.csv` + `.meta.json`, `prop_passing_report.md`, README rewrite. | After Batch G. |
+| Batch H/I — `scripts/run_prop_passing.py` tiered orchestrator, `prop_passing_leaderboard.csv` + `.meta.json`, `prop_passing_report.md`, README rewrite to OHLC-only positioning. | Next batch. Consumes Batch F + Batch G. |
+| TPO filter implementations in `execution.executor._apply_filters` (`tpo_poc`, `tpo_vah`, `tpo_val`, `tpo_value_acceptance`, `tpo_value_rejection`, etc.). The candidates exist but the executor still raises `unknown filter: tpo_*`. | Batch H side-task. |
+| OHLC proxy filters: `atr_distance_from_session_mean`, `session_twap`. Replace where the agents previously emitted VWAP/Volume Profile filters. | Batch H. |
+| Cooldown lockout in `prop_challenge.lockout.DailyRules` ("don't trade for N bars after a loss"). The daily-rule lab currently does not emit cooldown variants. | Batch H. |
 | Batch J — local React/FastAPI control room. | Far future; the event scaffold from Batch F is the contract. |
 | Walk-forward gate is relaxed (`min_folds=4`, `min_median_sharpe=0`) because the train slice (2020-07 → 2022-01) only fits ~4 disjoint 6m/3m folds. To restore the full 20-fold gate, fetch older Dukascopy years and widen `research_train.start`. | User decision; sub-2020 data is not yet in the sidecar branch. The user has explicitly chosen "leave as is" for now. |
 | Re-verifying prop accounts in 90 days. | Operational; the audit will start failing on `last_verified` staleness automatically. |
