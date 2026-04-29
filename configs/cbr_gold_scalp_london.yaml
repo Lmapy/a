@@ -1,0 +1,42 @@
+# CBR scalp -- London session variant.
+#
+# Same engine, just shifted to the London open / first 90 minutes.
+# Local times below are still expressed in Australia/Melbourne so
+# DST is handled the same way; London open at 18:00 UTC =
+# Melbourne 04:00 (winter) / 05:00 (summer)... but for a more
+# robust setup pick a window that spans both DST regimes.
+#
+# Default below: Melbourne 18:00-21:00 (which is 07:00-10:00 UTC
+# in summer, 08:00-11:00 UTC in winter). The execution window
+# is the second hour of the open: 19:00-20:00 Melbourne.
+
+name: cbr_gold_scalp_london
+symbol: XAUUSD
+primary_timeframe: M1
+bias_timeframe: H1
+
+start_date: null
+end_date: null
+output_dir: results/cbr_gold_scalp_london
+
+session:
+  timezone: Australia/Melbourne
+  asia_session_start: "18:00"            # London open in Melbourne summer time
+  asia_session_end:   "21:00"
+  execution_window_start: "19:00"        # second hour of London open
+  execution_window_end:   "20:00"
+  allow_setup_outside_execution: true
+  allow_entry_outside_execution: false
+
+# Reuse defaults for everything else.
+htf_bias: {bias_mode: PREVIOUS_1H_CANDLE_DIRECTION, ema_length: 20, wick_body_threshold: 0.55}
+dxy: {dxy_mode: OFF, dxy_symbol: DXY, dxy_timeframe: H1, ema_length: 20, require_inverse_confirmation: true}
+expansion: {expansion_lookback_bars: 20, min_directional_candle_percent: 0.65, min_net_move_atr_multiple: 1.0, atr_length: 14, expansion_measurement_mode: CLOSE_TO_CLOSE, minimum_total_range_atr_multiple: 1.0, quality_score_threshold: null}
+trigger: {trigger_mode: SWEEP_OR_REBALANCE, rebalance_tolerance_ticks: 2, rebalance_tolerance_atr_fraction: 0.25, require_midpoint_touch: true, max_bars_after_expansion: 30, max_bars_between_trigger_and_msb: 20}
+structure: {pivot_left: 2, pivot_right: 2, structure_break_mode: CLOSE_THROUGH, require_structure_shift_after_sweep_or_rebalance: true}
+entry: {entry_mode: LIMIT_50_RETRACE, custom_retrace: 0.5, entry_expiry_bars: 10, min_entry_distance_ticks: 0, max_entry_distance_ticks: 99999, one_trade_per_session: true, max_trades_per_day: 2}
+stop_target: {stop_mode: RECENT_SWING, target_mode: FIXED_R_MULTIPLE, risk_reward: 1.5, stop_buffer_ticks: 1, atr_stop_multiple: 1.0, custom_stop_ticks: 200}
+risk: {position_size_mode: FIXED_QTY, fixed_qty: 1.0, fixed_risk_currency: 250.0, risk_percent: 0.5, initial_equity: 50000.0, tick_size: 0.10, tick_value: 0.10, partial_tp_enabled: false, tp1_r: 1.0, tp1_percent: 0.5, move_stop_to_be_after_tp1: true, runner_target_r: 2.0, runner_trail_r: null, trail_after_tp1: false}
+engine: {same_bar_entry_exit: false, ambiguous_bar_resolution: CONSERVATIVE, market_entry_fill_convention: next_open}
+atr_regime: {enabled: false, atr_length: 14, rolling_window: 720, min_percentile: 0.20, max_percentile: 0.95}
+news: {enabled: false, csv_path: null, window_minutes_before: 5, window_minutes_after: 30, block_impacts: ["high"]}

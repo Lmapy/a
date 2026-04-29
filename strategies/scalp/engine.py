@@ -43,6 +43,9 @@ from strategies.scalp.detectors import (
     evaluate_sweep, find_confirmed_pivots,
 )
 from strategies.scalp.entries import EntryPlan, compute_entry_plan
+from strategies.scalp.extensions import (
+    NewsCalendar, attach_atr_percentile, passes_extensions,
+)
 from strategies.scalp.sessions import (
     SessionWindow, annotate_session_columns, asia_session_high_low,
 )
@@ -68,6 +71,16 @@ class SessionState:
     trades_taken_today: int = 0
     setup_count: int = 0
     state: str = "IDLE"
+    # ---- Batch K2: partial exit state -------------------------------
+    # `tp1_taken` flips True the first bar TP1 fires; `runner_quantity`
+    # is what's left of the position after the TP1 partial; the engine
+    # uses the runner stop / target until the runner exit.
+    tp1_taken: bool = False
+    runner_quantity: float = 0.0
+    runner_stop: float = float("nan")
+    runner_target: float = float("nan")
+    runner_high_water: float = float("nan")  # for trailing-R chandelier
+    partial_pnl: float = 0.0                  # locked-in profit from TP1 leg
 
 
 @dataclass
@@ -167,6 +180,11 @@ def run_backtest(cfg: CBRGoldScalpConfig,
     df = annotate_session_columns(m1, window)
     df = asia_session_high_low(df)
     df = attach_atr(df, cfg.expansion.atr_length, col="atr")
+    if cfg.atr_regime.enabled:
+        df = attach_atr_percentile(
+            df, atr_length=cfg.atr_regime.atr_length,
+            rolling_window=cfg.atr_regime.rolling_window)
+    news_cal = NewsCalendar.from_config(cfg.news) if cfg.news.enabled else None
 
     # Optional date window
     if cfg.start_date:
@@ -231,6 +249,15 @@ def run_backtest(cfg: CBRGoldScalpConfig,
                 cfg=cfg, state=state, i=i,
                 high=highs[i], low=lows[i], open_=opens[i],
                 close=closes[i])
+            if exit_event is not None and exit_event.get("kind") == "tp1":
+                # PARTIAL fill: close `tp1_percent` of position at TP1.
+                # Record the partial pnl on `state.partial_pnl`, set up
+                # the runner stop/target, flip `tp1_taken=True`, KEEP
+                # the trade open. The terminal exit (runner_stop /
+                # runner_target / session_close) writes one TradeRow.
+                _apply_partial_tp(cfg, state, exit_event["price"], i)
+                exit_event = None    # don't trigger the full-close path
+
             if exit_event is not None:
                 trades.append(_close_trade(
                     cfg=cfg, state=state, exit_idx=i,
@@ -244,6 +271,10 @@ def run_backtest(cfg: CBRGoldScalpConfig,
                 state.plan = None
                 state.trade_entry_idx = None
                 state.trade_entry_price = None
+                state.tp1_taken = False
+                state.runner_quantity = 0.0
+                state.partial_pnl = 0.0
+                state.runner_high_water = float("nan")
                 # done for the session unless one_trade_per_session is False
                 if cfg.entry.one_trade_per_session:
                     state.state = "DONE"
@@ -293,6 +324,20 @@ def run_backtest(cfg: CBRGoldScalpConfig,
             continue
         if state.trades_taken_today >= cfg.entry.max_trades_per_day:
             state.state = "DONE"
+            continue
+
+        # ---- ATR-regime + news filter (Batch K2) ----
+        ext_ok, ext_reason = passes_extensions(
+            df, i, ts, cfg.atr_regime, news_cal, symbol=cfg.symbol)
+        if not ext_ok:
+            # don't mass-log -- only emit a setup row when there was
+            # already a triggered setup in flight, so the funnel
+            # doesn't get drowned in per-bar regime rejections.
+            if state.state in ("EXPANSION_PENDING", "TRIGGER_PENDING"):
+                _log_skip(setups, cfg, ts, sess_date, state, bias,
+                           "no_dxy_check", ext_reason)
+                state.state = "DONE" if cfg.entry.one_trade_per_session else "IDLE"
+                state.expansion = None
             continue
 
         # ---- 1) expansion ----
@@ -441,6 +486,37 @@ def run_backtest(cfg: CBRGoldScalpConfig,
 
 # ---- helpers --------------------------------------------------------------
 
+def _apply_partial_tp(cfg: CBRGoldScalpConfig, state: SessionState,
+                        tp1_price: float, i: int) -> None:
+    """Realise a partial exit at TP1.
+
+    The position size before TP1 is `plan.quantity`. We close
+    `tp1_percent` of it at `tp1_price`, leaving the rest as the
+    runner. We also (optionally) move the stop to break-even and set
+    the runner's final target.
+    """
+    plan = state.plan
+    if plan is None or state.tp1_taken:
+        return
+    direction = plan.direction
+    qty_full = plan.quantity
+    tp1_qty = qty_full * cfg.risk.tp1_percent
+    runner_qty = qty_full - tp1_qty
+    # locked-in pnl for the closed leg
+    pnl_per_unit = (tp1_price - plan.entry_price) * direction
+    leg_pnl = pnl_per_unit * tp1_qty * (cfg.risk.tick_value / max(cfg.risk.tick_size, 1e-9))
+    state.partial_pnl += leg_pnl
+    # set up runner state
+    state.runner_quantity = runner_qty
+    if cfg.risk.move_stop_to_be_after_tp1:
+        state.runner_stop = plan.entry_price       # break-even
+    else:
+        state.runner_stop = plan.stop_price
+    state.runner_target = plan.entry_price + direction * cfg.risk.runner_target_r * plan.risk_per_unit
+    state.runner_high_water = float("nan")
+    state.tp1_taken = True
+
+
 def _check_limit_fill(plan: EntryPlan, high: float, low: float) -> bool:
     if plan.direction > 0:
         return low <= plan.entry_price
@@ -450,29 +526,86 @@ def _check_limit_fill(plan: EntryPlan, high: float, low: float) -> bool:
 def _check_trade_exit(*, cfg: CBRGoldScalpConfig, state: SessionState,
                        i: int, high: float, low: float,
                        open_: float, close: float) -> dict | None:
+    """Walk one bar against the open position.
+
+    Without partial-exit (Batch-K1 behaviour): single stop / target
+    decides the whole position. Returns one exit event or None.
+
+    With partial-exit (Batch-K2, `risk.partial_tp_enabled=True`):
+        * Before TP1 is taken: same as legacy except hitting target =
+          partial fill at TP1 price (not full close).
+        * After TP1 is taken: the runner walks against `state.runner_stop`
+          and `state.runner_target`, with optional R-trailing.
+    The function returns:
+        None                                           no event
+        {"reason": ..., "price": ..., "kind": "full"}  full close
+        {"reason": ..., "price": ..., "kind": "tp1"}   partial fill (caller updates state)
+    """
     plan = state.plan
     direction = plan.direction
-    stop = plan.stop_price
-    target = plan.target_price
+    risk_per_unit = plan.risk_per_unit
+    use_partial = cfg.risk.partial_tp_enabled
 
+    if not use_partial or state.tp1_taken:
+        # legacy single-exit path or runner phase
+        stop = state.runner_stop if state.tp1_taken else plan.stop_price
+        target = state.runner_target if state.tp1_taken else plan.target_price
+        if direction > 0:
+            hit_stop = low <= stop
+            hit_target = high >= target
+        else:
+            hit_stop = high >= stop
+            hit_target = low <= target
+        # update R-trail on the runner if configured
+        if state.tp1_taken and cfg.risk.runner_trail_r:
+            trail_dist = cfg.risk.runner_trail_r * risk_per_unit
+            if direction > 0:
+                state.runner_high_water = max(state.runner_high_water, high)
+                trailed = state.runner_high_water - trail_dist
+                if trailed > stop:
+                    state.runner_stop = trailed
+                    stop = trailed
+            else:
+                state.runner_high_water = min(state.runner_high_water, low) \
+                    if math.isfinite(state.runner_high_water) else low
+                trailed = state.runner_high_water + trail_dist
+                if trailed < stop:
+                    state.runner_stop = trailed
+                    stop = trailed
+        if hit_stop and hit_target:
+            if cfg.engine.ambiguous_bar_resolution == "OPTIMISTIC":
+                return {"reason": "target_ambiguous_optimistic", "price": target, "kind": "full"}
+            if cfg.engine.ambiguous_bar_resolution == "SKIP_TRADE":
+                return {"reason": "ambiguous_skipped", "price": plan.entry_price, "kind": "full"}
+            return {"reason": "stop_ambiguous_conservative", "price": stop, "kind": "full"}
+        if hit_stop:
+            return {"reason": "stop" if not state.tp1_taken else "runner_stop",
+                     "price": stop, "kind": "full"}
+        if hit_target:
+            return {"reason": "target" if not state.tp1_taken else "runner_target",
+                     "price": target, "kind": "full"}
+        return None
+
+    # Partial-exit phase BEFORE TP1: original stop, intermediate TP1 target.
+    tp1_price = plan.entry_price + direction * cfg.risk.tp1_r * risk_per_unit
+    stop = plan.stop_price
     if direction > 0:
         hit_stop = low <= stop
-        hit_target = high >= target
+        hit_tp1 = high >= tp1_price
     else:
         hit_stop = high >= stop
-        hit_target = low <= target
-
-    if hit_stop and hit_target:
-        # ambiguous: same-bar both hit. Default conservative = stop wins.
+        hit_tp1 = low <= tp1_price
+    if hit_stop and hit_tp1:
+        # Same-bar ambiguity: stop wins under CONSERVATIVE.
         if cfg.engine.ambiguous_bar_resolution == "OPTIMISTIC":
-            return {"reason": "target_ambiguous_optimistic", "price": target}
+            return {"reason": "tp1_ambiguous_optimistic", "price": tp1_price, "kind": "tp1"}
         if cfg.engine.ambiguous_bar_resolution == "SKIP_TRADE":
-            return {"reason": "ambiguous_skipped", "price": plan.entry_price}
-        return {"reason": "stop_ambiguous_conservative", "price": stop}
+            return {"reason": "ambiguous_skipped", "price": plan.entry_price, "kind": "full"}
+        return {"reason": "stop_ambiguous_conservative", "price": stop, "kind": "full"}
     if hit_stop:
-        return {"reason": "stop", "price": stop}
-    if hit_target:
-        return {"reason": "target", "price": target}
+        return {"reason": "stop_pre_tp1", "price": stop, "kind": "full"}
+    if hit_tp1:
+        return {"reason": "tp1", "price": tp1_price, "kind": "tp1"}
     return None
 
 
@@ -486,8 +619,20 @@ def _close_trade(*, cfg: CBRGoldScalpConfig, state: SessionState,
     direction = plan.direction
 
     pnl_per_unit = (exit_price - plan.entry_price) * direction
-    pnl = pnl_per_unit * plan.quantity * (cfg.risk.tick_value / max(cfg.risk.tick_size, 1e-9))
-    r = (pnl_per_unit / plan.risk_per_unit) if plan.risk_per_unit > 0 else 0.0
+    if state.tp1_taken and state.runner_quantity > 0:
+        # final leg = the runner only
+        runner_pnl = pnl_per_unit * state.runner_quantity * \
+                       (cfg.risk.tick_value / max(cfg.risk.tick_size, 1e-9))
+        pnl = state.partial_pnl + runner_pnl
+        # blended R: weighted average of TP1-leg R and runner-leg R
+        tp1_r = cfg.risk.tp1_r * cfg.risk.tp1_percent
+        runner_r = (pnl_per_unit / plan.risk_per_unit) * (1.0 - cfg.risk.tp1_percent) \
+                     if plan.risk_per_unit > 0 else 0.0
+        r = tp1_r + runner_r
+    else:
+        pnl = pnl_per_unit * plan.quantity * \
+                (cfg.risk.tick_value / max(cfg.risk.tick_size, 1e-9))
+        r = (pnl_per_unit / plan.risk_per_unit) if plan.risk_per_unit > 0 else 0.0
 
     sl = slice(entry_idx, exit_idx + 1)
     h_arr = df["high"].iloc[sl].values

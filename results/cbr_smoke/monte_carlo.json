@@ -1,0 +1,31 @@
+{
+  "n_runs": 1000,
+  "n_trades": 4,
+  "actual": {
+    "total_r": 1.0,
+    "max_drawdown_r": -2.0,
+    "final_equity": 50001.05
+  },
+  "bootstrap_total_r": {
+    "p05": 1.0,
+    "p50": 1.0,
+    "p95": 1.0,
+    "mean": 1.0,
+    "std": 0.0
+  },
+  "bootstrap_max_drawdown_r": {
+    "p05": -2.0,
+    "p50": -1.0,
+    "p95": -1.0,
+    "mean": -1.329,
+    "std": 0.47
+  },
+  "bootstrap_final_equity": {
+    "p05": 50001.05,
+    "p50": 50001.05,
+    "p95": 50001.05,
+    "mean": 50001.05
+  },
+  "share_runs_negative_total_r": 0.0,
+  "share_runs_dd_worse_than_actual": 0.0
+}

@@ -121,10 +121,50 @@ class RiskConfig:
     tick_size: float = 0.10               # XAUUSD tick on Dukascopy spot
     tick_value: float = 0.10              # 1 unit / 1 contract assumption
     break_even_after_r: float | None = None
+    # ---- partial-exit (Batch K2) -------------------------------------
+    # Enable a "TP1 + runner" exit: sell `tp1_percent` of the position
+    # at `tp1_r` R, optionally move the stop to break-even on the
+    # remainder, optionally trail the runner with a fixed-R chandelier.
     partial_tp_enabled: bool = False
-    tp1_r: float = 1.0
-    tp1_percent: float = 0.5
-    trail_after_tp1: bool = False
+    tp1_r: float = 1.0                   # first target in R-multiples
+    tp1_percent: float = 0.5             # share of the position closed at TP1
+    move_stop_to_be_after_tp1: bool = True
+    runner_trail_r: float | None = None  # trailing stop distance in R, runner only
+    runner_target_r: float = 2.0         # final target for the runner (R)
+    trail_after_tp1: bool = False        # legacy flag; same as runner_trail_r != None
+
+
+@dataclass
+class ATRRegimeConfig:
+    """Optional ATR-regime filter (Batch K2).
+
+    Skips setups when the current ATR (price-units) is outside the
+    configured percentile band over a rolling lookback. Use to dodge
+    very low-volatility chop and very high-volatility news spikes.
+    """
+    enabled: bool = False
+    atr_length: int = 14
+    rolling_window: int = 720            # 720 m1 bars = 12h rolling window
+    min_percentile: float = 0.20         # reject if ATR rank below this
+    max_percentile: float = 0.95         # reject if ATR rank above this
+
+
+@dataclass
+class NewsFilterConfig:
+    """Optional CSV-based news filter (Batch K2).
+
+    Skips any setup whose timestamp is within `window_minutes_before`
+    or `window_minutes_after` of an event. CSV columns:
+        time   — ISO 8601 in UTC
+        impact — one of: low / med / high (strings)
+        symbol — optional; if provided, only events touching the
+                  configured symbol are blocked.
+    """
+    enabled: bool = False
+    csv_path: str | None = None
+    window_minutes_before: int = 5
+    window_minutes_after: int = 30
+    block_impacts: list[str] = field(default_factory=lambda: ["high"])
 
 
 @dataclass
@@ -152,6 +192,8 @@ class CBRGoldScalpConfig:
     stop_target: StopTargetConfig = field(default_factory=StopTargetConfig)
     risk: RiskConfig = field(default_factory=RiskConfig)
     engine: EngineConfig = field(default_factory=EngineConfig)
+    atr_regime: ATRRegimeConfig = field(default_factory=ATRRegimeConfig)
+    news: NewsFilterConfig = field(default_factory=NewsFilterConfig)
 
     # data window
     start_date: str | None = None         # ISO; None = full available
@@ -188,6 +230,8 @@ class CBRGoldScalpConfig:
             stop_target=StopTargetConfig(**payload.get("stop_target", {})),
             risk=RiskConfig(**payload.get("risk", {})),
             engine=EngineConfig(**payload.get("engine", {})),
+            atr_regime=ATRRegimeConfig(**payload.get("atr_regime", {})),
+            news=NewsFilterConfig(**payload.get("news", {})),
             start_date=payload.get("start_date"),
             end_date=payload.get("end_date"),
             output_dir=payload.get("output_dir", "results/cbr_gold_scalp"),

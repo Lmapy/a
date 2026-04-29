@@ -1,6 +1,8 @@
 .PHONY: all pipeline prop-passing prop-passing-smoke data pull-data audit \
         alpha prop report test pdf clean ui ui-stdlib \
         cbr-scalp cbr-scalp-smoke cbr-scalp-sweep \
+        cbr-walkforward cbr-monte-carlo cbr-props cbr-charts \
+        cbr-london cbr-ny \
         fib backtest search skeptic v2
 
 # CANONICAL TARGETS (post-hardening, Batches A-D)
@@ -85,7 +87,8 @@ TEST_FILES := \
 	tests/test_strategies.py \
 	tests/test_batch_h.py \
 	tests/test_ui.py \
-	tests/test_cbr_scalp.py
+	tests/test_cbr_scalp.py \
+	tests/test_cbr_extensions.py
 
 test:
 	@set -e; for f in $(TEST_FILES); do \
@@ -116,6 +119,25 @@ cbr-scalp-smoke:
 
 cbr-scalp-sweep:
 	python3 scripts/run_cbr_sweep.py --start 2024-01-01 --limit-bars 200000
+
+# Batch K2 extensions
+cbr-walkforward:
+	python3 scripts/run_cbr_walkforward.py
+
+cbr-monte-carlo:
+	python3 scripts/run_cbr_montecarlo.py
+
+cbr-props:
+	python3 scripts/run_cbr_props.py
+
+cbr-charts:
+	python3 scripts/run_cbr_charts.py
+
+cbr-london:
+	python3 scripts/run_cbr_backtest.py --config configs/cbr_gold_scalp_london.yaml
+
+cbr-ny:
+	python3 scripts/run_cbr_backtest.py --config configs/cbr_gold_scalp_ny.yaml
 
 clean:
 	rm -f results/*.csv results/*.png results/*.txt results/*.json results/*.meta.json

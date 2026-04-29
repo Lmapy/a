@@ -38,6 +38,7 @@ TEST_FILES = [
     "tests/test_batch_h.py",
     "tests/test_ui.py",
     "tests/test_cbr_scalp.py",
+    "tests/test_cbr_extensions.py",
 ]
 
 

@@ -1,0 +1,46 @@
+{
+  "n_trades": 4,
+  "account": "topstep_50k",
+  "instrument": "MGC",
+  "chronological_replay": {
+    "outcome": "timeout",
+    "breach": null,
+    "days": 4,
+    "end_balance": 50008.541249999995,
+    "consistency_breach": false
+  },
+  "monte_carlo": {
+    "n_runs": 200,
+    "pass_probability": 0.0,
+    "pass_probability_ci": [
+      0.0,
+      0.0188
+    ],
+    "blowup_probability": 0.0,
+    "blowup_probability_ci": [
+      0.0,
+      0.0188
+    ],
+    "median_days_to_pass": null,
+    "median_end_balance": 50128.23,
+    "breach_reasons": {}
+  },
+  "payout": {
+    "n_runs": 200,
+    "first_payout_probability": 0.0,
+    "first_payout_probability_ci": [
+      0.0,
+      0.0188
+    ],
+    "blowup_before_payout_probability": 0.0,
+    "median_days_to_payout": null
+  },
+  "cert": {
+    "passes": false,
+    "failures": [
+      "pass_prob lower CI 0.00% < 35% (point 0.00%)",
+      "payout_prob lower CI 0.00% < 20% (point 0.00%)",
+      "median_days_to_pass is None (no passes)"
+    ]
+  }
+}
