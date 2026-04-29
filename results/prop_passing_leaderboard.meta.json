@@ -1,0 +1,60 @@
+{
+  "produced_by": "scripts/run_prop_passing.py",
+  "produced_at_utc": "2026-04-29T01:02:52+00:00",
+  "run_id": "2026-04-29_002",
+  "git_head": "465adc9d6ec70c474aac415d8f60a649b71b2afc",
+  "config_hashes": {
+    "config/data_splits.json": "a295cff1bdc622b3",
+    "config/prop_accounts.json": "2247fdb0833a4a08"
+  },
+  "splits": {
+    "research_train": {
+      "config_start": "2020-07-01 00:00:00+00:00",
+      "config_end": "2022-01-01 00:00:00+00:00",
+      "actual_first_bar": "2020-07-01 00:00:00+00:00",
+      "actual_last_bar": "2021-12-31 20:00:00+00:00",
+      "h4_rows": 2408
+    },
+    "validation": {
+      "config_start": "2022-01-01 00:00:00+00:00",
+      "config_end": "2024-01-01 00:00:00+00:00",
+      "actual_first_bar": "2022-01-02 20:00:00+00:00",
+      "actual_last_bar": "2023-12-29 20:00:00+00:00",
+      "h4_rows": 3192
+    },
+    "holdout": {
+      "config_start": "2024-01-01 00:00:00+00:00",
+      "config_end": "2026-05-01 00:00:00+00:00",
+      "actual_first_bar": "2024-01-01 20:00:00+00:00",
+      "actual_last_bar": "2026-04-27 20:00:00+00:00",
+      "h4_rows": 3709
+    }
+  },
+  "n_candidates_generated": 42,
+  "n_rejected_unavailable_data": 0,
+  "n_evaluated": 4,
+  "n_prop_simulated": 4,
+  "n_perm": 80,
+  "runtime_seconds": 150.4,
+  "harness_version": "hardened_v2 (Batches A-H)",
+  "mode": "smoke",
+  "families_filter": null,
+  "accounts_filter": null,
+  "max_survivors_for_prop_sim": 10,
+  "prop_account_verification": {
+    "topstep_50k": "verified",
+    "topstep_100k": "verified",
+    "topstep_150k": "verified",
+    "mffu_rapid_25k": "verified",
+    "mffu_pro_50k": "verified",
+    "mffu_pro_100k": "verified",
+    "mffu_pro_150k": "verified",
+    "generic_static_50k": "synthetic",
+    "generic_eod_trailing_50k": "synthetic",
+    "generic_intraday_trailing_50k": "synthetic"
+  },
+  "schema_versions": {
+    "prop_accounts": "3",
+    "data_splits": "1"
+  }
+}

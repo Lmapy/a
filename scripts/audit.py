@@ -512,8 +512,14 @@ def audit_active_strategies_no_unavailable_data(rep: Report) -> None:
     # - build_pdf.py: PDF text labels (documentation)
     # - strategy.py: deprecation tombstones (raise ValueError when the
     #   v1 kernel is asked to run a vwap_dist filter)
+    # - executor.py: deprecation tombstones (same shape as strategy.py)
+    # - tpo_levels.py: docstring lists allowed TPO tokens
+    # - run_prop_passing.py: user-facing report includes the
+    #   "we do NOT have volume / VWAP / footprint" availability
+    #   message
     skip_files = {"audit.py", "feature_capability.py",
-                  "build_pdf.py", "strategy.py"}
+                  "build_pdf.py", "strategy.py", "executor.py",
+                  "tpo_levels.py", "run_prop_passing.py"}
     # active code paths to scan
     paths = []
     for sub in ("scripts", "validation", "execution", "core", "analytics",
@@ -558,6 +564,29 @@ def audit_active_strategies_no_unavailable_data(rep: Report) -> None:
                      if offenders else "")
 
 
+def audit_executor_extensions(rep: Report) -> None:
+    """Phase 9 (Batch H): the executor must wire the OHLC proxy
+    `atr_distance_from_session_mean` and the `tpo_*` family of
+    filter implementations. The Batch G TPO families emit candidates
+    that depend on these executor branches."""
+    rep.section("executor extensions (Batch H)")
+    exec_path = ROOT / "execution" / "executor.py"
+    if not exec_path.exists():
+        rep.check("execution/executor.py exists", False)
+        return
+    text = exec_path.read_text()
+    rep.check("executor wires `atr_distance_from_session_mean`",
+              "atr_distance_from_session_mean" in text,
+              detail="missing OHLC proxy filter")
+    rep.check("executor wires the `tpo_*` filter family",
+              "apply_tpo_filter" in text,
+              detail="missing TPO dispatcher")
+    rep.check("`vwap_dist` / `htf_vwap_dist` raise ValueError tombstones",
+              ("vwap_dist requires real volume" in text
+               and "htf_vwap_dist requires real volume" in text),
+              detail="executor does not refuse VWAP filter calls explicitly")
+
+
 def audit_results_provenance(rep: Report) -> None:
     """Active leaderboard files should declare the commit / config they
     were produced from. Lacking that, we mark them as research-only."""
@@ -592,6 +621,7 @@ def main() -> int:
     audit_shuffle_test_disabled(rep)
     audit_feature_capability(rep)
     audit_active_strategies_no_unavailable_data(rep)
+    audit_executor_extensions(rep)
     audit_results_provenance(rep)
 
     rep.write("")

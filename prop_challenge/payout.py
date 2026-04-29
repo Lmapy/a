@@ -71,7 +71,7 @@ def _replay_for_payout(days: list[tuple], account: AccountSpec,
             )
             dollar_pnl = float(row["pnl"]) * dpp * contracts - 0.5 * contracts
             state.apply_trade(dollar_pnl, day_idx)
-            update_day(rules, day, dollar_pnl)
+            update_day(rules, day, dollar_pnl, ts=ts)
             last_loss = dollar_pnl < 0
             max_balance = max(max_balance, state.balance)
             if not state.alive():

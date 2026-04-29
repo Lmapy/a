@@ -1,4 +1,5 @@
-.PHONY: all pipeline data pull-data audit alpha prop report test pdf clean \
+.PHONY: all pipeline prop-passing prop-passing-smoke data pull-data audit \
+        alpha prop report test pdf clean \
         fib backtest search skeptic v2
 
 # CANONICAL TARGETS (post-hardening, Batches A-D)
@@ -23,9 +24,20 @@
 #   make data       -> scripts/fetch_dukascopy.py (network-bound)
 
 
-all: test audit pipeline pdf
+all: test audit prop-passing pdf
 
-# canonical entrypoint
+# Batch H canonical entrypoint -- prop-firm passing engine.
+# Tiered runner; ranks by prop_passing_score; produces
+# prop_passing_leaderboard.csv + .meta.json + prop_passing_report.md
+# plus per-run progress/events files under results/runs/.
+prop-passing:
+	python3 scripts/run_prop_passing.py
+
+prop-passing-smoke:
+	python3 scripts/run_prop_passing.py --smoke
+
+# Hardened legacy 72-spec pipeline (Batch E). Kept for the per-spec
+# deep-dive use case; does NOT rank by prop_passing_score.
 pipeline:
 	python3 scripts/run_pipeline.py
 
@@ -69,7 +81,8 @@ TEST_FILES := \
 	tests/test_candidate.py \
 	tests/test_tpo.py \
 	tests/test_run_events.py \
-	tests/test_strategies.py
+	tests/test_strategies.py \
+	tests/test_batch_h.py
 
 test:
 	@set -e; for f in $(TEST_FILES); do \

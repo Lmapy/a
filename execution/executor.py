@@ -253,27 +253,15 @@ def _apply_filters(h4: pd.DataFrame, sig: np.ndarray, filters: list[dict]) -> np
             regime_prev[1:] = regime[:-1]
             mask &= np.isin(regime_prev, list(allowed))
         elif t == "htf_vwap_dist":
-            # Distance from rolling VWAP in std-units. Use as a SOFT filter:
-            # long requires close within `[-band, +band]`, etc. Defaults
-            # encode "don't long when extended above VWAP".
-            window = int(f.get("window", 24))
-            max_above = float(f.get("max_above", 2.0))
-            max_below = float(f.get("max_below", 2.0))
-            tp = (hi + lo + c) / 3.0
-            v = h4["volume"].values
-            num = pd.Series(tp * v).rolling(window).sum().values
-            den = pd.Series(v).rolling(window).sum().values
-            with np.errstate(divide="ignore", invalid="ignore"):
-                vwap = num / den
-            std = pd.Series((tp - vwap) ** 2).rolling(window).mean().pow(0.5).values
-            with np.errstate(divide="ignore", invalid="ignore"):
-                z = (c - vwap) / std
-            # No-lookahead: vwap and z at bar i use bar-i HLC; shift by 1.
-            z_prev = _shift1(z)
-            ok = np.ones(n, dtype=bool)
-            ok &= (sig <= 0) | (z_prev <= max_above)
-            ok &= (sig >= 0) | (z_prev >= -max_below)
-            mask &= np.isfinite(z_prev) & ok
+            # REMOVED in Batch H: requires real volume the harness does
+            # not have on disk. Use atr_distance_from_session_mean for
+            # the OHLC-only proxy. The Batch F feature-capability gate
+            # rejects this token before the executor sees it; this
+            # branch exists as a tombstone so any caller that still
+            # passes htf_vwap_dist fails loudly here.
+            raise ValueError(
+                "htf_vwap_dist requires real volume; "
+                "use atr_distance_from_session_mean instead.")
         elif t == "wick_ratio":
             # Require previous H4 candle's wick share of the range to be >= min.
             # wick_share = 1 - body/range. Large value = large wick = exhaustion.
@@ -286,20 +274,34 @@ def _apply_filters(h4: pd.DataFrame, sig: np.ndarray, filters: list[dict]) -> np
                 wick_share = 1.0 - (body_prev / range_prev)
             mask &= np.isfinite(wick_share) & (wick_share >= mn)
         elif t == "vwap_dist":
-            window = int(f.get("window", 24))
+            # REMOVED in Batch H — see htf_vwap_dist tombstone above.
+            raise ValueError(
+                "vwap_dist requires real volume; "
+                "use atr_distance_from_session_mean instead.")
+        elif t == "atr_distance_from_session_mean":
+            # OHLC-only proxy for the old vwap_dist filter. Distance
+            # from a session-anchored typical-price mean, expressed
+            # in ATR units. No-lookahead: at bar i the session mean
+            # is computed through i-1; the value at i is shifted by 1.
+            from analytics.session_mean import atr_distance_from_session_mean as _atr_dist
+            atr_n = int(f.get("atr_n", 14))
+            session_start = int(f.get("session_start_hour_utc", 13))
             max_z = float(f.get("max_z", 2.0))
-            tp = (h4["high"].values + h4["low"].values + c) / 3.0
-            v = h4["volume"].values
-            num = pd.Series(tp * v).rolling(window).sum().values
-            den = pd.Series(v).rolling(window).sum().values
-            with np.errstate(divide="ignore", invalid="ignore"):
-                vwap = num / den
-            std = pd.Series((tp - vwap) ** 2).rolling(window).mean().pow(0.5).values
-            with np.errstate(divide="ignore", invalid="ignore"):
-                z = (c - vwap) / std
-            # No-lookahead: shift z by 1 so we only test z computed through bar i-1.
+            z = _atr_dist(h4, atr_n=atr_n,
+                           session_start_hour_utc=session_start)
             z_prev = _shift1(z)
             mask &= np.isfinite(z_prev) & (np.abs(z_prev) <= max_z)
+        elif t in ("tpo_poc", "tpo_vah", "tpo_val", "tpo_value_acceptance",
+                    "tpo_value_rejection", "tpo_poor_high", "tpo_poor_low",
+                    "tpo_excess", "tpo_single_print"):
+            # TPO filters consume `prev_session_tpo_*` columns the
+            # orchestrator should attach to the H4 frame before
+            # passing it to the executor. If those columns are
+            # missing we cannot honestly filter on TPO; we set the
+            # mask to all-False so the strategy produces no trades
+            # rather than silently letting all bars through.
+            from analytics.tpo_levels import apply_tpo_filter
+            mask = apply_tpo_filter(t, h4, mask, sig, _shift1, f)
         else:
             raise ValueError(f"unknown filter: {t}")
     return np.where(mask, sig, 0)

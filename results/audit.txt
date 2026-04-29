@@ -72,7 +72,13 @@ XAUUSD Dukascopy-only pipeline audit
 === active strategies do not reference unavailable data ===
   [PASS] no canonical .py file references vwap / volume_profile / footprint / delta / cvd / orderbook / bid_ask_imbalance
 
+=== executor extensions (Batch H) ===
+  [PASS] executor wires `atr_distance_from_session_mean`   (missing OHLC proxy filter)
+  [PASS] executor wires the `tpo_*` filter family   (missing TPO dispatcher)
+  [PASS] `vwap_dist` / `htf_vwap_dist` raise ValueError tombstones   (executor does not refuse VWAP filter calls explicitly)
+
 === results provenance ===
   [PASS] leaderboard_hardened.csv: provenance metadata present   (missing .meta.json — treat as research-only)
+  [PASS] prop_passing_leaderboard.csv: provenance metadata present   (missing .meta.json — treat as research-only)
 
 === audit summary: 0 failures ===

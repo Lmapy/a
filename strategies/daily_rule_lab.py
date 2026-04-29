@@ -44,6 +44,8 @@ DEFAULT_PRESETS: tuple[tuple[str, dict], ...] = (
     ("ny_only_max2", {"session_only": "ny", "max_trades_per_day": 2}),
     ("london_only_max2", {"session_only": "london",
                             "max_trades_per_day": 2}),
+    ("cd60", {"cooldown_minutes_after_loss": 60}),
+    ("cd120", {"cooldown_minutes_after_loss": 120}),
 )
 
 

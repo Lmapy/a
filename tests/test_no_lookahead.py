@@ -167,16 +167,49 @@ def test_pdh_pdl_no_lookahead_breakout():
         "pdh_pdl_breakout")
 
 
-def test_vwap_dist_no_lookahead():
+def test_atr_distance_from_session_mean_no_lookahead():
+    """Replaces the deleted vwap_dist test. The OHLC-only proxy
+    must also be insensitive to future bars."""
     _check_filter_invariant(
-        {"type": "vwap_dist", "window": 24, "max_z": 3.0},
-        "vwap_dist")
+        {"type": "atr_distance_from_session_mean", "max_z": 3.0,
+         "atr_n": 14, "session_start_hour_utc": 13},
+        "atr_distance_from_session_mean")
 
 
-def test_htf_vwap_dist_no_lookahead():
-    _check_filter_invariant(
-        {"type": "htf_vwap_dist", "window": 24, "max_above": 3.0, "max_below": 3.0},
-        "htf_vwap_dist")
+def test_tpo_value_acceptance_no_lookahead():
+    """TPO filter pulls levels from the PREVIOUS session, so it
+    cannot reach into the future. The mutation invariant should
+    therefore hold."""
+    rng = np.random.default_rng(42)
+    h4, m15 = _make_synthetic()
+    # Attach prev-session TPO columns so the TPO filter has data.
+    from analytics.tpo_levels import attach_prev_session_tpo
+    h4 = attach_prev_session_tpo(h4, m15)
+    spec = Spec(
+        id="t_tpo",
+        signal={"type": "prev_color"},
+        filters=[{"type": "tpo_value_acceptance"}],
+        entry={"type": "touch_entry"},
+        stop={"type": "none"},
+        exit={"type": "h4_close"},
+    )
+    base_trades = _run(spec, h4, m15)
+    base_keys = _trade_keys(base_trades)
+    # mutate the future of every other bar; TPO filter should
+    # remain stable because it reads PRIOR session data only
+    for i in range(20, len(h4), 30):
+        h4_m = _mutate_future(h4, i, rng)
+        new_trades = _run(spec, h4_m, m15)
+        # The TPO columns themselves are unchanged because they were
+        # computed once before mutation; the only way the trade list
+        # could differ is if the executor read mutated H4 close/high/
+        # low. We require trades_at_or_before unchanged.
+        bucket_t = h4["time"].iloc[i]
+        pre = [k for k in base_keys if k[0] <= bucket_t]
+        new_pre = [k for k in _trade_keys(new_trades) if k[0] <= bucket_t]
+        assert pre == new_pre, (
+            f"tpo_value_acceptance: future mutation changed entries "
+            f"at or before {bucket_t}")
 
 
 def test_body_atr_no_lookahead():
@@ -231,8 +264,8 @@ if __name__ == "__main__":
         test_atr_percentile_no_lookahead,
         test_pdh_pdl_no_lookahead_inside,
         test_pdh_pdl_no_lookahead_breakout,
-        test_vwap_dist_no_lookahead,
-        test_htf_vwap_dist_no_lookahead,
+        test_atr_distance_from_session_mean_no_lookahead,
+        test_tpo_value_acceptance_no_lookahead,
         test_body_atr_no_lookahead,
         test_regime_no_lookahead,
         test_regime_class_no_lookahead,

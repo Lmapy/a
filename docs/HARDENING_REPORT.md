@@ -1,4 +1,4 @@
-# Hardening report — Batches A through G
+# Hardening report — Batches A through H
 
 Date: 2026-04-29
 Branch: `claude/4h-candle-strategy-backtest-8kKdx`
@@ -650,15 +650,128 @@ modified:   Makefile                 (test_strategies.py wired)
 "active strategies do not reference unavailable data" sweep path
 and passes cleanly.
 
+## Batch H summary (orchestrator + leaderboard + report)
+
+The payoff batch — Batches F + G are now wired into a runnable
+prop-firm passing engine.
+
+| # | What | File | Output |
+|---|---|---|---|
+| 1 | Tiered orchestrator with CLI | `scripts/run_prop_passing.py` | `make prop-passing` / `make prop-passing-smoke`. Flags: `--smoke`, `--limit-candidates`, `--families`, `--accounts`, `--max-survivors-for-prop-sim`, `--fast-only`, `--full`, `--n-perm`, `--output-stem`. |
+| 2 | Prop passing score | `reports/prop_passing_score.py` | Composite metric: `+pass_prob*35 +payout_survival*20 +drawdown_safety*20 +consistency*10 +median_days*10 +simplicity*5 -blowup*35 -daily_loss_breach*20 -trailing_dd_breach*20 -overfit_penalty*25` |
+| 3 | OHLC-only proxy filter | `analytics/session_mean.py` + executor `atr_distance_from_session_mean` branch | Replaces the old VWAP filter. Anchored typical-price mean, restarted at each session open; distance in ATR units. |
+| 4 | TPO filters wired into executor | `analytics/tpo_levels.py` + executor TPO dispatcher | `attach_prev_session_tpo(h4, m15)` precomputes `prev_session_tpo_{poc,vah,val,ib_high,ib_low,poor_high,poor_low,excess_high,excess_low}` columns. Executor's `_apply_filters` calls `apply_tpo_filter(...)` for any `tpo_*` token. Refuses to silently let trades through if the columns are missing. |
+| 5 | Cooldown lockout | `prop_challenge/lockout.py` | New `cooldown_minutes_after_loss` field on `DailyRules`. `update_day(rules, day, pnl, ts=...)` records `cooldown_until` after a loss; `admit_trade` blocks new trades while cooldown is active. New presets `cd60` / `cd120`. |
+| 6 | Refiner module | `strategies/refiner.py` | Maps failure reasons to concrete `MutationSuggestion` lists. `FAIL_HIGH_BLOWUP_PROBABILITY` / `FAIL_DAILY_LOSS_LIMIT` → stricter daily lockouts + lower risk. `FAIL_TOO_FEW_TRADES` → widen entry. `FAIL_RANDOM_BASELINE` / `FAIL_LABEL_PERMUTATION` → REJECT_AND_REDESIGN (no parameter tweak helps). `REJECTED_UNAVAILABLE_DATA` → empty list (not actionable). |
+| 7 | Tombstones for VWAP filters | `execution/executor.py` | `vwap_dist` / `htf_vwap_dist` branches replaced with `raise ValueError(...)` so any caller fails loudly. |
+| 8 | README rewrite | `README.md` | OHLC-only positioning at the top; `make prop-passing` documented as the canonical entrypoint; legacy `make pipeline` retained for per-spec deep dive. |
+| 9 | Audit additions | `scripts/audit.py` | "executor extensions (Batch H)" section verifies executor wires `atr_distance_from_session_mean`, `apply_tpo_filter`, and the VWAP tombstones. |
+
+### Smoke run output
+
+`python3 scripts/run_prop_passing.py --smoke` evaluates 4 candidates
+end-to-end in ~2.5 minutes:
+
+```
+[run] id=2026-04-29_001 dir=results/runs/2026-04-29_001
+[1/9] generated 42 tier-1 candidates  (limited to 4)
+[2/9] capability filter: kept=4 rejected=0
+[3/9] loading splits + precomputing TPO levels ...
+[4-5/9] evaluating 4 candidates (n_perm=80) ...
+[6/9] prop sim on top 4 candidates ...
+[7/9] leaderboard -> results/prop_passing_leaderboard.csv (4 rows)
+[7/9] sidecar    -> results/prop_passing_leaderboard.meta.json
+[8/9] report     -> results/prop_passing_report.md
+
+=== SUMMARY ===
+candidates evaluated: 4    prop_candidates: 0    certified: 0
+runtime: 2.5 min
+```
+
+All 4 smoke candidates land at `research_only` because the train
+slice (1.5y) only fits 3 walk-forward folds (need 4) — the same
+data-coverage gate the Batch E pipeline reports. The leaderboard
+correctly carries Wilson CIs on `pass_probability` /
+`blowup_probability` and the failure histogram in the report:
+
+```
+fail_walk_forward       4
+fail_holdout            4
+fail_label_permutation  4
+fail_random_baseline    4
+fail_block_bootstrap    4
+fail_spread_stress      4
+fail_high_blowup        3
+fail_low_pass_prob      3
+```
+
+The run also writes `results/runs/2026-04-29_001/{progress.json,
+events.jsonl, summary.json}` — the contract Batch J's UI will
+consume.
+
+### Batch H file changes
+
+```
+new file:   analytics/session_mean.py
+new file:   analytics/tpo_levels.py
+new file:   reports/prop_passing_score.py
+new file:   scripts/run_prop_passing.py
+new file:   strategies/refiner.py
+new file:   tests/test_batch_h.py
+modified:   Makefile                         (make prop-passing[-smoke])
+modified:   README.md                        (OHLC-only positioning at top)
+modified:   core/candidate.py                (cooldown_minutes_after_loss field)
+modified:   execution/executor.py            (atr_distance, tpo dispatch, vwap tombstones)
+modified:   prop_challenge/challenge.py      (pass ts to update_day)
+modified:   prop_challenge/lockout.py        (cooldown_minutes_after_loss + presets)
+modified:   prop_challenge/payout.py         (pass ts to update_day)
+modified:   scripts/audit.py                 (Batch H executor-extensions section)
+modified:   scripts/run_tests.py             (test_batch_h wired)
+modified:   strategies/daily_rule_lab.py     (cd60/cd120 presets)
+modified:   tests/test_no_lookahead.py       (vwap tests -> atr_distance + tpo tests)
+```
+
+### Batch H tests (19 new, 171 individual / 18 files total)
+
+`tests/test_batch_h.py`:
+
+- 3 cooldown (block after loss, no fire on win, preset list)
+- 2 session-mean (resets each day, no volume column needed)
+- 4 TPO levels + dispatcher (columns added; empty m15 safe;
+  refuses without columns; rejection logic sane)
+- 4 refiner (unavailable→empty; high-blowup→risk+lockouts;
+  random-fail→redesign; too-few-trades→widen entry)
+- 5 prop passing score (rewards pass / penalises blowup;
+  drawdown_safety clamps; simplicity decreases with filters;
+  overfit penalty zero for good p; median_days handles None)
+- 1 orchestrator import smoke
+
+`tests/test_no_lookahead.py` updated:
+
+- `test_vwap_dist_no_lookahead` / `test_htf_vwap_dist_no_lookahead`
+  removed (filters no longer exist; tombstoned with raise).
+- Replaced with `test_atr_distance_from_session_mean_no_lookahead`
+  (OHLC proxy mutation invariance) and
+  `test_tpo_value_acceptance_no_lookahead` (TPO filter pulls from
+  PREVIOUS session, mutation invariance).
+
+### Audit (46 PASS / 0 FAIL)
+
+Two new checks pass:
+- "executor wires `atr_distance_from_session_mean`"
+- "executor wires the `tpo_*` filter family"
+- "`vwap_dist` / `htf_vwap_dist` raise ValueError tombstones"
+
+Was 45 / 0 after Batch G.
+
 ## What is NOT yet done
 
 | Item | Owner / Notes |
 |---|---|
-| Batch H/I — `scripts/run_prop_passing.py` tiered orchestrator, `prop_passing_leaderboard.csv` + `.meta.json`, `prop_passing_report.md`, README rewrite to OHLC-only positioning. | Next batch. Consumes Batch F + Batch G. |
-| TPO filter implementations in `execution.executor._apply_filters` (`tpo_poc`, `tpo_vah`, `tpo_val`, `tpo_value_acceptance`, `tpo_value_rejection`, etc.). The candidates exist but the executor still raises `unknown filter: tpo_*`. | Batch H side-task. |
-| OHLC proxy filters: `atr_distance_from_session_mean`, `session_twap`. Replace where the agents previously emitted VWAP/Volume Profile filters. | Batch H. |
-| Cooldown lockout in `prop_challenge.lockout.DailyRules` ("don't trade for N bars after a loss"). The daily-rule lab currently does not emit cooldown variants. | Batch H. |
-| Batch J — local React/FastAPI control room. | Far future; the event scaffold from Batch F is the contract. |
+| **Tier-2 sweeps integration into the orchestrator.** `scripts/run_prop_passing.py` runs the tier-1 grid + prop sim on top survivors but does NOT yet run `tier_2_for_survivor(lab="risk"/"daily"/"entry")`. The labs work; they just aren't wired into the runner's loop. The orchestrator can be extended without changing any of Batches A-G. | Follow-up. |
+| **Batch J** — local React/FastAPI control room. The Batch F event scaffold (`core/run_state.py`, `core/run_events.py`) writes `results/runs/<run_id>/events.jsonl` + `progress.json` + `summary.json`. Future UI tails these files. | Far future. |
+| **Pre-2020 Dukascopy data backfill.** Train slice is 18 months (2020-07 → 2022-01) which only fits 3 walk-forward folds; the certifier's 4-fold floor is unreachable. User has explicitly chosen "leave as is". | User decision. |
+| **Re-verifying prop accounts in 90 days.** Operational; the audit will start failing on `last_verified` staleness automatically. | Operational. |
 | Walk-forward gate is relaxed (`min_folds=4`, `min_median_sharpe=0`) because the train slice (2020-07 → 2022-01) only fits ~4 disjoint 6m/3m folds. To restore the full 20-fold gate, fetch older Dukascopy years and widen `research_train.start`. | User decision; sub-2020 data is not yet in the sidecar branch. The user has explicitly chosen "leave as is" for now. |
 | Re-verifying prop accounts in 90 days. | Operational; the audit will start failing on `last_verified` staleness automatically. |
 | The legacy `scripts/run_alpha.py` and `scripts/run_prop_challenge.py` still call `load_all` (full-series data) instead of `load_splits()`. They predate Batch D. They've been kept in `scripts/` (not moved to `_deprecated_/`) for back-compat but the README marks them as legacy. | Optional follow-up; if you want them retired, move to `_deprecated_/`. |

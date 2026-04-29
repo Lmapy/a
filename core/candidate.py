@@ -72,6 +72,7 @@ class DailyRulesBlock:
     daily_profit_stop_dollar: float | None = None
     daily_loss_stop_dollar: float | None = None
     session_only: str | None = None     # asia | london | ny | london_open | ny_open
+    cooldown_minutes_after_loss: int | None = None
 
     def to_json(self) -> dict:
         return asdict(self)

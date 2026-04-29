@@ -1,0 +1,97 @@
+{
+  "run_id": "2026-04-29_002",
+  "started_at": "2026-04-29T01:00:16+00:00",
+  "updated_at": "2026-04-29T01:02:52+00:00",
+  "status": "passed",
+  "current_stage": "judge",
+  "counts": {
+    "generated": 42,
+    "rejected_unavailable_data": 0,
+    "rejected_broken": 0,
+    "backtested": 0,
+    "walk_forward_passed": 0,
+    "walk_forward_failed": 0,
+    "holdout_passed": 0,
+    "holdout_failed": 0,
+    "candidates": 0,
+    "prop_candidates": 0,
+    "certified": 0,
+    "failed": 0,
+    "skipped": 0
+  },
+  "active_candidates": [
+    "session_sweep_reclaim__london__h4_atr1"
+  ],
+  "recent_events": [
+    {
+      "timestamp": "2026-04-29T01:00:16+00:00",
+      "candidate_id": null,
+      "stage": "strategy_generator",
+      "status": "running",
+      "certification_level": null
+    },
+    {
+      "timestamp": "2026-04-29T01:00:24+00:00",
+      "candidate_id": "session_sweep_reclaim__ny__prev_h4_extreme",
+      "stage": "walk_forward",
+      "status": "failed",
+      "certification_level": null
+    },
+    {
+      "timestamp": "2026-04-29T01:00:27+00:00",
+      "candidate_id": "session_sweep_reclaim__ny__h4_atr1",
+      "stage": "walk_forward",
+      "status": "failed",
+      "certification_level": null
+    },
+    {
+      "timestamp": "2026-04-29T01:00:30+00:00",
+      "candidate_id": "session_sweep_reclaim__london__prev_h4_extreme",
+      "stage": "walk_forward",
+      "status": "failed",
+      "certification_level": null
+    },
+    {
+      "timestamp": "2026-04-29T01:00:32+00:00",
+      "candidate_id": "session_sweep_reclaim__london__h4_atr1",
+      "stage": "walk_forward",
+      "status": "failed",
+      "certification_level": null
+    },
+    {
+      "timestamp": "2026-04-29T01:01:06+00:00",
+      "candidate_id": "session_sweep_reclaim__london__prev_h4_extreme",
+      "stage": "prop_firm_simulator",
+      "status": "failed",
+      "certification_level": null
+    },
+    {
+      "timestamp": "2026-04-29T01:01:41+00:00",
+      "candidate_id": "session_sweep_reclaim__london__h4_atr1",
+      "stage": "prop_firm_simulator",
+      "status": "failed",
+      "certification_level": null
+    },
+    {
+      "timestamp": "2026-04-29T01:02:17+00:00",
+      "candidate_id": "session_sweep_reclaim__ny__prev_h4_extreme",
+      "stage": "prop_firm_simulator",
+      "status": "failed",
+      "certification_level": null
+    },
+    {
+      "timestamp": "2026-04-29T01:02:52+00:00",
+      "candidate_id": "session_sweep_reclaim__ny__h4_atr1",
+      "stage": "prop_firm_simulator",
+      "status": "failed",
+      "certification_level": null
+    }
+  ],
+  "extras": {
+    "leaderboard": "results\\prop_passing_leaderboard.csv",
+    "report": "results\\prop_passing_report.md",
+    "git_head": "465adc9d6ec70c474aac415d8f60a649b71b2afc",
+    "n_certified": 0,
+    "n_prop_candidates": 0
+  }
+}

@@ -1,80 +1,136 @@
-# XAUUSD strategy research pipeline — Dukascopy-only
+# XAUUSD prop-firm passing research engine — OHLC-only
 
-> **HARDENING PASS LANDED — see `docs/HARDENING_REPORT.md`.**
-> Batches A-D of the audit hardening are in. The harness can no longer
-> falsely certify a strategy on the four most dangerous failure modes
-> the original code exhibited:
+> **What this project IS.** A research engine that finds and ranks
+> `strategy + entry + stop + exit + risk model + daily rules + prop
+> account` combinations by their probability of **passing prop-firm
+> evaluations without blowing up**. It optimises for prop-firm
+> outcomes (pass probability, blow-up probability, payout survival,
+> daily-loss-breach probability, trailing-drawdown-breach probability,
+> account suitability, robustness, simplicity), NOT raw return /
+> Sharpe / win rate.
 >
->   1. Spread costs were undercharged by ~1000× (price-units field was
->      multiplied by `POINT_SIZE`). Fixed.
+> **What this project is NOT.** A volume / order-flow / footprint /
+> Volume-Profile system. **The harness has no real volume on disk** —
+> Dukascopy candles carry `tick_count` (per-bar count, not directional
+> flow) and `spread_mean` (ask − bid in price units), and that's it.
+> Strategies that require real volume, bid/ask volume, footprint,
+> delta, CVD, DOM / order book, VWAP, or Volume Profile are
+> **rejected at generation** with `certification_level =
+> REJECTED_UNAVAILABLE_DATA`. See `core/feature_capability.py`.
+>
+> **Allowed instead.** OHLC + spread + tick count + TPO (time at
+> price, not volume at price). TPO is a first-class auction feature
+> here: POC / VAH / VAL / value area / single prints / poor highs /
+> poor lows / excess flags / initial balance / open inside-vs-outside
+> prior value. See `analytics/tpo.py` and `analytics/tpo_levels.py`.
+>
+> **VWAP / Volume Profile renaming.** The OHLC-only proxies for the
+> usual auction-context filters are: `session_twap`, `anchored_mean`,
+> `session_mean_price`, `typical_price_mean`, `fair_value_proxy`,
+> `atr_distance_from_session_mean`. We do not relabel any of these
+> as VWAP. Volume POC / VAH / VAL are replaced by their TPO
+> counterparts (`tpo_poc`, `tpo_vah`, `tpo_val`).
+
+> **Hardening status — Batches A-H landed.** See
+> `docs/HARDENING_REPORT.md`. The four highest-impact bugs the
+> original code shipped with are all fixed:
+>
+>   1. Spread costs were undercharged ~1000× (price-units stored as
+>      points). Fixed.
 >   2. Walk-forward silently downgraded M15 entries to `h4_open`,
->      meaning WF was not testing the strategy holdout would certify.
->      Fixed; WF now uses the same executor as holdout.
->   3. Prop-firm risk sizing took the realised trade PnL as an input
->      (`trade_pnl_price`), making position size a function of the
->      future. Fixed; sizing uses pre-trade info only.
+>      so it certified a different strategy than holdout ran.
+>      Fixed; WF uses the same executor as holdout.
+>   3. Prop-firm risk sizing accepted realised trade PnL as input.
+>      Fixed; sizing uses only pre-trade information.
 >   4. The "shuffle test" was a no-op (Sharpe is invariant to
 >      permutation). Fixed; replaced by label permutation, random
->      eligible-entry baseline, and stationary day-block bootstrap
->      with Wilson CIs.
+>      eligible-entry baseline, and day-block bootstrap with Wilson
+>      CIs.
 >
-> Pre-hardening results in `results/_archive_pre_dukascopy/` and any
-> uncommitted leaderboards from before this PR are research-only and
-> must be regenerated under the hardened harness before any spec is
-> treated as certified.
+> Pre-hardening results in `results/_archive_pre_dukascopy/` and
+> `results/_pre_hardening/` are **research-only**. The current
+> certified set is whatever the prop-passing pipeline produces.
 
 > **OFFICIAL DATA SOURCE: DUKASCOPY (single source).**
-> All active research, walk-forward testing, holdout testing, prop-firm
-> simulation, and certification use Dukascopy tick-derived candles only.
-> The previous broker datasets have been **deprecated and moved to
-> `data/_deprecated_/`**; their pre-migration results sit in
-> `results/_archive_pre_dukascopy/` as historical record only.
+> Active research uses Dukascopy tick-derived candles only.
+> Deprecated broker datasets sit in `data/_deprecated_/`.
+> 6 years on disk: 2020-07-01 → 2026-04-27.
 
-## Canonical pipeline
+## Canonical pipelines
 
-The single hardened entrypoint:
+There are two canonical entrypoints, depending on what you want.
+
+### Prop-firm passing engine (Batch H — recommended)
 
 ```bash
-make pull-data         # fetch Dukascopy candles from the sidecar branch
-make test              # full unit test suite (gates everything below)
-make audit             # structural audit (splits, lookahead, spread units,
-                       # walk-forward kernel, prop-sim leakage, account verification)
-make pipeline          # canonical pipeline: splits -> WF train -> validation
-                       # -> holdout -> prop sim -> leaderboard_hardened.csv (+ .meta.json)
-make pdf               # regenerate audit PDF
-make all               # test + audit + pipeline + pdf
+make pull-data            # fetch Dukascopy candles from the sidecar branch
+make test                 # full unit test suite (gates everything below)
+make audit                # structural audit (must exit 0)
+make prop-passing         # tiered prop-firm passing engine
+make prop-passing-smoke   # 4 candidates, n_perm=80, ~5 minutes
 ```
 
-Each target is implemented in `scripts/`:
+Outputs of `make prop-passing`:
+
+```
+results/prop_passing_leaderboard.csv          # ranked by prop_passing_score
+results/prop_passing_leaderboard.meta.json    # commit SHA + config hashes + schema versions
+results/prop_passing_report.md                # executive summary, failure histogram, next mutations
+results/runs/<run_id>/                         # progress.json + events.jsonl + summary.json
+```
+
+CLI flags:
+
+```bash
+python3 scripts/run_prop_passing.py --help
+  --smoke                          quick smoke (limit=4, n_perm=80)
+  --limit-candidates N             keep at most N tier-1 candidates
+  --families F[,F...]              restrict to family ids
+  --accounts A[,A...]              restrict prop sim to account ids
+  --max-survivors-for-prop-sim N   cap prop sim runs (default 10)
+  --fast-only                      skip prop sim
+  --full                           use wider risk + daily-rule sweeps
+  --n-perm N                       statistical-test permutation count (default 500)
+  --output-stem NAME               output basename in results/
+```
+
+### Hardened legacy pipeline (Batch E)
+
+```bash
+make pipeline           # 72-spec canonical grid; produces leaderboard_hardened.csv
+```
+
+This predates the Batch H prop-passing rewrite but is fully hardened
+under Batches A–E. Use it when you want a per-spec deep dive on a
+specific strategy with the full statistical-test machinery; it does
+**not** rank by prop-firm passing score.
+
+### Other targets
+
+```bash
+make pdf                # rebuild audit PDF
+make all                # test + audit + prop-passing + pdf
+```
 
 | Target | Script | What it does |
 |---|---|---|
 | `make pull-data` | `scripts/pull_sidecar.py` | Pulls per-year Parquet candles from the `data-dukascopy` sidecar branch into `data/dukascopy/candles/`. |
-| `make test` | `scripts/run_tests.py` | Runs each of `tests/test_*.py` as a script; exits non-zero on the first failure. **`make all` and `make report` gate on this.** |
-| `make audit` | `scripts/audit.py` | Structural audit. Fails loudly on split overlap / coverage gaps, lookahead in filters, ambiguous spread units, walk-forward M15→H4 downgrade markers, prop-sim future-leakage, prop-account verification metadata, missing leaderboard provenance. |
-| `make pipeline` | `scripts/run_pipeline.py` | Canonical orchestrator. Loads `Splits` from `data/splits.py`; runs walk-forward on `research_train` only; runs validation on `validation`; runs single-revelation holdout on `holdout`; runs `prop_challenge.simulate_all` on the holdout trade ledger with day-block bootstrap and Wilson CIs; writes `results/leaderboard_hardened.csv` plus a `.meta.json` provenance sidecar (commit SHA, config hashes, schema versions, runtime). |
+| `make test` | `scripts/run_tests.py` | Runs each `tests/test_*.py` as a script; exits non-zero on first failure. |
+| `make audit` | `scripts/audit.py` | Structural audit. Fails on split overlap, lookahead, ambiguous spread units, walk-forward M15→H4 downgrade, prop-sim future leakage, prop-account verification, missing leaderboard provenance, **active code referencing unavailable-data tokens (vwap, volume_profile, footprint, delta, CVD, orderbook, bid_ask_imbalance)**. |
+| `make prop-passing` | `scripts/run_prop_passing.py` | Tiered orchestrator. Generates the Batch G family grid (10 OHLC-only families), capability-filters, runs walk-forward / validation / holdout, runs prop sim with chronological replay + day-block bootstrap + Wilson CIs on top survivors, writes leaderboard + report + run events. |
+| `make pipeline` | `scripts/run_pipeline.py` | Hardened legacy 72-spec pipeline. |
 | `make pdf` | `scripts/build_pdf.py` | Renders the audit PDF. |
 
-### Legacy entrypoints (pre-hardening, kept for back-compat)
-
-These predate Batches A-D. They use `data.loader.load_all()` instead
-of `data.splits.load_splits()`, so they don't enforce the
-train/validation/holdout boundary. Use `make pipeline` instead.
+### Legacy entrypoints (pre-Batch-H)
 
 | Target | Script | Notes |
 |---|---|---|
-| `make alpha` | `scripts/run_alpha.py` | Agentic alpha search (agents 02 + 03 + 06). |
+| `make alpha` | `scripts/run_alpha.py` | Agentic alpha search (agents 02 + 03 + 06). Uses `load_all()` not `load_splits()`. |
 | `make prop` | `scripts/run_prop_challenge.py` | Prop-firm sim sweep across all `prop_accounts.json` accounts. |
 
 Files in `scripts/_deprecated_/` (`backtest.py`, `fib_analysis.py`,
 `orchestrate.py`, `skeptic.py`, `walkforward.py`, `run_v2.py`) are NOT
-on the canonical path — they were superseded during hardening and are
-retained for archeology only.
-
-A reproducible pipeline that tests intraday gold strategies — H4 setup,
-sub-hour entries — with strict statistical validation, prop-firm
-challenge simulation, and an honest "no alpha" verdict when nothing
-clears the gates.
+on the canonical path.
 
 ## Dukascopy data pipeline
 
