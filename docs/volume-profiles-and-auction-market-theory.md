@@ -412,7 +412,7 @@ Before any setup, answer the regime question: **balanced or imbalanced?** (Overl
 - **Absorption**: heavy aggressive flow into large *passive* limit orders — high volume, **no price progress**. A bigger player is blocking the move. Often implemented via **iceberg orders** (auto-replenishing hidden size; detectable when executed volume keeps exceeding displayed size at one price).
 - **Exhaustion**: aggressive flow **dries up** — shrinking prints into the extreme; the aggressors ran out. Both absorption and exhaustion cap moves; the mechanism (and who's in control) differs: absorption = fade *with* the blocker; exhaustion = fade the vacuum.
 - **Imbalance / stacked imbalances**: one side exceeding the other diagonally by ≥3:1–4:1 at a price; three-plus consecutive levels = a stacked imbalance, marking a zone of one-sided dominance that often acts as future support/resistance.
-- **Unfinished auction**: a bar extreme printing volume on only one side — the auction never completed there; such extremes tend to get revisited. This is the footprint-scale version of the **poor high/low**.
+- **Finished vs unfinished auction**: a **finished** auction prints volume on only one side at the bar's exact extreme (a zero in one cell at the very high/low) — one side was completely exhausted and the level cleanly rejected. An **unfinished** auction is the opposite: the extreme still prints volume on **both** sides — two-sided business was still being done when price turned, so the auction never completed there; such extremes tend to get revisited ("the market goes back to finish its business"). The unfinished auction is the footprint-scale version of the **poor high/low**.
 - **DOM/liquidity caveat**: resting orders can be **spoofed** (placed to be cancelled); executed volume cannot. That's why footprint/tape generally outranks raw DOM reading.
 
 ## 5.2 Confluence Recipes (level + trigger)
@@ -563,7 +563,7 @@ Expectancy = Win% × AvgWin − Loss% × AvgLoss. An "80% setup" loses money if 
 | **Footprint** | Per-bar bid/ask volume ladder — a profile inside every candle |
 | **Absorption / exhaustion** | Passive size blocking aggressive flow / aggressive flow drying up |
 | **Stacked imbalance** | ≥3 consecutive diagonal bid/ask imbalances — one-sided dominance zone |
-| **Unfinished auction** | Bar extreme with volume on only one side — footprint-scale poor high/low |
+| **Unfinished auction** | Bar extreme still printing volume on both sides — the auction didn't complete; footprint-scale poor high/low (a one-sided print at the extreme is a *finished* auction) |
 | **Halfback** | 50% of the RTH range — an FT71-school pullback reference |
 | **RTH / ETH** | Regular / Extended (overnight) Trading Hours — choose your profile session template deliberately |
 
