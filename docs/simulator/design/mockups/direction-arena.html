@@ -1,0 +1,317 @@
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>The Auction — Drill Loop (Arena)</title>
+<style>
+/* ---------- fonts ---------- */
+@font-face{font-family:'Inter';font-weight:400;src:url('../fonts/inter-latin-400-normal.woff2') format('woff2')}
+@font-face{font-family:'Inter';font-weight:500;src:url('../fonts/inter-latin-500-normal.woff2') format('woff2')}
+@font-face{font-family:'Inter';font-weight:600;src:url('../fonts/inter-latin-600-normal.woff2') format('woff2')}
+@font-face{font-family:'Inter';font-weight:700;src:url('../fonts/inter-latin-700-normal.woff2') format('woff2')}
+@font-face{font-family:'JetBrains Mono';font-weight:400;src:url('../fonts/jetbrains-mono-latin-400-normal.woff2') format('woff2')}
+@font-face{font-family:'JetBrains Mono';font-weight:600;src:url('../fonts/jetbrains-mono-latin-600-normal.woff2') format('woff2')}
+
+/* ---------- design tokens ---------- */
+:root{
+  /* surface ramp — 4 dark steps, elevation by lightness, never #000 */
+  --surface-0:#141413;   /* app base */
+  --surface-1:#1a1a19;   /* chart panel */
+  --surface-2:#222220;   /* raised cards / chips */
+  --surface-3:#2a2a28;   /* pressed / hover */
+  --hairline:#2c2c2a;
+  /* ink ramp */
+  --ink-hero:#ffffff;    /* hero numbers + verdict word only */
+  --ink-body:#c3c2b7;
+  --ink-muted:#898781;
+  /* data layer — chart owns color */
+  --vol-blue:#3987e5;
+  --vol-blue-dim:#2a5a8f;
+  --poc-orange:#d95926;
+  --highlight:#eda100;
+  /* semantic — verdict states only, always glyph-paired */
+  --buy-green:#1baf7a;
+  --sell-red:#e66767;
+  /* type */
+  --font-ui:'Inter',system-ui,sans-serif;
+  --font-mono:'JetBrains Mono',monospace;
+  /* spacing — 4px base */
+  --sp-1:4px; --sp-2:8px; --sp-3:12px; --sp-4:16px; --sp-6:24px; --sp-8:32px;
+  --radius:7px;
+}
+
+*{margin:0;padding:0;box-sizing:border-box}
+html,body{height:100%;overflow:hidden}
+body{
+  background:var(--surface-0);
+  color:var(--ink-body);
+  font-family:var(--font-ui);
+  font-size:14px;
+  line-height:1.45;
+  -webkit-font-smoothing:antialiased;
+  font-variant-numeric:tabular-nums;
+}
+.mono{font-family:var(--font-mono);font-variant-numeric:tabular-nums}
+
+/* ---------- frame ---------- */
+.screen{
+  width:390px;height:844px;margin:0;
+  display:flex;flex-direction:column;
+  background:var(--surface-0);
+  overflow:hidden;
+}
+
+/* ---------- top chrome ---------- */
+.topbar{
+  display:flex;align-items:center;justify-content:space-between;
+  height:44px;padding:0 var(--sp-4);
+  flex:none;white-space:nowrap;
+}
+.mode{
+  font-size:11px;font-weight:500;letter-spacing:.08em;text-transform:uppercase;
+  color:var(--ink-muted);
+}
+.mode b{color:var(--ink-body);font-weight:600}
+.chrome-right{display:flex;align-items:center;gap:14px}
+.stat{display:flex;align-items:baseline;gap:6px}
+.stat .k{font-size:10px;font-weight:500;letter-spacing:.08em;color:var(--ink-muted)}
+.stat .v{font-family:var(--font-mono);font-size:13px;font-weight:600;color:var(--ink-body)}
+.stat .v.broken{color:var(--ink-muted);font-weight:400}
+.stat .delta{font-family:var(--font-mono);font-size:11px;color:var(--ink-muted)}
+.parring{width:16px;height:16px;flex:none;display:block}
+
+/* block progress */
+.progress{
+  height:2px;background:var(--hairline);flex:none;
+  margin:0 var(--sp-4);border-radius:1px;overflow:hidden;
+}
+.progress i{display:block;height:100%;width:35%;background:var(--ink-muted);border-radius:1px}
+
+/* ---------- chart panel ---------- */
+.chartwrap{
+  margin:var(--sp-3) var(--sp-4) 0;
+  background:var(--surface-1);
+  border:1px solid var(--hairline);
+  border-radius:var(--radius);
+  padding:var(--sp-2) 0 var(--sp-1);
+  flex:none;
+  overflow:hidden;
+}
+.chartwrap svg{display:block;width:100%;height:auto}
+.ax{font-family:var(--font-mono);font-size:11px;fill:var(--ink-muted)}
+.poc{font-family:var(--font-mono);font-size:9px;font-weight:600;fill:var(--poc-orange);letter-spacing:.06em}
+.va-tag{font-family:var(--font-mono);font-size:9px;fill:#5d80a8;letter-spacing:.06em}
+
+/* ---------- verdict + explanation ---------- */
+.feedback{
+  margin:var(--sp-3) var(--sp-4) 0;
+  flex:none;
+  display:flex;flex-direction:column;gap:7px;
+}
+.verdict-line{display:flex;align-items:center;gap:10px}
+.verdict-word{
+  font-size:14px;font-weight:700;letter-spacing:.09em;text-transform:uppercase;
+  color:var(--sell-red);
+  display:flex;align-items:center;gap:8px;
+}
+.verdict-word .x{
+  width:18px;height:18px;border-radius:50%;flex:none;
+  background:var(--sell-red);color:var(--surface-0);
+  display:inline-flex;align-items:center;justify-content:center;
+  font-size:10px;font-weight:700;line-height:1;
+  font-family:var(--font-ui);
+}
+.verdict-ans{font-size:12px;color:var(--ink-muted)}
+.verdict-ans .mono{font-weight:600;color:var(--ink-body);font-size:12px}
+.replay{
+  margin-left:auto;
+  display:inline-flex;align-items:center;gap:6px;
+  padding:5px 11px;
+  border:1px solid var(--hairline);border-radius:var(--radius);
+  background:transparent;color:var(--ink-muted);
+  font-family:var(--font-ui);font-size:12px;font-weight:500;letter-spacing:.02em;
+}
+.explain{
+  color:var(--ink-body);font-size:14px;font-weight:400;line-height:1.5;
+  max-width:60ch;
+}
+.explain .term{color:var(--ink-hero);font-weight:500;font-family:var(--font-mono);font-size:13px}
+
+/* spacer pins the answer arc to the thumb zone */
+.spacer{flex:1 1 auto;min-height:var(--sp-2)}
+
+/* ---------- answer arc ---------- */
+.question{
+  margin:0 var(--sp-4);
+  display:flex;align-items:baseline;justify-content:space-between;
+  flex:none;
+}
+.question .q{font-size:12px;color:var(--ink-muted);font-weight:500;letter-spacing:.02em}
+.question .rep{font-family:var(--font-mono);font-size:11px;color:var(--ink-muted)}
+.chips{
+  display:flex;gap:var(--sp-2);
+  margin:10px var(--sp-4) 0;
+  flex:none;
+}
+.chip{
+  flex:1;height:56px;
+  border:1px solid var(--hairline);border-radius:var(--radius);
+  background:var(--surface-2);
+  display:flex;align-items:center;justify-content:center;
+  font-family:var(--font-mono);font-size:18px;font-weight:600;color:var(--ink-body);
+  position:relative;
+}
+.chip.trend{font-size:10px;letter-spacing:.06em}
+.chip.dimmed{opacity:.38}
+.chip .glyph{
+  position:absolute;top:-7px;right:-6px;
+  width:16px;height:16px;border-radius:50%;
+  font-size:9px;font-weight:700;line-height:16px;text-align:center;
+  font-family:var(--font-ui);
+  border:2px solid var(--surface-0);
+  box-sizing:content-box;
+}
+.chip.wrong{
+  border-color:var(--sell-red);
+  background:rgba(230,103,103,.08);
+  color:var(--sell-red);
+  box-shadow:0 0 14px rgba(230,103,103,.14);
+}
+.chip.wrong .glyph{background:var(--sell-red);color:var(--surface-0)}
+.chip.right{
+  border-color:var(--buy-green);
+  background:rgba(27,175,122,.08);
+  color:var(--buy-green);
+  box-shadow:0 0 14px rgba(27,175,122,.14);
+}
+.chip.right .glyph{background:var(--buy-green);color:var(--surface-0)}
+.chip .you{
+  position:absolute;bottom:4px;left:0;right:0;text-align:center;
+  font-family:var(--font-ui);font-size:8px;font-weight:600;letter-spacing:.14em;
+  color:var(--sell-red);opacity:.9;
+}
+
+/* ---------- next ---------- */
+.next{
+  margin:var(--sp-3) var(--sp-4) var(--sp-4);
+  height:52px;flex:none;
+  border:1px solid var(--hairline);border-radius:var(--radius);
+  background:var(--surface-2);
+  color:var(--ink-hero);
+  font-family:var(--font-ui);font-size:14px;font-weight:600;letter-spacing:.12em;
+  display:flex;align-items:center;justify-content:center;gap:8px;
+}
+.next .arrow{color:var(--ink-muted)}
+</style>
+
+<div class="screen">
+
+  <!-- top chrome -->
+  <div class="topbar">
+    <div class="mode">Rated · <b>Shapes</b></div>
+    <div class="chrome-right">
+      <div class="stat"><span class="k">STREAK</span><span class="v broken">0</span></div>
+      <div class="stat"><span class="k">RATING</span><span class="v">1,178</span><span class="delta">↓4</span></div>
+      <svg class="parring" viewBox="0 0 16 16">
+        <circle cx="8" cy="8" r="6.5" fill="none" stroke="#2c2c2a" stroke-width="2"/>
+        <path d="M 8 1.5 A 6.5 6.5 0 1 1 2.4 11.4" fill="none" stroke="#898781" stroke-width="2" stroke-linecap="round"/>
+      </svg>
+    </div>
+  </div>
+  <div class="progress"><i></i></div>
+
+  <!-- chart -->
+  <div class="chartwrap">
+    <svg viewBox="0 0 358 480" role="img" aria-label="Volume profile, b-shape session">
+      <rect x="0" y="259.8" width="298" height="128.9" fill="#3987e5" opacity="0.07"/>
+      <line x1="0" y1="36.8" x2="298" y2="36.8" stroke="#2c2c2a" stroke-width="1" opacity="0.6"/>
+      <line x1="0" y1="116.1" x2="298" y2="116.1" stroke="#2c2c2a" stroke-width="1" opacity="0.6"/>
+      <line x1="0" y1="195.4" x2="298" y2="195.4" stroke="#2c2c2a" stroke-width="1" opacity="0.6"/>
+      <line x1="0" y1="274.7" x2="298" y2="274.7" stroke="#2c2c2a" stroke-width="1" opacity="0.6"/>
+      <line x1="0" y1="354.0" x2="298" y2="354.0" stroke="#2c2c2a" stroke-width="1" opacity="0.6"/>
+      <line x1="0" y1="433.3" x2="298" y2="433.3" stroke="#2c2c2a" stroke-width="1" opacity="0.6"/>
+      <rect x="12" y="12.8" width="12.8" height="8.31" rx="1" fill="#2a5a8f"/>
+      <rect x="12" y="22.7" width="13.6" height="8.31" rx="1" fill="#2a5a8f"/>
+      <rect x="12" y="32.6" width="14.2" height="8.31" rx="1" fill="#2a5a8f"/>
+      <rect x="12" y="42.5" width="18.4" height="8.31" rx="1" fill="#2a5a8f"/>
+      <rect x="12" y="52.5" width="16.3" height="8.31" rx="1" fill="#2a5a8f"/>
+      <rect x="12" y="62.4" width="16.0" height="8.31" rx="1" fill="#2a5a8f"/>
+      <rect x="12" y="72.3" width="14.2" height="8.31" rx="1" fill="#2a5a8f"/>
+      <rect x="12" y="82.2" width="12.3" height="8.31" rx="1" fill="#2a5a8f"/>
+      <rect x="12" y="92.1" width="12.6" height="8.31" rx="1" fill="#2a5a8f"/>
+      <rect x="12" y="102.0" width="11.3" height="8.31" rx="1" fill="#2a5a8f"/>
+      <rect x="12" y="111.9" width="11.7" height="8.31" rx="1" fill="#2a5a8f"/>
+      <rect x="12" y="121.8" width="11.2" height="8.31" rx="1" fill="#2a5a8f"/>
+      <rect x="12" y="131.8" width="12.0" height="8.31" rx="1" fill="#2a5a8f"/>
+      <rect x="12" y="141.7" width="10.9" height="8.31" rx="1" fill="#2a5a8f"/>
+      <rect x="12" y="151.6" width="10.3" height="8.31" rx="1" fill="#2a5a8f"/>
+      <rect x="12" y="161.5" width="10.8" height="8.31" rx="1" fill="#2a5a8f"/>
+      <rect x="12" y="171.4" width="14.3" height="8.31" rx="1" fill="#2a5a8f"/>
+      <rect x="12" y="181.3" width="13.9" height="8.31" rx="1" fill="#2a5a8f"/>
+      <rect x="12" y="191.2" width="20.3" height="8.31" rx="1" fill="#2a5a8f"/>
+      <rect x="12" y="201.1" width="26.3" height="8.31" rx="1" fill="#2a5a8f"/>
+      <rect x="12" y="211.1" width="29.5" height="8.31" rx="1" fill="#2a5a8f"/>
+      <rect x="12" y="221.0" width="51.2" height="8.31" rx="1" fill="#2a5a8f"/>
+      <rect x="12" y="230.9" width="54.0" height="8.31" rx="1" fill="#2a5a8f"/>
+      <rect x="12" y="240.8" width="93.8" height="8.31" rx="1" fill="#2a5a8f"/>
+      <rect x="12" y="250.7" width="119.9" height="8.31" rx="1" fill="#2a5a8f"/>
+      <rect x="12" y="260.6" width="122.5" height="8.31" rx="1" fill="#3987e5"/>
+      <rect x="12" y="270.5" width="173.9" height="8.31" rx="1" fill="#3987e5"/>
+      <rect x="12" y="280.5" width="202.5" height="8.31" rx="1" fill="#3987e5"/>
+      <rect x="12" y="290.4" width="185.8" height="8.31" rx="1" fill="#3987e5"/>
+      <rect x="12" y="300.3" width="240.6" height="8.31" rx="1" fill="#3987e5"/>
+      <rect x="12" y="310.2" width="209.0" height="8.31" rx="1" fill="#3987e5"/>
+      <rect x="12" y="320.1" width="270.0" height="8.31" rx="1" fill="#d95926"/>
+      <rect x="12" y="330.0" width="244.6" height="8.31" rx="1" fill="#3987e5"/>
+      <rect x="12" y="339.9" width="248.1" height="8.31" rx="1" fill="#3987e5"/>
+      <rect x="12" y="349.8" width="165.7" height="8.31" rx="1" fill="#3987e5"/>
+      <rect x="12" y="359.8" width="157.7" height="8.31" rx="1" fill="#3987e5"/>
+      <rect x="12" y="369.7" width="145.3" height="8.31" rx="1" fill="#3987e5"/>
+      <rect x="12" y="379.6" width="116.7" height="8.31" rx="1" fill="#3987e5"/>
+      <rect x="12" y="389.5" width="78.9" height="8.31" rx="1" fill="#2a5a8f"/>
+      <rect x="12" y="399.4" width="74.3" height="8.31" rx="1" fill="#2a5a8f"/>
+      <rect x="12" y="409.3" width="53.6" height="8.31" rx="1" fill="#2a5a8f"/>
+      <rect x="12" y="419.2" width="32.0" height="8.31" rx="1" fill="#2a5a8f"/>
+      <rect x="12" y="429.1" width="21.0" height="8.31" rx="1" fill="#2a5a8f"/>
+      <rect x="12" y="439.1" width="17.1" height="8.31" rx="1" fill="#2a5a8f"/>
+      <rect x="12" y="449.0" width="10.8" height="8.31" rx="1" fill="#2a5a8f"/>
+      <rect x="12" y="458.9" width="8.2" height="8.31" rx="1" fill="#2a5a8f"/>
+      <text x="290" y="327.3" class="poc">POC</text>
+      <text x="304" y="263.8" class="va-tag">VAH</text>
+      <text x="304" y="390.7" class="va-tag">VAL</text>
+      <text x="352" y="40.3" text-anchor="end" class="ax">5028.25</text>
+      <text x="352" y="119.6" text-anchor="end" class="ax">5026.25</text>
+      <text x="352" y="198.9" text-anchor="end" class="ax">5024.25</text>
+      <text x="352" y="278.2" text-anchor="end" class="ax">5022.25</text>
+      <text x="352" y="357.5" text-anchor="end" class="ax">5020.25</text>
+      <text x="352" y="436.8" text-anchor="end" class="ax">5018.25</text>
+    </svg>
+  </div>
+
+  <!-- verdict + explanation -->
+  <div class="feedback">
+    <div class="verdict-line">
+      <div class="verdict-word"><span class="x">✗</span>Incorrect</div>
+      <div class="verdict-ans">you tapped <span class="mono">P</span> · answer <span class="mono">b</span></div>
+      <button class="replay">⟲ replay</button>
+    </div>
+    <div class="explain">That's a <span class="term">b</span>, not a <span class="term">P</span> — the bulge sits low under a thin upper tail. P is short-covering above; b is liquidation below. Mirror-image, opposite story.</div>
+  </div>
+
+  <div class="spacer"></div>
+
+  <!-- answer arc -->
+  <div class="question">
+    <span class="q">Which shape?</span>
+    <span class="rep">7 / 20</span>
+  </div>
+  <div class="chips">
+    <div class="chip dimmed">D</div>
+    <div class="chip wrong">P<span class="glyph">✗</span><span class="you">YOU</span></div>
+    <div class="chip right">b<span class="glyph">✓</span></div>
+    <div class="chip dimmed">B</div>
+    <div class="chip dimmed trend">TREND</div>
+  </div>
+
+  <!-- next -->
+  <button class="next">NEXT <span class="arrow">▸</span></button>
+
+</div>

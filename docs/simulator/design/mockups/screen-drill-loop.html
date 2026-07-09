@@ -1,0 +1,350 @@
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>The Auction — Drill Loop</title>
+<style>
+/* ---------- fonts ---------- */
+@font-face{font-family:'Inter';font-weight:400;src:url('../fonts/inter-latin-400-normal.woff2') format('woff2')}
+@font-face{font-family:'Inter';font-weight:500;src:url('../fonts/inter-latin-500-normal.woff2') format('woff2')}
+@font-face{font-family:'Inter';font-weight:600;src:url('../fonts/inter-latin-600-normal.woff2') format('woff2')}
+@font-face{font-family:'Inter';font-weight:700;src:url('../fonts/inter-latin-700-normal.woff2') format('woff2')}
+@font-face{font-family:'JetBrains Mono';font-weight:400;src:url('../fonts/jetbrains-mono-latin-400-normal.woff2') format('woff2')}
+@font-face{font-family:'JetBrains Mono';font-weight:600;src:url('../fonts/jetbrains-mono-latin-600-normal.woff2') format('woff2')}
+
+/* ---------- design tokens (terminal direction — source of truth) ---------- */
+:root{
+  /* surface ramp — 4 steps, elevation by lightness */
+  --surface-0:#141413;   /* app base */
+  --surface-1:#1a1a19;   /* chart panel */
+  --surface-2:#222220;   /* raised chips / cards */
+  --hairline:#2c2c2a;    /* borders, gridlines */
+  /* ink ramp */
+  --ink-hero:#ffffff;    /* hero numbers + verdict word only */
+  --ink-body:#c3c2b7;    /* body, labels, explanation */
+  --ink-muted:#898781;   /* meta, axis, captions */
+  /* chart owns color */
+  --vol-blue:#3987e5;
+  --vol-blue-dim:#2a5a8f;
+  --poc-orange:#d95926;
+  --highlight:#eda100;
+  /* semantic — verdicts only, always with a glyph */
+  --buy-green:#1baf7a;
+  --sell-red:#e66767;
+  /* type */
+  --font-ui:'Inter',system-ui,sans-serif;
+  --font-mono:'JetBrains Mono',monospace;
+  /* spacing (4px base) */
+  --s1:4px; --s2:8px; --s3:12px; --s4:16px; --s5:24px; --s6:32px;
+  --radius:8px;
+}
+*{margin:0;padding:0;box-sizing:border-box}
+html,body{height:100%}
+body{
+  width:390px;height:844px;overflow:hidden;
+  background:var(--surface-0);
+  color:var(--ink-body);
+  font-family:var(--font-ui);
+  font-size:14px;line-height:1.45;
+  -webkit-font-smoothing:antialiased;
+  font-variant-numeric:tabular-nums;
+}
+.mono{font-family:var(--font-mono);font-variant-numeric:tabular-nums}
+
+/* ---------- frame ---------- */
+.app{height:100%;display:flex;flex-direction:column;padding:0 var(--s4)}
+
+/* ---------- top chrome ---------- */
+.topbar{
+  height:52px;display:flex;align-items:center;justify-content:space-between;
+  padding-top:var(--s3);
+}
+.mode{
+  font-family:var(--font-mono);font-size:11px;font-weight:400;
+  letter-spacing:.08em;text-transform:uppercase;color:var(--ink-muted);
+}
+.mode b{color:var(--ink-body);font-weight:600}
+.top-stats{display:flex;align-items:center;gap:var(--s4)}
+.stat{display:flex;align-items:baseline;gap:6px}
+.stat .k{font-size:11px;letter-spacing:.08em;text-transform:uppercase;color:var(--ink-muted);font-weight:500}
+.stat .v{font-family:var(--font-mono);font-size:14px;font-weight:600;color:var(--ink-body)}
+.stat .v.hero{color:var(--ink-hero)}
+/* broken streak drops to the muted tier — never competes with rating */
+.stat .v.zeroed{color:var(--ink-muted);font-weight:400}
+/* honest Glicko movement — muted mono arrow, no color, no animation */
+.stat .delta{font-family:var(--font-mono);font-size:11px;font-weight:400;color:var(--ink-muted)}
+/* par-time ring — quiet hairline chrome, present through the whole rep */
+.parring{width:16px;height:16px;flex:none;display:block}
+
+/* block progress ticks */
+.blockrow{
+  display:flex;align-items:center;justify-content:space-between;
+  padding:var(--s2) 0 var(--s3);
+}
+.ticks{display:flex;gap:5px}
+.tick{width:18px;height:3px;border-radius:2px;background:var(--surface-2)}
+.tick.done{background:#55534d}
+.tick.now{background:var(--ink-hero)}
+.blocklabel{font-family:var(--font-mono);font-size:11px;color:var(--ink-muted);letter-spacing:.06em}
+
+/* ---------- chart panel ---------- */
+.chart{
+  flex:1;min-height:0;
+  background:var(--surface-1);
+  border:1px solid var(--hairline);
+  border-radius:var(--radius);
+  display:flex;flex-direction:column;
+  overflow:hidden;
+}
+/* in-panel header: the task, stated once, bound to the stimulus */
+.chart-head{
+  display:flex;align-items:baseline;justify-content:space-between;gap:var(--s3);
+  padding:var(--s3) var(--s4) 0;
+}
+.chart-head .q{font-size:13px;font-weight:500;color:var(--ink-body);letter-spacing:.01em}
+.chart-head .meta{font-family:var(--font-mono);font-size:11px;color:var(--ink-muted);letter-spacing:.04em;white-space:nowrap}
+.chart-body{flex:1;min-height:0;position:relative}
+.chart-body svg{position:absolute;inset:0}
+
+/* ---------- verdict layer ---------- */
+.verdict{padding:var(--s4) 0 0}
+.verdict-head{display:flex;align-items:baseline;justify-content:space-between}
+.verdict-line{font-size:16px;font-weight:600;display:flex;align-items:baseline;gap:8px}
+.verdict-line .glyph{color:var(--sell-red);font-weight:700;font-size:15px}
+.verdict-line .you{color:var(--sell-red)}
+.verdict-line .you .shape{font-family:var(--font-mono);font-weight:600}
+.verdict-line .dash{color:var(--ink-muted);font-weight:400}
+.verdict-line .ans{color:var(--ink-muted);font-weight:400;font-size:14px}
+.verdict-line .ans .shape{font-family:var(--font-mono);font-weight:600;font-size:16px;color:var(--buy-green)}
+.latency{font-family:var(--font-mono);font-size:12px;color:var(--ink-muted)}
+.latency b{font-weight:600;color:var(--ink-body)}
+.explain{
+  margin-top:var(--s2);
+  font-size:14px;font-weight:400;color:var(--ink-body);
+  max-width:60ch;text-wrap:balance;
+}
+.explain .term{font-family:var(--font-mono);font-weight:600;color:var(--ink-hero);font-size:13px}
+/* replay lives with the explanation, named for the deciding structure */
+.replay{
+  margin-top:10px;
+  display:inline-flex;align-items:center;gap:7px;
+  height:32px;padding:0 var(--s3);
+  background:transparent;border:1px solid var(--hairline);border-radius:var(--radius);
+  color:var(--ink-muted);font-family:var(--font-ui);font-size:12px;font-weight:500;letter-spacing:.01em;
+}
+.replay .g{font-size:14px;line-height:1}
+
+/* ---------- answer chips ---------- */
+.answers{display:flex;gap:var(--s2);padding:var(--s4) 0 0}
+.chip{
+  flex:1;height:56px;position:relative;
+  display:flex;align-items:center;justify-content:center;
+  background:var(--surface-2);
+  border:1px solid var(--hairline);
+  border-radius:var(--radius);
+  font-family:var(--font-mono);
+}
+.chip .letter{font-size:18px;font-weight:600;color:var(--ink-muted);line-height:1}
+.chip.dimmed{opacity:.45}
+/* corner-mounted circular verdict badges — legible at a glance */
+.chip .badge{
+  position:absolute;top:-7px;right:-6px;
+  width:16px;height:16px;border-radius:50%;
+  font-family:var(--font-ui);font-size:10px;font-weight:700;line-height:16px;text-align:center;
+  border:2px solid var(--surface-0);box-sizing:content-box;
+}
+.chip.picked{border-color:var(--sell-red);background:rgba(230,103,103,.08)}
+.chip.picked .letter{color:var(--sell-red)}
+.chip.picked .badge{background:var(--sell-red);color:var(--surface-0)}
+.chip.picked .who{
+  position:absolute;bottom:5px;left:0;right:0;text-align:center;
+  font-family:var(--font-ui);font-size:11px;font-weight:600;letter-spacing:.1em;
+  color:var(--sell-red);line-height:1;
+}
+.chip.picked .letter{transform:translateY(-5px)}
+.chip.truth{border-color:var(--buy-green)}
+.chip.truth .letter{color:var(--buy-green)}
+.chip.truth .badge{background:var(--buy-green);color:var(--surface-0)}
+
+/* ---------- confidence ride-along ----------
+   Pre-answer this row is live: three 44px-tall tap segments (sure/lean/guess)
+   directly under the answer chips — zero extra UI cost, per GDD §2/§5.
+   Post-verdict (this frame) it collapses to a quiet 30px echo of what was logged. */
+.confrow{
+  display:flex;align-items:center;gap:var(--s2);
+  padding:var(--s3) 0 0;
+}
+.confrow .k{font-size:11px;letter-spacing:.08em;text-transform:uppercase;color:var(--ink-muted);font-weight:500;margin-right:2px}
+.seg{
+  height:30px;padding:0 14px;
+  display:inline-flex;align-items:center;
+  border:1px solid transparent;border-radius:var(--radius);
+  font-size:12px;font-weight:500;color:var(--ink-muted);opacity:.5;
+}
+.seg.on{border-color:var(--hairline);background:var(--surface-2);color:var(--ink-body);opacity:1}
+.confrow .logged{margin-left:auto;font-family:var(--font-mono);font-size:11px;color:var(--ink-muted)}
+
+/* ---------- footer: one CTA ---------- */
+.footer{padding:var(--s3) 0 var(--s4)}
+.next{
+  width:100%;height:52px;
+  display:flex;align-items:center;justify-content:center;gap:8px;
+  background:var(--surface-2);color:var(--ink-hero);
+  border:1px solid var(--hairline);border-radius:var(--radius);
+  font-size:14px;font-weight:600;letter-spacing:.1em;
+}
+.next .arrow{font-size:12px;color:var(--ink-muted)}
+</style>
+
+<div class="app">
+
+  <!-- top chrome.
+       Streak is a warm-up meta-metric (GDD §5): it never appears in Rated chrome.
+       In Streak/Warm-Up modes it renders as a .stat; when zeroed it uses .v.zeroed
+       (muted tier) so it can never compete with the rating.
+       RUSH variant of this bar (per direction spec): mono 0:47 countdown left,
+       strikes as filled/hollow dots + count (●●○ 2/3 — shape-redundant, never
+       red-only), then one 12px mono meta line: 340 pts · 12/20 · ×6. -->
+  <div class="topbar">
+    <div class="mode"><b>Rated</b> · Shape Alphabet</div>
+    <div class="top-stats">
+      <div class="stat"><span class="k">Rating</span><span class="v hero">1,184</span><span class="delta">↓4</span></div>
+      <!-- par ring: informational, hairline track + muted sweep; a deadline only in Rush -->
+      <svg class="parring" viewBox="0 0 16 16" role="img" aria-label="Par time 3.0s">
+        <circle cx="8" cy="8" r="6.5" fill="none" stroke="#2c2c2a" stroke-width="2"/>
+        <path d="M 8 1.5 A 6.5 6.5 0 0 1 13.6 11.2" fill="none" stroke="#898781" stroke-width="2" stroke-linecap="round"/>
+      </svg>
+    </div>
+  </div>
+
+  <!-- block progress -->
+  <div class="blockrow">
+    <div class="ticks">
+      <div class="tick done"></div><div class="tick done"></div><div class="tick done"></div>
+      <div class="tick done"></div><div class="tick done"></div><div class="tick done"></div>
+      <div class="tick now"></div>
+      <div class="tick"></div><div class="tick"></div><div class="tick"></div>
+    </div>
+    <div class="blocklabel">REP 7/10</div>
+  </div>
+
+  <!-- chart: question bound to the stimulus + data provenance -->
+  <div class="chart">
+    <div class="chart-head">
+      <span class="q">What shape is this session?</span>
+      <span class="meta">RTH · 0.5 pt rows</span>
+    </div>
+    <div class="chart-body" id="chartbox"><svg id="profile"></svg></div>
+  </div>
+
+  <!-- PRE-ANSWER FRAME (t=0, same direction, this template minus the verdict):
+       · chart panel stretches to ~70% viewport (verdict block absent)
+       · in-panel question "What shape is this session?" + RTH meta stay as-is
+       · chips: all neutral (.chip, no badges), 56px tap targets
+       · confidence row: live — three 44px-tall segments (sure/lean/guess),
+         default "lean", tap-to-override before or with the answer tap
+       · par ring (top-right) fills clockwise toward par 3.0s — informational
+         in Rated, a deadline only in Rush; no footer CTA exists pre-answer.
+
+       VERDICT FRAME (below): red covers only the miss; the truth letter wears
+       chip-green — the correct answer is never painted in sell-red. -->
+  <!-- verdict -->
+  <div class="verdict">
+    <div class="verdict-head">
+      <div class="verdict-line">
+        <span class="glyph">✗</span>
+        <span class="you">You said <span class="shape">P</span></span>
+        <span class="dash">—</span>
+        <span class="ans">answer <span class="shape">b</span></span>
+      </div>
+      <div class="latency"><b>1.8s</b> · par 3.0</div>
+    </div>
+    <p class="explain">That's a <span class="term">b</span>, not a <span class="term">P</span> — the bulge sits low under a thin upper tail. <span class="term">P</span> is short-covering above; <span class="term">b</span> is liquidation below.</p>
+    <button class="replay"><span class="g">⟲</span>Replay the tail forming</button>
+  </div>
+
+  <!-- answers -->
+  <div class="answers">
+    <div class="chip dimmed"><span class="letter">D</span></div>
+    <div class="chip picked"><span class="letter">P</span><span class="badge">✗</span><span class="who">YOU</span></div>
+    <div class="chip truth"><span class="letter">b</span><span class="badge">✓</span></div>
+    <div class="chip dimmed"><span class="letter">B</span></div>
+    <div class="chip dimmed"><span class="letter" style="font-size:12px;letter-spacing:.06em">TREND</span></div>
+  </div>
+
+  <!-- confidence echo (live 44px tap row pre-answer; see .confrow note) -->
+  <div class="confrow">
+    <span class="k">Conf</span>
+    <span class="seg">sure</span>
+    <span class="seg on">lean</span>
+    <span class="seg">guess</span>
+    <span class="logged">logged 75%</span>
+  </div>
+
+  <!-- footer: the lone CTA, elevated gray — no white slab strobing every rep -->
+  <div class="footer">
+    <button class="next">NEXT<span class="arrow">▸</span></button>
+  </div>
+
+</div>
+
+<script>
+// b-shape profile, POC row 27, VA rows 19..31 — 70% expansion data.
+// Upper tail thinned (rows 0–4) so the shape is an unambiguous b:
+// bulge low, thin tail above — never a double-distribution B read.
+const vols=[0.018,0.027,0.043,0.035,0.024,0.031,0.022,0.019,0.026,0.016,0.021,0.015,0.018,0.024,0.033,0.049,0.158,0.239,0.357,0.530,0.689,0.822,0.933,0.917,0.934,0.954,0.959,1.000,0.977,0.956,0.851,0.759,0.638,0.534,0.416,0.314,0.260,0.194,0.138,0.098];
+const N=vols.length, POC=27, VAH=19, VAL=31;   // row indices (0 = top / highest price)
+const TOP=5306.0, STEP=0.5;                    // price of row 0, per-row step
+
+const box=document.getElementById('chartbox');
+const svg=document.getElementById('profile');
+const W=box.clientWidth, H=box.clientHeight;
+svg.setAttribute('width',W); svg.setAttribute('height',H);
+svg.setAttribute('viewBox',`0 0 ${W} ${H}`);
+const padT=14,padB=14,axisW=64,barX=16;
+const rowH=(H-padT-padB)/N, barH=Math.max(5,rowH-3.5), maxW=W-axisW-barX-12;
+const bandR=W-axisW+8;                 // right edge of VA band / hairlines
+const ns='http://www.w3.org/2000/svg';
+const el=(t,a)=>{const e=document.createElementNS(ns,t);for(const k in a)e.setAttribute(k,a[k]);return e};
+const rowY=i=>padT+i*rowH;
+const mono={'font-family':"'JetBrains Mono',monospace"};
+
+// axis rows: every 4th, keeping clear of the POC callout
+const axisRows=[];
+for(let i=0;i<N;i+=4){ if(Math.abs(i-POC)<3) continue; axisRows.push(i); }
+
+// hairline gridlines at labeled ticks — anchor the profile to the price scale
+for(const i of axisRows){
+  svg.appendChild(el('line',{x1:0,y1:rowY(i)+rowH/2,x2:bandR,y2:rowY(i)+rowH/2,stroke:'#2c2c2a','stroke-width':1,'stroke-opacity':.7}));
+}
+// VA band (behind bars)
+svg.appendChild(el('rect',{x:0,y:rowY(VAH),width:bandR,height:rowY(VAL+1)-rowY(VAH),fill:'#3987e5','fill-opacity':.06}));
+// VAH / VAL hairlines
+for(const r of [VAH, VAL+1]){
+  svg.appendChild(el('line',{x1:0,y1:rowY(r),x2:bandR,y2:rowY(r),stroke:'#3987e5','stroke-opacity':.3,'stroke-width':1}));
+}
+// bars — always solid, minimum 7px length so single-tick rows still read as volume
+for(let i=0;i<N;i++){
+  const inVA=i>=VAH&&i<=VAL;
+  const fill=i===POC?'#d95926':(inVA?'#3987e5':'#2a5a8f');
+  svg.appendChild(el('rect',{x:barX,y:rowY(i)+1.75,width:Math.max(7,vols[i]*maxW),height:barH,rx:1,fill}));
+}
+// axis price labels
+for(const i of axisRows){
+  const t=el('text',{...mono,x:W-10,y:rowY(i)+rowH/2+3.5,'text-anchor':'end',fill:'#898781','font-size':'11'});
+  t.textContent=(TOP-i*STEP).toFixed(2);
+  svg.appendChild(t);
+}
+// POC — never color-alone: mono tag + emphasized price at the axis
+const pocY=rowY(POC)+rowH/2;
+const pocTag=el('text',{...mono,x:W-10,y:pocY-8,'text-anchor':'end',fill:'#d95926','font-size':'9','font-weight':'600','letter-spacing':'.1em'});
+pocTag.textContent='POC';
+svg.appendChild(pocTag);
+const pocT=el('text',{...mono,x:W-10,y:pocY+4.5,'text-anchor':'end',fill:'#d95926','font-size':'11','font-weight':'600'});
+pocT.textContent=(TOP-POC*STEP).toFixed(2);
+svg.appendChild(pocT);
+// POC leader connecting bar to its axis callout
+svg.appendChild(el('line',{x1:barX+vols[POC]*maxW+4,y1:pocY,x2:bandR,y2:pocY,stroke:'#d95926','stroke-opacity':.45,'stroke-width':1,'stroke-dasharray':'2 3'}));
+// structure labels above/below their hairlines, clear of bars
+const lbl=(txt,y,color)=>{const t=el('text',{...mono,x:bandR-4,y:y,'text-anchor':'end',fill:color,'font-size':'10','letter-spacing':'.08em'});t.textContent=txt;svg.appendChild(t);};
+lbl('VAH',rowY(VAH)-5,'#3987e5');
+lbl('VAL',rowY(VAL+1)+12,'#3987e5');
+</script>

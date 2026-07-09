@@ -1,0 +1,225 @@
+<!doctype html>
+<html><head>
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>The Auction — Drill Loop (Paper)</title>
+<style>
+@font-face{font-family:'Inter';font-weight:400;src:url('../fonts/inter-latin-400-normal.woff2') format('woff2')}
+@font-face{font-family:'Inter';font-weight:500;src:url('../fonts/inter-latin-500-normal.woff2') format('woff2')}
+@font-face{font-family:'Inter';font-weight:600;src:url('../fonts/inter-latin-600-normal.woff2') format('woff2')}
+@font-face{font-family:'Inter';font-weight:700;src:url('../fonts/inter-latin-700-normal.woff2') format('woff2')}
+@font-face{font-family:'JetBrains Mono';font-weight:400;src:url('../fonts/jetbrains-mono-latin-400-normal.woff2') format('woff2')}
+@font-face{font-family:'JetBrains Mono';font-weight:600;src:url('../fonts/jetbrains-mono-latin-600-normal.woff2') format('woff2')}
+
+:root{
+  /* surfaces — 4 dark steps, elevation by lightness */
+  --surface-0:#141413;   /* app base */
+  --surface-1:#1a1a19;   /* chart panel */
+  --surface-2:#222220;   /* raised cards, chips */
+  --hairline:#2c2c2a;
+
+  /* ink ramp */
+  --ink-hero:#ffffff;    /* hero numbers only */
+  --ink-body:#c3c2b7;
+  --ink-muted:#898781;
+
+  /* chart owns color */
+  --vol-blue:#3987e5;
+  --vol-blue-dim:#2a5a8f;
+  --poc-orange:#d95926;
+  --highlight:#eda100;
+
+  /* semantic verdicts — never without a glyph */
+  --buy-green:#1baf7a;
+  --sell-red:#e66767;
+
+  /* type */
+  --font-ui:'Inter',sans-serif;
+  --font-mono:'JetBrains Mono',monospace;
+
+  /* spacing tokens: 4 8 12 16 24 32 48 64 */
+  --s1:4px; --s2:8px; --s3:12px; --s4:16px; --s5:24px; --s6:32px;
+
+  --radius:8px;
+}
+
+*{margin:0;padding:0;box-sizing:border-box}
+body{
+  width:390px;height:844px;margin:0;
+  background:var(--surface-0);
+  color:var(--ink-body);
+  font-family:var(--font-ui);
+  font-size:14px;line-height:1.45;
+  font-variant-numeric:tabular-nums;
+  display:flex;flex-direction:column;
+  padding:var(--s3) var(--s4) var(--s5);
+  overflow:hidden;
+  -webkit-font-smoothing:antialiased;
+}
+.mono{font-family:var(--font-mono);font-variant-numeric:tabular-nums}
+
+/* ---------- top chrome ---------- */
+.chrome{display:flex;align-items:baseline;justify-content:space-between;height:24px}
+.mode{font-size:12px;font-weight:500;color:var(--ink-muted);letter-spacing:.04em}
+.mode b{color:var(--ink-body);font-weight:500}
+.clock{display:flex;align-items:baseline;gap:var(--s2)}
+.clock .t{font-family:var(--font-mono);font-size:16px;font-weight:600;color:var(--ink-hero)}
+.strikes{display:flex;gap:3px;align-items:center;transform:translateY(-2px)}
+.strike{width:5px;height:5px;border-radius:50%;background:var(--hairline)}
+.strike.hit{background:var(--sell-red)}
+
+.meta{display:flex;align-items:center;justify-content:space-between;margin-top:var(--s2);height:18px}
+.meta .left,.meta .right{display:flex;align-items:baseline;gap:var(--s2)}
+.meta .lbl{font-size:12px;color:var(--ink-muted)}
+.meta .val{font-family:var(--font-mono);font-size:12px;color:var(--ink-body)}
+.progress{flex:1;margin:0 var(--s4);height:2px;border-radius:1px;background:var(--hairline);position:relative;top:-3px}
+.progress i{display:block;height:2px;width:60%;border-radius:1px;background:var(--ink-muted)}
+
+/* ---------- chart panel ---------- */
+.panel{
+  margin-top:var(--s4);
+  background:var(--surface-1);
+  border:1px solid var(--hairline);
+  border-radius:var(--radius);
+  padding:var(--s4);
+}
+.panel-head{display:flex;justify-content:space-between;align-items:baseline;margin-bottom:var(--s3)}
+.panel-head .q{font-size:12px;font-weight:500;color:var(--ink-body)}
+.panel-head .sess{font-family:var(--font-mono);font-size:11px;color:var(--ink-muted)}
+svg text.ax{font-family:var(--font-mono);font-size:11px;fill:var(--ink-muted);text-anchor:end}
+svg text.poc{fill:var(--poc-orange)}
+svg text.tag{font-family:var(--font-mono);font-size:11px;fill:#5f7ea3;text-anchor:start}
+
+/* ---------- answer chips ---------- */
+.answers{display:flex;gap:var(--s2);margin-top:var(--s4)}
+.chip{
+  flex:1;height:56px;border-radius:var(--radius);
+  background:var(--surface-2);border:1px solid var(--hairline);
+  display:flex;flex-direction:column;align-items:center;justify-content:center;gap:2px;
+  font-family:var(--font-mono);font-size:18px;font-weight:600;color:var(--ink-muted);
+}
+.chip .sub{font-family:var(--font-ui);font-size:9px;font-weight:500;letter-spacing:.08em;color:var(--ink-muted);opacity:0;text-transform:uppercase}
+.chip.dim{opacity:.45}
+.chip.chosen{border-color:var(--sell-red);color:var(--sell-red);background:rgba(230,103,103,.06)}
+.chip.chosen .sub{opacity:1;color:var(--sell-red)}
+.chip.truth{border-color:var(--buy-green);color:var(--buy-green);background:rgba(27,175,122,.06)}
+.chip.truth .sub{opacity:1;color:var(--buy-green)}
+
+/* ---------- verdict + explanation ---------- */
+.verdict{margin-top:var(--s5);flex:1;display:flex;flex-direction:column}
+.verdict-line{display:flex;align-items:baseline;gap:var(--s2)}
+.verdict-word{font-size:14px;font-weight:700;color:var(--sell-red);letter-spacing:.02em}
+.verdict-lat{font-family:var(--font-mono);font-size:12px;color:var(--ink-muted)}
+.explain{
+  margin-top:var(--s2);
+  font-size:14px;font-weight:400;color:var(--ink-body);
+  max-width:58ch;
+}
+.explain .term{font-family:var(--font-mono);font-weight:600;color:var(--ink-hero)}
+.replay{
+  margin-top:var(--s3);align-self:flex-start;
+  display:inline-flex;align-items:center;gap:6px;
+  height:32px;padding:0 var(--s3);border-radius:6px;
+  border:1px solid var(--hairline);background:transparent;
+  font-size:12px;font-weight:500;color:var(--ink-muted);
+}
+.replay .g{font-size:13px}
+
+/* ---------- next ---------- */
+.next{
+  margin-top:auto;
+  height:52px;border-radius:var(--radius);
+  background:var(--surface-2);border:1px solid var(--hairline);
+  display:flex;align-items:center;justify-content:center;gap:var(--s2);
+  font-size:14px;font-weight:600;color:var(--ink-hero);letter-spacing:.06em;
+}
+.next .arr{color:var(--ink-muted)}
+</style>
+
+<!-- top chrome: mode · timer · strikes -->
+<header class="chrome">
+  <div class="mode">Rush · <b>Shape Alphabet</b></div>
+  <div class="clock">
+    <div class="strikes"><span class="strike hit"></span><span class="strike"></span><span class="strike"></span></div>
+    <span class="t">1:47</span>
+  </div>
+</header>
+
+<!-- score · block progress · streak -->
+<div class="meta">
+  <div class="left"><span class="val">1,240</span><span class="lbl">pts</span></div>
+  <div class="progress"><i></i></div>
+  <div class="right"><span class="val">12/20</span><span class="lbl">·</span><span class="val">×6</span><span class="lbl">streak</span></div>
+</div>
+
+<!-- chart panel -->
+<section class="panel">
+  <div class="panel-head">
+    <span class="q">What shape is this session?</span>
+    <span class="sess">RTH · 0.5 pt rows</span>
+  </div>
+  <svg width="324" height="374" viewBox="0 0 324 374" fill="none" role="img" aria-label="Volume profile, b-shaped session">
+    <rect x="0" y="154.0" width="324" height="165.0" fill="#3987e5" opacity="0.07"/>
+    <rect x="0" y="1.5" width="10.1" height="8" rx="1" fill="#2a5a8f"/>
+    <rect x="0" y="12.5" width="15.1" height="8" rx="1" fill="#2a5a8f"/>
+    <rect x="0" y="23.5" width="12.6" height="8" rx="1" fill="#2a5a8f"/>
+    <rect x="0" y="34.5" width="20.2" height="8" rx="1" fill="#2a5a8f"/>
+    <rect x="0" y="45.5" width="17.6" height="8" rx="1" fill="#2a5a8f"/>
+    <rect x="0" y="56.5" width="22.7" height="8" rx="1" fill="#2a5a8f"/>
+    <rect x="0" y="67.5" width="27.7" height="8" rx="1" fill="#2a5a8f"/>
+    <rect x="0" y="78.5" width="25.2" height="8" rx="1" fill="#2a5a8f"/>
+    <rect x="0" y="89.5" width="32.8" height="8" rx="1" fill="#2a5a8f"/>
+    <rect x="0" y="100.5" width="37.8" height="8" rx="1" fill="#2a5a8f"/>
+    <rect x="0" y="111.5" width="45.4" height="8" rx="1" fill="#2a5a8f"/>
+    <rect x="0" y="122.5" width="55.4" height="8" rx="1" fill="#2a5a8f"/>
+    <rect x="0" y="133.5" width="75.6" height="8" rx="1" fill="#2a5a8f"/>
+    <rect x="0" y="144.5" width="105.8" height="8" rx="1" fill="#2a5a8f"/>
+    <rect x="0" y="155.5" width="138.6" height="8" rx="1" fill="#3987e5"/>
+    <rect x="0" y="166.5" width="171.4" height="8" rx="1" fill="#3987e5"/>
+    <rect x="0" y="177.5" width="196.6" height="8" rx="1" fill="#3987e5"/>
+    <rect x="0" y="188.5" width="214.2" height="8" rx="1" fill="#3987e5"/>
+    <rect x="0" y="199.5" width="231.8" height="8" rx="1" fill="#3987e5"/>
+    <rect x="0" y="210.5" width="252.0" height="8" rx="1" fill="#d95926"/>
+    <rect x="0" y="221.5" width="241.9" height="8" rx="1" fill="#3987e5"/>
+    <rect x="0" y="232.5" width="221.8" height="8" rx="1" fill="#3987e5"/>
+    <rect x="0" y="243.5" width="226.8" height="8" rx="1" fill="#3987e5"/>
+    <rect x="0" y="254.5" width="206.6" height="8" rx="1" fill="#3987e5"/>
+    <rect x="0" y="265.5" width="186.5" height="8" rx="1" fill="#3987e5"/>
+    <rect x="0" y="276.5" width="166.3" height="8" rx="1" fill="#3987e5"/>
+    <rect x="0" y="287.5" width="146.2" height="8" rx="1" fill="#3987e5"/>
+    <rect x="0" y="298.5" width="126.0" height="8" rx="1" fill="#3987e5"/>
+    <rect x="0" y="309.5" width="100.8" height="8" rx="1" fill="#3987e5"/>
+    <rect x="0" y="320.5" width="75.6" height="8" rx="1" fill="#2a5a8f"/>
+    <rect x="0" y="331.5" width="55.4" height="8" rx="1" fill="#2a5a8f"/>
+    <rect x="0" y="342.5" width="35.3" height="8" rx="1" fill="#2a5a8f"/>
+    <rect x="0" y="353.5" width="22.7" height="8" rx="1" fill="#2a5a8f"/>
+    <rect x="0" y="364.5" width="12.6" height="8" rx="1" fill="#2a5a8f"/>
+    <text x="324" y="9.5" class="ax">5306.0</text>
+    <text x="324" y="74.0" class="ax">5303.0</text>
+    <text x="324" y="140.0" class="ax">5300.0</text>
+    <text x="324" y="272.0" class="ax">5294.0</text>
+    <text x="324" y="338.0" class="ax">5291.0</text>
+    <text x="324" y="217.0" class="ax poc">5296.5</text>
+  </svg>
+</section>
+
+<!-- answer chips: player chose P (wrong), truth is b -->
+<div class="answers">
+  <div class="chip dim">D</div>
+  <div class="chip chosen">P<span class="sub">✗ you</span></div>
+  <div class="chip truth">b<span class="sub">✓</span></div>
+  <div class="chip dim">B</div>
+  <div class="chip dim">T</div>
+</div>
+
+<!-- verdict + explanation -->
+<div class="verdict">
+  <div class="verdict-line">
+    <span class="verdict-word">✗ Incorrect</span>
+    <span class="verdict-lat">1.4s</span>
+  </div>
+  <p class="explain">That's a <span class="term">b</span>, not a <span class="term">P</span> — the bulge sits low under a thin upper tail. P is short-covering above; b is liquidation below.</p>
+  <button class="replay"><span class="g">⟲</span> Replay the tail forming</button>
+</div>
+
+<!-- next rep -->
+<button class="next">NEXT <span class="arr">▸</span></button>

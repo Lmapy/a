@@ -1,0 +1,249 @@
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>The Auction — Drill Loop (Terminal)</title>
+<style>
+/* ---------- fonts ---------- */
+@font-face{font-family:'Inter';font-weight:400;src:url('../fonts/inter-latin-400-normal.woff2') format('woff2')}
+@font-face{font-family:'Inter';font-weight:500;src:url('../fonts/inter-latin-500-normal.woff2') format('woff2')}
+@font-face{font-family:'Inter';font-weight:600;src:url('../fonts/inter-latin-600-normal.woff2') format('woff2')}
+@font-face{font-family:'Inter';font-weight:700;src:url('../fonts/inter-latin-700-normal.woff2') format('woff2')}
+@font-face{font-family:'JetBrains Mono';font-weight:400;src:url('../fonts/jetbrains-mono-latin-400-normal.woff2') format('woff2')}
+@font-face{font-family:'JetBrains Mono';font-weight:600;src:url('../fonts/jetbrains-mono-latin-600-normal.woff2') format('woff2')}
+
+/* ---------- design tokens ---------- */
+:root{
+  /* surface ramp — 4 steps, elevation by lightness */
+  --surface-0:#141413;   /* app base */
+  --surface-1:#1a1a19;   /* chart panel */
+  --surface-2:#222220;   /* raised chips / cards */
+  --hairline:#2c2c2a;    /* borders, gridlines */
+  /* ink ramp */
+  --ink-hero:#ffffff;    /* hero numbers + verdict word only */
+  --ink-body:#c3c2b7;    /* body, labels, explanation */
+  --ink-muted:#898781;   /* meta, axis, captions */
+  /* chart owns color */
+  --vol-blue:#3987e5;
+  --vol-blue-dim:#2a5a8f;
+  --poc-orange:#d95926;
+  --highlight:#eda100;
+  /* semantic — verdicts only, always with a glyph */
+  --buy-green:#1baf7a;
+  --sell-red:#e66767;
+  /* type */
+  --font-ui:'Inter',system-ui,sans-serif;
+  --font-mono:'JetBrains Mono',monospace;
+  /* spacing (4px base) */
+  --s1:4px; --s2:8px; --s3:12px; --s4:16px; --s5:24px; --s6:32px;
+  --radius:8px;
+}
+*{margin:0;padding:0;box-sizing:border-box}
+html,body{height:100%}
+body{
+  width:390px;height:844px;overflow:hidden;
+  background:var(--surface-0);
+  color:var(--ink-body);
+  font-family:var(--font-ui);
+  font-size:14px;line-height:1.45;
+  -webkit-font-smoothing:antialiased;
+  font-variant-numeric:tabular-nums;
+}
+.mono{font-family:var(--font-mono);font-variant-numeric:tabular-nums}
+
+/* ---------- frame ---------- */
+.app{height:100%;display:flex;flex-direction:column;padding:0 var(--s4)}
+
+/* ---------- top chrome ---------- */
+.topbar{
+  height:52px;display:flex;align-items:center;justify-content:space-between;
+  padding-top:var(--s3);
+}
+.mode{
+  font-family:var(--font-mono);font-size:11px;font-weight:400;
+  letter-spacing:.08em;text-transform:uppercase;color:var(--ink-muted);
+}
+.mode b{color:var(--ink-body);font-weight:600}
+.top-stats{display:flex;align-items:baseline;gap:var(--s4)}
+.stat{display:flex;align-items:baseline;gap:6px}
+.stat .k{font-size:11px;letter-spacing:.08em;text-transform:uppercase;color:var(--ink-muted);font-weight:500}
+.stat .v{font-family:var(--font-mono);font-size:14px;font-weight:600;color:var(--ink-body)}
+.stat .v.hero{color:var(--ink-hero)}
+
+/* block progress ticks */
+.blockrow{
+  display:flex;align-items:center;justify-content:space-between;
+  padding:var(--s2) 0 var(--s3);
+}
+.ticks{display:flex;gap:5px}
+.tick{width:18px;height:3px;border-radius:2px;background:var(--surface-2)}
+.tick.done{background:#55534d}
+.tick.now{background:var(--ink-hero)}
+.blocklabel{font-family:var(--font-mono);font-size:11px;color:var(--ink-muted);letter-spacing:.06em}
+
+/* ---------- chart panel ---------- */
+.chart{
+  flex:1;min-height:0;
+  background:var(--surface-1);
+  border:1px solid var(--hairline);
+  border-radius:var(--radius);
+  position:relative;
+  overflow:hidden;
+}
+.chart svg{position:absolute;inset:0}
+
+/* ---------- verdict layer ---------- */
+.verdict{padding:var(--s4) 0 0}
+.verdict-head{display:flex;align-items:baseline;justify-content:space-between}
+.verdict-word{
+  font-size:20px;font-weight:700;color:var(--sell-red);
+  letter-spacing:.01em;display:flex;align-items:baseline;gap:10px;
+}
+.verdict-word .glyph{font-size:18px}
+.verdict-word .shape{font-family:var(--font-mono);font-weight:600}
+.verdict-truth{font-size:14px;font-weight:500;color:var(--ink-muted)}
+.verdict-truth b{font-family:var(--font-mono);font-weight:600;color:var(--ink-hero)}
+.latency{font-family:var(--font-mono);font-size:12px;color:var(--ink-muted)}
+.latency b{font-weight:600;color:var(--ink-body)}
+.explain{
+  margin-top:var(--s2);
+  font-size:14px;font-weight:400;color:var(--ink-body);
+  max-width:60ch;
+}
+
+/* ---------- answer chips ---------- */
+.answers{display:flex;gap:var(--s2);padding:var(--s4) 0 0}
+.chip{
+  flex:1;height:52px;
+  display:flex;flex-direction:column;align-items:center;justify-content:center;gap:2px;
+  background:var(--surface-2);
+  border:1px solid var(--hairline);
+  border-radius:var(--radius);
+  font-family:var(--font-mono);
+}
+.chip .letter{font-size:18px;font-weight:600;color:var(--ink-muted);line-height:1}
+.chip .sub{font-size:10px;letter-spacing:.1em;color:transparent;line-height:1;font-family:var(--font-ui);font-weight:500}
+.chip.picked{border-color:var(--sell-red);background:rgba(230,103,103,.08)}
+.chip.picked .letter{color:var(--sell-red)}
+.chip.picked .sub{color:var(--sell-red)}
+.chip.truth{border-color:var(--buy-green)}
+.chip.truth .letter{color:var(--buy-green)}
+.chip.truth .sub{color:var(--buy-green)}
+
+/* ---------- footer ---------- */
+.footer{display:flex;gap:var(--s3);padding:var(--s4) 0 var(--s4)}
+.replay{
+  height:48px;padding:0 var(--s4);
+  display:flex;align-items:center;gap:8px;
+  background:transparent;border:1px solid var(--hairline);border-radius:var(--radius);
+  color:var(--ink-muted);font-size:12px;font-weight:500;letter-spacing:.06em;
+}
+.replay .g{font-size:15px}
+.next{
+  flex:1;height:48px;
+  display:flex;align-items:center;justify-content:center;gap:8px;
+  background:var(--ink-hero);color:var(--surface-0);
+  border-radius:var(--radius);
+  font-size:14px;font-weight:600;letter-spacing:.1em;
+}
+.next .arrow{font-size:12px}
+</style>
+
+<div class="app">
+
+  <!-- top chrome -->
+  <div class="topbar">
+    <div class="mode"><b>Rated</b> · Shape Alphabet</div>
+    <div class="top-stats">
+      <div class="stat"><span class="k">Streak</span><span class="v">0</span></div>
+      <div class="stat"><span class="k">Rating</span><span class="v hero">1,184</span></div>
+    </div>
+  </div>
+
+  <!-- block progress -->
+  <div class="blockrow">
+    <div class="ticks">
+      <div class="tick done"></div><div class="tick done"></div><div class="tick done"></div>
+      <div class="tick done"></div><div class="tick done"></div><div class="tick done"></div>
+      <div class="tick now"></div>
+      <div class="tick"></div><div class="tick"></div><div class="tick"></div>
+    </div>
+    <div class="blocklabel">REP 7/10</div>
+  </div>
+
+  <!-- chart -->
+  <div class="chart" id="chartbox"><svg id="profile"></svg></div>
+
+  <!-- verdict -->
+  <div class="verdict">
+    <div class="verdict-head">
+      <div class="verdict-word"><span class="glyph">✗</span><span><span class="shape">b</span> — you said <span class="shape">P</span></span></div>
+      <div class="latency"><b>1.8s</b> · par 3.0</div>
+    </div>
+    <p class="explain">Bulge low, thin tail above: liquidation below, not short-covering. <span class="mono">P</span> is the mirror image.</p>
+  </div>
+
+  <!-- answers -->
+  <div class="answers">
+    <div class="chip"><span class="letter">D</span><span class="sub">&nbsp;</span></div>
+    <div class="chip picked"><span class="letter">P</span><span class="sub">✗ YOU</span></div>
+    <div class="chip truth"><span class="letter">b</span><span class="sub">✓ ANS</span></div>
+    <div class="chip"><span class="letter">B</span><span class="sub">&nbsp;</span></div>
+    <div class="chip"><span class="letter" style="font-size:12px;letter-spacing:.06em">TREND</span><span class="sub">&nbsp;</span></div>
+  </div>
+
+  <!-- footer -->
+  <div class="footer">
+    <div class="replay"><span class="g">⟲</span>REPLAY</div>
+    <div class="next">NEXT<span class="arrow">▸</span></div>
+  </div>
+
+</div>
+
+<script>
+// b-shape profile, POC row 27, VA rows 19..31 — data from the reference 70% expansion
+const vols=[0.094,0.102,0.112,0.100,0.095,0.025,0.019,0.019,0.017,0.016,0.015,0.015,0.015,0.017,0.021,0.024,0.158,0.239,0.357,0.530,0.689,0.822,0.933,0.917,0.934,0.954,0.959,1.000,0.977,0.956,0.851,0.759,0.638,0.534,0.416,0.314,0.260,0.194,0.138,0.098];
+const N=vols.length, POC=27, VAH=19, VAL=31;   // row indices (0 = top / highest price)
+const TOP=5306.0, STEP=0.5;                    // price of row 0, per-row step
+
+const box=document.getElementById('chartbox');
+const svg=document.getElementById('profile');
+const W=box.clientWidth, H=box.clientHeight;
+svg.setAttribute('width',W); svg.setAttribute('height',H);
+svg.setAttribute('viewBox',`0 0 ${W} ${H}`);
+const padT=16,padB=16,axisW=64,barX=16;
+const rowH=(H-padT-padB)/N, barH=Math.max(6,rowH-3.5), maxW=W-axisW-barX-12;
+const bandR=W-axisW+8;                 // right edge of VA band / hairlines
+const ns='http://www.w3.org/2000/svg';
+const el=(t,a)=>{const e=document.createElementNS(ns,t);for(const k in a)e.setAttribute(k,a[k]);return e};
+const rowY=i=>padT+i*rowH;
+const mono={'font-family':"'JetBrains Mono',monospace"};
+
+// VA band (behind bars)
+svg.appendChild(el('rect',{x:0,y:rowY(VAH),width:bandR,height:rowY(VAL+1)-rowY(VAH),fill:'#3987e5','fill-opacity':.06}));
+// VAH / VAL hairlines
+for(const r of [VAH, VAL+1]){
+  svg.appendChild(el('line',{x1:0,y1:rowY(r),x2:bandR,y2:rowY(r),stroke:'#3987e5','stroke-opacity':.3,'stroke-width':1}));
+}
+// bars
+for(let i=0;i<N;i++){
+  const inVA=i>=VAH&&i<=VAL;
+  const fill=i===POC?'#d95926':(inVA?'#3987e5':'#2a5a8f');
+  svg.appendChild(el('rect',{x:barX,y:rowY(i)+1.75,width:Math.max(3,vols[i]*maxW),height:barH,rx:1,fill}));
+}
+// axis: price labels every 4 rows, skipping rows adjacent to the POC label
+for(let i=0;i<N;i+=4){
+  if(Math.abs(i-POC)<3) continue;
+  const t=el('text',{...mono,x:W-10,y:rowY(i)+rowH/2+3.5,'text-anchor':'end',fill:'#898781','font-size':'11'});
+  t.textContent=(TOP-i*STEP).toFixed(2);
+  svg.appendChild(t);
+}
+// POC price emphasized on axis
+const pocT=el('text',{...mono,x:W-10,y:rowY(POC)+rowH/2+3.5,'text-anchor':'end',fill:'#d95926','font-size':'11','font-weight':'600'});
+pocT.textContent=(TOP-POC*STEP).toFixed(2);
+svg.appendChild(pocT);
+// POC tick connecting bar zone to its axis price
+svg.appendChild(el('line',{x1:barX+vols[POC]*maxW+4,y1:rowY(POC)+rowH/2,x2:bandR,y2:rowY(POC)+rowH/2,stroke:'#d95926','stroke-opacity':.45,'stroke-width':1,'stroke-dasharray':'2 3'}));
+// structure labels above/below their hairlines, clear of bars
+const lbl=(txt,y,color)=>{const t=el('text',{...mono,x:bandR-4,y:y,'text-anchor':'end',fill:color,'font-size':'10','letter-spacing':'.08em'});t.textContent=txt;svg.appendChild(t);};
+lbl('VAH',rowY(VAH)-5,'#3987e5');
+lbl('VAL',rowY(VAL+1)+12,'#3987e5');
+</script>
