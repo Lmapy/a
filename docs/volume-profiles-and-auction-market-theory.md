@@ -81,6 +81,8 @@ Markets alternate perpetually between two regimes:
 
 The full cycle is **balance → imbalance → new balance**, endlessly. A trading range *is* a balance area. A breakout *is* auction imbalance. This is the regime switch that determines which trades work: fading edges works in balance; following price works in imbalance.
 
+![The auction cycle: balance, imbalance, new balance](figures/fig-03-auction-cycle.svg)
+
 ### Acceptance and rejection
 
 - **Acceptance**: price trades at a level long enough (time) and with enough volume to build structure there — the market ratifies the level as value. Rule-of-thumb heuristic used across the Dalton school: **two consecutive 30-minute periods** spent at new price levels constitutes acceptance.
@@ -100,6 +102,8 @@ Every trade is classified relative to the **previous day's value area**:
 
 **Initiative activity carries conviction** — it can relocate value and drive trends. **Responsive activity** pushes price back toward existing value but lacks the conviction to relocate it. The practitioner shorthand: *responsive = fade, initiative = follow.*
 
+![Initiative vs responsive activity relative to the prior value area](figures/fig-04-initiative-responsive.svg)
+
 ### The "other timeframe" participant
 
 Dalton's two-actor model of any session:
@@ -112,6 +116,8 @@ OTF *initiative* action drives trends. OTF *responsive* action fades price far f
 ## 1.3 Structural Vocabulary You Must Know
 
 - **Excess**: a swift, decisive rejection at an extreme — visible as a **tail** (in TPO terms, ≥2 single prints at the high or low; in volume terms, a low-volume taper/wick at the extreme). "Excess marks the end of one auction and the beginning of a new auction." A longer tail = greater conviction of rejection. Extremes with proper excess are *less* likely to be revisited and act as durable references.
+![Excess vs poor structure at an extreme](figures/fig-09-excess-vs-poor.svg)
+
 - **Poor (unfinished) high/low**: the opposite — a flat, "mechanically formed" extreme with little or no excess (multiple TPOs/even volume right up to the edge). Usually built by day-timeframe traders with no OTF player finishing the auction. Poor extremes are **unfinished business**: elevated odds the market later revisits and "repairs" them (creates proper excess or extends beyond). One practitioner-published figure: ~78% of poor highs exceeded and ~75% of poor lows broken within five sessions — *practitioner statistics, not peer-reviewed*.
 - **Single prints**: stretches of profile only one TPO wide inside the body — the fingerprint of fast, emotional, one-sided repricing. Their volume analog is the **low volume node (LVN)**. Both mark unfair prices the market transited without doing business, and both are future reference/repair zones.
 - **Range extension**: any new high or low made after the initial balance — the classical tell that the OTF participant has entered the session.
@@ -145,6 +151,8 @@ A volume profile is a **volume-at-price histogram**: all volume traded over a ch
 **Profile variants of the same histogram**: bid/ask profiles (volume split by aggressor side), delta profiles (net ask-minus-bid per row), and the per-candle version — the **footprint chart** (Part V).
 
 ## 2.2 Anatomy: POC, Value Area, HVN, LVN
+
+![Anatomy of a volume profile](figures/fig-01-volume-profile-anatomy.svg)
 
 ### Point of Control (POC)
 
@@ -180,6 +188,8 @@ The classic CBOT/TPO procedure differs in details that explain cross-platform di
 
 ## 2.4 Volume Profile vs TPO (Market Profile)
 
+![One session, three lenses: volume profile, TPO and VWAP](figures/fig-12-vp-tpo-vwap.svg)
+
 - **TPO profile** stacks letters — one per 30-minute bracket per price touched — measuring **time-at-price**. **Volume profile** measures **volume-at-price** and ignores duration.
 - They look similar on rotational days and **diverge when time and volume decouple**: a market can sit at a price for hours on thin volume, or transact enormous volume in minutes. TPO-POC and volume-POC often sit at different prices.
 - **The Dalton camp prefers TPO**: time is the market's acceptance mechanism; TPO structure carries the auction narrative and smooths mechanically volume-heavy prices (open, close, settlement); volume then *validates* structure. **The volume camp counters**: volume is actual committed capital — with modern tick data there's no reason to proxy it with time.
@@ -205,6 +215,8 @@ The classic CBOT/TPO procedure differs in details that explain cross-platform di
 ## 3.1 The Shape Alphabet
 
 The profile's shape is a fossil record of who was active and where. Learn four canonical shapes plus the trend profile:
+
+![The profile shape alphabet](figures/fig-02-profile-shapes.svg)
 
 ### D-shape — balance
 
@@ -242,6 +254,8 @@ Long, skinny, minimal horizontal development; POC near one extreme. **One-timefr
 
 ## 3.2 Day Types (Steidlmayer/Dalton taxonomy)
 
+![The six day types and the initial-balance tell](figures/fig-05-day-types.svg)
+
 | Day type | Signature | Auction logic |
 |---|---|---|
 | **Normal day** | Wide initial balance (IB); range ≈ IB; symmetric D | Early OTF sets the extremes, then two-sided rotation. Rarer than the name implies |
@@ -259,6 +273,8 @@ Frequency lore varies by source and era (trend days ~5–10%; true normal days r
 ## 3.3 Open Types — Dalton's Conviction Ladder
 
 The first 30 minutes, classified, plus *where* the open occurs relative to prior value, gives your earliest read on OTF conviction:
+
+![The open types: conviction ladder for the first hour](figures/fig-06-open-types.svg)
 
 1. **Open-Drive** (highest conviction): opens and drives hard one way; price **never re-trades the open**. OTF decided before the bell. Never fade it; buy/sell pullbacks; the open price is the line in the sand; strongly raises trend-day odds.
 2. **Open-Test-Drive**: opens, *tests* beyond a known reference (prior high/low, VA edge), finds no business, reverses hard through the open. Second-highest conviction; the failed-test point usually becomes the day's extreme and is premium trade location.
@@ -279,6 +295,8 @@ Compare today's developing value area with yesterday's:
 
 Powerful divergence tell: **dPOC ratcheting one way while price flatlines = absorption/accumulation** in that direction.
 
+![Reading value migration day over day](figures/fig-10-value-migration.svg)
+
 ## 3.5 Dalton's Balance Rules (trading a multi-day balance)
 
 When the market has been balanced for ≥2 days, prepare all five scenarios in advance:
@@ -290,6 +308,8 @@ When the market has been balanced for ≥2 days, prepare all five scenarios in a
 5. **Stay inside** — keep trading the rotation.
 
 The FAIL variants are prized because the failed breakout **traps the initiative breakout traders**, whose forced exit fuels the traverse. This "look-above-and-fail" template scales down to prior-day highs/lows and the initial balance, and scales up to weekly composites.
+
+![Dalton's balance rules: the five scenarios](figures/fig-08-balance-rules.svg)
 
 ---
 
@@ -326,6 +346,8 @@ Before any setup, answer the regime question: **balanced or imbalanced?** (Overl
 
 *The most famous named setup — presented here with its real statistics.*
 
+![The 80% rule schematic](figures/fig-07-80-percent-rule.svg)
+
 - **Rule**: IF the session opens **outside** the prior day's value area, AND price re-enters the VA and **holds inside for two consecutive 30-minute periods**, THEN the claimed probability is ~80% that price traverses the **entire value area** to the opposite side.
 - **Entry**: on the second 30-min period holding inside (aggressive: first close back inside, for better location).
 - **Stop**: back outside the VA edge where price entered (re-rejection out of value = invalidation).
@@ -357,6 +379,8 @@ Before any setup, answer the regime question: **balanced or imbalanced?** (Overl
 - **As reaction level**: the *first touch* of an nPOC frequently produces a reaction — fade the touch **only with order-flow confirmation** (absorption/delta divergence), stop beyond the level.
 - **Statistics**: the circulating "~80% of naked POCs are revisited within 10 sessions" is a **vendor claim**; the more careful services model nPOC fill probability per instrument with survival analysis. Track your market's own fill behavior.
 
+![Naked POCs act as magnets](figures/fig-14-naked-poc.svg)
+
 ## 4.7 LVN Rejection and LVN Break
 
 *The binary level. Decide both branches before price arrives.*
@@ -364,6 +388,8 @@ Before any setup, answer the regime question: **balanced or imbalanced?** (Overl
 - **Rejection variant**: price pulls back into an LVN left by an impulsive move → **confirm defense with order flow** (passive absorption, aggressors failing) → enter the rejection; stop just beyond the node (+1–2 ticks buffer); target the structural level beyond (day high/low, next HVN). The thin node = tight stop = high R:R.
 - **Break variant**: price pushes *through* the LVN on strong volume (rule of thumb: ≥1.5× session average) and conviction delta → enter with the break, **target the next HVN** — LVNs are corridors; HVNs are destinations.
 - The B-profile neck (Section 3.1) is the canonical LVN pivot: longs above it target the upper POC; shorts below it target the lower POC.
+
+![LVN behavior is binary: rejection or traverse](figures/fig-11-lvn-behavior.svg)
 
 ## 4.8 Anchored-Profile Pullback in Trends (the "accumulation defense" family)
 
@@ -414,6 +440,8 @@ Before any setup, answer the regime question: **balanced or imbalanced?** (Overl
 - **Imbalance / stacked imbalances**: one side exceeding the other diagonally by ≥3:1–4:1 at a price; three-plus consecutive levels = a stacked imbalance, marking a zone of one-sided dominance that often acts as future support/resistance.
 - **Finished vs unfinished auction**: a **finished** auction prints volume on only one side at the bar's exact extreme (a zero in one cell at the very high/low) — one side was completely exhausted and the level cleanly rejected. An **unfinished** auction is the opposite: the extreme still prints volume on **both** sides — two-sided business was still being done when price turned, so the auction never completed there; such extremes tend to get revisited ("the market goes back to finish its business"). The unfinished auction is the footprint-scale version of the **poor high/low**.
 - **DOM/liquidity caveat**: resting orders can be **spoofed** (placed to be cancelled); executed volume cannot. That's why footprint/tape generally outranks raw DOM reading.
+
+![Reading a footprint bar](figures/fig-13-footprint-anatomy.svg)
 
 ## 5.2 Confluence Recipes (level + trigger)
 
@@ -585,5 +613,7 @@ Expectancy = Win% × AvgWin − Loss% × AvgLoss. An "80% setup" loses money if 
 **Academic anchors:** Cont, Kukanov & Stoikov, "The Price Impact of Order Book Events" (J. Fin. Econometrics 2014); Kavajecz & Odders-White, "Technical Analysis and Liquidity Provision" (RFS 2004); Gervais, Kaniel & Mingelgrin, "The High-Volume Return Premium" (J. Finance 2001); Hautsch & Huang on hidden liquidity; Mandelbrot on non-Gaussian returns (context for the bell-curve critique).
 
 **Skeptical reading:** mypivots "The 80% Rule" (the ~60% finding); Trader Dale, "The Dark Side of Order Flow"; MarketTrace on CVD signal-quality problems; the survivorship-bias literature on trading education.
+
+*Figures note: every figure in this guide is generated by a deterministic script in `scripts/figures/` — structural quantities (POCs, value areas, imbalance ratios, deltas, VWAP bands) are computed by the actual algorithms rather than drawn by eye, and each rendered image was independently verified against its spec by a separate reviewing agent. Re-running any script reproduces its figure exactly.*
 
 *Research method note: this guide was synthesized from five parallel research agents totaling 80+ web searches across primary texts, platform documentation, practitioner education and academic literature (compiled July 2026). Contested claims were cross-corroborated across independent agents; where sources conflict (P-shape readings, day-type frequencies, all probability lore), the disagreement is presented rather than resolved by fiat. All folklore statistics are labelled as such.*
