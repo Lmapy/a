@@ -1,0 +1,180 @@
+/* ============================================================================
+   THE AUCTION — design tokens (canonical)
+   Direction: "terminal" — extracted from the final mockups in ./mockups/
+   (direction-terminal.html, screen-drill-loop.html, screen-dashboard.html,
+    screen-skill-tree.html, screen-boss-intro.html).
+
+   Rules of use:
+   · This file is the single source of truth. Raw hex outside this file is a
+     lint error (Stylelint). The canvas renderer reads these same variables
+     via getComputedStyle at init, so chart and DOM can never diverge.
+   · Dark-mode-first and dark-mode-only in v1. No light theme tokens exist.
+   · Values marked [derived] or [spec] did not appear literally in a mockup:
+     [derived] = symmetric counterpart of an observed value;
+     [spec]    = defined by the GDD §2 latency budget (mockups are static).
+   ========================================================================== */
+
+:root {
+
+  /* --------------------------------------------------------------------
+     COLOR · surface ramp
+     Elevation is lightness, never shadows. Four steps only.
+     -------------------------------------------------------------------- */
+  --surface-0: #141413;        /* app base — every screen's background      */
+  --surface-1: #1a1a19;        /* panel: chart frame, cards, warm-up card   */
+  --surface-2: #222220;        /* raised: chips, rating chip, CTA-secondary */
+  --hairline:  #2c2c2a;        /* all borders, dividers, par-ring track     */
+  --gridline:  #232322;        /* chart-only: gridlines inside a --surface-1
+                                  panel (quieter than hairline; never used
+                                  for UI borders)                           */
+
+  /* --------------------------------------------------------------------
+     COLOR · ink ramp
+     Three text tiers + one ghost tier. Hierarchy is ink, not size.
+     Contrast vs --surface-1 (measured): hero 17.4:1 · body 9.7:1 ·
+     muted 4.85:1 · ghost 2.4:1 (NON-TEXT tier — see rule below).
+     -------------------------------------------------------------------- */
+  --ink-hero:  #ffffff;        /* hero numbers, verdict word, active nav —
+                                  the loudest thing on any screen           */
+  --ink-body:  #c3c2b7;        /* body copy, labels, explanations, wordmark */
+  --ink-muted: #898781;        /* meta, axis labels, captions, kickers      */
+  --ink-ghost: #55534d;        /* sub-3:1 by design: locked/unmeasured
+                                  states, done-ticks, chart reference lines,
+                                  watermarks. Never the sole carrier of
+                                  information; never for content text.      */
+
+  /* --------------------------------------------------------------------
+     COLOR · chart (the chart owns color; UI chrome stays grayscale)
+     -------------------------------------------------------------------- */
+  --vol-blue:      #3987e5;    /* in-value-area volume bars, data lines,
+                                  calibration dots, sparklines (4.8:1)      */
+  --vol-blue-dim:  #2a5a8f;    /* outside-VA bars, loss bins (2.45:1 —
+                                  graphical only, always adjacent to
+                                  --vol-blue; length encodes the data)      */
+  --poc-orange:    #d95926;    /* POC row + its axis price + "POC" tag —
+                                  always paired with the text tag, never
+                                  color-alone                               */
+  --highlight:     #eda100;    /* sparing accents: rusty/armed node, boss
+                                  overline, avg marker, tell bullets (8:1)  */
+  --va-band:       rgba(57, 135, 229, .06);   /* VA shading behind bars    */
+  --va-edge:       rgba(57, 135, 229, .30);   /* VAH/VAL hairlines         */
+
+  /* --------------------------------------------------------------------
+     COLOR · semantic verdicts
+     Verdict colors appear ONLY at the moment of judgment, always paired
+     with a glyph (✓ / ✗ / arrows). The correct answer is never painted
+     in sell-red, even when the player missed.
+     -------------------------------------------------------------------- */
+  --buy-green:      #1baf7a;                  /* correct / long (6.2:1)    */
+  --sell-red:       #e66767;                  /* incorrect / short (5.4:1) */
+  --sell-red-wash:  rgba(230, 103, 103, .08); /* picked-wrong chip fill    */
+  --buy-green-wash: rgba(27, 175, 122, .08);  /* [derived] picked-right    */
+
+  /* --------------------------------------------------------------------
+     COLOR · CTA
+     Primary CTA is warm off-white, not pure white — no white slab
+     strobing every rep. Ink on it is --surface-0 (15:1).
+     -------------------------------------------------------------------- */
+  --cta:      #e8e8e4;         /* primary CTA fill (START, ENTER)          */
+  --cta-ink:  var(--surface-0);
+
+  /* --------------------------------------------------------------------
+     TYPOGRAPHY · families & weights
+     Inter for UI. JetBrains Mono for every price, number, rating, price
+     axis, kicker/label in caps — always with tabular numerals.
+     -------------------------------------------------------------------- */
+  --font-ui:   'Inter', system-ui, sans-serif;
+  --font-mono: 'JetBrains Mono', monospace;
+
+  --weight-regular:  400;
+  --weight-medium:   500;      /* Inter only */
+  --weight-semibold: 600;
+  --weight-bold:     700;      /* Inter only — verdict word, boss title    */
+
+  /* --------------------------------------------------------------------
+     TYPOGRAPHY · size scale (px, observed)
+     Base is 14. Everything below 12 is caps + tracked + muted.
+     -------------------------------------------------------------------- */
+  --text-2xs:    10px;   /* chart tags (POC/VAH/VAL), table headers, keys  */
+  --text-xs:     11px;   /* kickers, meta, axis prices, block labels, nav  */
+  --text-sm:     12px;   /* latency line, captions, rating chip, buttons   */
+  --text-body-sm:13px;   /* dense body: skill names, chart-head question   */
+  --text-body:   14px;   /* base body, explanations, chips' CTA labels     */
+  --text-body-lg:15px;   /* trap line / emphasized single sentences        */
+  --text-verdict:16px;   /* verdict line ("✗ You said P — answer b")       */
+  --text-chip:   18px;   /* answer-chip letters (mono)                     */
+  --text-title:  20px;   /* section titles / large verdict variant         */
+  --text-display:24px;   /* boss name                                      */
+  --text-stat:   28px;   /* hero stat numbers (mono): Bot Points, Brier    */
+
+  --leading-body: 1.45;  /* body default */
+  --leading-tight:1.15;  /* display + hero numbers */
+
+  /* --------------------------------------------------------------------
+     TYPOGRAPHY · tracking ramp (deduplicated; .02/.05/.12 observed once
+     each were normalized into neighbors)
+     -------------------------------------------------------------------- */
+  --track-display: -0.01em;  /* 20px+ display                              */
+  --track-body:     0.01em;  /* body emphasis                              */
+  --track-meta:     0.04em;  /* mono meta strings                          */
+  --track-caption:  0.06em;  /* block labels, panel meta                   */
+  --track-label:    0.08em;  /* caps labels, stat keys, mode line          */
+  --track-kicker:   0.10em;  /* card kickers, CTA labels                   */
+  --track-overline: 0.14em;  /* wordmark, boss overline, section labels    */
+  --track-nav:      0.16em;  /* bottom-nav items                           */
+
+  /* --------------------------------------------------------------------
+     SPACING · 4px base, six steps. No other gaps exist.
+     -------------------------------------------------------------------- */
+  --s1: 4px;
+  --s2: 8px;
+  --s3: 12px;
+  --s4: 16px;   /* default gutter: mobile page padding, card padding, grid gap */
+  --s5: 24px;   /* desktop page padding, card horizontal padding              */
+  --s6: 32px;   /* desktop brand↔nav gap                                      */
+
+  /* --------------------------------------------------------------------
+     RADII
+     -------------------------------------------------------------------- */
+  --radius:      8px;    /* panels, cards, chips, buttons — the default   */
+  --radius-sm:   6px;    /* small chips (rating chip)                     */
+  --radius-xs:   2px;    /* micro: progress ticks, legend swatches        */
+  --radius-bar:  1px;    /* volume-profile bars                           */
+  --radius-full: 50%;    /* dots, badges, par ring                        */
+
+  /* --------------------------------------------------------------------
+     ELEVATION
+     There are no box-shadows in this system. Elevation = surface step
+     (+ hairline border). These aliases exist so components name intent.
+     -------------------------------------------------------------------- */
+  --elev-base:   var(--surface-0);
+  --elev-panel:  var(--surface-1);   /* always with 1px --hairline border */
+  --elev-raised: var(--surface-2);   /* always with 1px --hairline border */
+
+  /* --------------------------------------------------------------------
+     HIT TARGETS & CONTROL HEIGHTS (observed)
+     -------------------------------------------------------------------- */
+  --hit-min:     44px;   /* absolute minimum tap target (GDD §2)          */
+  --control-md:  48px;   /* secondary buttons (replay bar variant)        */
+  --control-lg:  52px;   /* NEXT / ENTER CTA, chart-frame topbar          */
+  --control-xl:  56px;   /* answer chips, desktop topbar, bottom nav      */
+  --hairline-w:  1px;
+
+  /* --------------------------------------------------------------------
+     MOTION [spec] — sized to the GDD §2 verdict budget:
+     tap 0ms → verdict paint ≤100ms → explanation ≤250ms → NEXT ≤400ms.
+     Durations are budgets' fractions, not decoration. Compositor-thread
+     properties only (transform/opacity). prefers-reduced-motion swaps
+     every entrance for a plain opacity fade at the same duration.
+     -------------------------------------------------------------------- */
+  --dur-1:  80ms;    /* verdict: hit-flash, badge pop, chip state switch  */
+  --dur-2: 140ms;    /* explanation slide-in, film-strip tile entrance    */
+  --dur-3: 200ms;    /* count-ups, par-ring sweep step, panel settles     */
+  --dur-4: 320ms;    /* screen-level transitions only, never in-rep       */
+
+  --ease-out:    cubic-bezier(0.20, 0.80, 0.20, 1);   /* default entrances */
+  --ease-squash: cubic-bezier(0.34, 1.56, 0.64, 1);   /* verdict marker
+                    squash-stretch — the only overshoot in the system     */
+  --ease-in-out: cubic-bezier(0.45, 0, 0.25, 1);      /* screen moves     */
+  --ease-linear: linear;                              /* rings, count-ups */
+}
