@@ -99,6 +99,35 @@ describe('Drill A grading (real items)', () => {
     // snap drills carry no confidence tap → no Brier component
     expect(miss.brier).toBeNull();
   });
+
+  it('a VA tap on the WRONG side of the POC routes to the bracket template', () => {
+    // deterministically find one VAH and one VAL item in the sibling family
+    for (const want of ['VAH', 'VAL'] as const) {
+      let vi: LoopItem | null = null;
+      for (let a = 0; a < 40 && vi === null; a++) {
+        const cand = buildLoopItem('poc-va-snap', siblingSeed('909090', 100 + a), EASY_KNOBS);
+        if (cand.ctx.target === want) vi = cand;
+      }
+      expect(vi, `no ${want} item found`).not.toBeNull();
+      const poc = vi!.item.stimulus.profile.poc;
+      // tap 2 rows PAST the POC on the opposite side of the requested edge
+      const wrongPick = want === 'VAH' ? poc - 2 : poc + 2;
+      const v = gradeLoopItem(vi!, ans(wrongPick));
+      expect(v.correct).toBe(false);
+      expect(v.score).toBe(0);
+      expect(v.explanationTemplateId).toBe('pocva.miss.va.wrongSide');
+      expect(v.explanation).toContain(want === 'VAH' ? 'below the POC' : 'above the POC');
+      expect(v.explanation).toContain('brackets the POC');
+      // same-side misses keep their existing templates
+      const truth = vi!.item.groundTruth as number;
+      const samePick = want === 'VAH' ? truth + 3 : truth - 3;
+      const w = gradeLoopItem(vi!, ans(samePick));
+      expect(w.explanationTemplateId).not.toBe('pocva.miss.va.wrongSide');
+      expect(['pocva.miss.va.ranOut', 'pocva.miss.va.swallowed', 'pocva.miss.va.fatter']).toContain(
+        w.explanationTemplateId,
+      );
+    }
+  });
 });
 
 describe('Drill B grading', () => {

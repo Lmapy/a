@@ -51,7 +51,8 @@ const T = (id: string, refs: string[], text: string): [string, FeedbackTemplate]
  * · B/DD: two distributions joined by an LVN neck (§3.1–3.2).
  * · Open types ladder (§3.3, fig-06).
  * · Regime: balance→responsive, imbalance→initiative only; never fade
- *   one-timeframing (§4.0, cheat-sheet 3/6; misconceptions 2 and 6).
+ *   one-timeframing (§4.0, cheat-sheet 3/6; Part VII §7.1 misconceptions
+ *   1 — fading trend days — and 5 — wrong day-type template).
  */
 export const TEMPLATES: ReadonlyMap<string, FeedbackTemplate> = new Map<string, FeedbackTemplate>([
   /* -------- Drill A — POC + VA Snap ------------------------------------- */
@@ -66,6 +67,10 @@ export const TEMPLATES: ReadonlyMap<string, FeedbackTemplate> = new Map<string, 
     '✗ {target} is {n} rows {dir} — the 70% expansion swallowed the {side} HVN bulge before that row. Value is fatter {rel} the POC than it looks.'),
   T('pocva.miss.va.ranOut', ['guide:II.2.2-va'],
     '✗ {target} is {n} rows {dir} — the 70% mass ran out before that row. Value is thinner {rel} the POC than it looks.'),
+  // Wrong side of the POC entirely (the tap sits below the POC when VAH was
+  // asked, or above it for VAL) — a different geometry from a depth misread:
+  T('pocva.miss.va.wrongSide', ['guide:II.2.2-va'],
+    '✗ {target} is {n} rows {dir} — that tap sits {tapRel} the POC, but the {target} always sits {rel} it. The 70% value area brackets the POC from both sides.'),
   T('pocva.miss.va.fatter', ['guide:II.2.2-va'],
     '✗ {target} is {n} rows {dir} — the 70% expansion absorbed more {side} rows than that. Value is fatter {rel} the POC than it looks.'),
   T('pocva.miss.poc', ['guide:II.2.2-poc'],
@@ -109,7 +114,7 @@ export const TEMPLATES: ReadonlyMap<string, FeedbackTemplate> = new Map<string, 
 
   /* -------- Drill I — Regime Gate ---------------------------------------- */
   // GDD Drill I cardinal-miss template (verbatim, time/direction slotted):
-  T('regime.miss.cardinal', ['guide:IV.4.0-regime', 'guide:VIII-misconception-2'],
+  T('regime.miss.cardinal', ['guide:IV.4.0-regime', 'guide:VII.7.1-1'],
     '✗✗ One-timeframing since {time}, value stair-stepping {dir}, pullbacks under 40% — this is imbalance. Every responsive fade looks perfect on a trend day, and every one loses.'),
   T('regime.miss.balance', ['guide:IV.4.0-regime', 'guide:IV.4.1-fade'],
     '✗ Balance — overlapping value, rotation both ways, no one-timeframing. The playbook is responsive: fade the edges, not chase the middle.'),

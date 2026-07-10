@@ -18,7 +18,12 @@
      verified by classifyDayType inside generateSession's rejection loop.
      The builder rejects sessions whose measurement disagrees with the
      served letter — the same classifier grades, renders and rejects.
-   · open-type-ladder — labels.openType (gen-verified at 100% recovery).
+   · open-type-ladder — labels.openType. Verified by construction:
+     generateSession re-checks the FINAL bars and regenerates (sibling
+     seeds) or re-derives the label from measurement when verification
+     fails, so the served truth ALWAYS equals core classifyOpenType over
+     the first OPEN_VERIFY_BARS (60) bars — the test contract asserted by
+     gen/labels.test.ts ("served open-type truth ...").
    · regime-gate — the script segment active at the snapshot bar (+ the
      nontrend day type ⇒ STAND ASIDE), per GDD Drill I.
 

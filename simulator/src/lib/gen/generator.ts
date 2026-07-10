@@ -18,13 +18,19 @@
      above the open (the fig-06 reference's own technique) + wick floor.
    · Verification loop: the game's own classifiers (core/classify) must
      recover dayType and openType; failing attempts are re-noised (named
-     substreams noise#k / volume#k) up to MAX_NOISE_ATTEMPTS. Labels are true
-     by construction AND by measurement.
+     substreams noise#k / volume#k) up to MAX_NOISE_ATTEMPTS. The FINAL bars
+     are then re-verified: a session whose re-noise budget ends unverified is
+     discarded and regenerated from a sibling seed (same taxonomy/knobs, up
+     to MAX_REGEN_ATTEMPTS); if every regeneration also fails, the failing
+     labels are re-derived from measurement (the shape drill's fallback
+     pattern). Served labels are ALWAYS true by construction AND by
+     measurement — generateSession never returns an unverified label.
 
    Determinism: everything flows from script.seed through named PRNG
    substreams ('noise' = innovations/jumps, 'volume' = wick sizes + volume
    draws, 'place' = open/prior placement, 'decoys', retry variants
-   'noise#k'/'volume#k'); same seed ⇒ byte-identical {bars, priors, labels}.
+   'noise#k'/'volume#k', regen variants via siblingSeed(seed, 8600+v));
+   same seed ⇒ byte-identical {bars, priors, labels}.
 
    Pure TS — zero DOM/Svelte imports.
    STATUS: IMPLEMENTED (v1). Owner: gen team.
@@ -33,8 +39,10 @@
 import type {
   AcceptanceFlag,
   Bar,
+  DayType,
   DecoyStructure,
   ExtremeLabel,
+  OpenType,
   PlantedStructure,
   Profile,
   SessionLabels,
@@ -100,6 +108,14 @@ const GARCH_ALPHA = 0.1;
 const GARCH_BETA = 0.85;
 /** How many re-noise attempts the verification loop may take. */
 const MAX_NOISE_ATTEMPTS = 6;
+/** How many sibling-seed regenerations an unverified session may take. */
+const MAX_REGEN_ATTEMPTS = 8;
+/**
+ * Bars of the opening window the openType verification reads — THE contract
+ * window: served openType labels are guaranteed to measure back through
+ * classifyOpenType over exactly this many opening bars.
+ */
+export const OPEN_VERIFY_BARS = 60;
 /** How many donor-prior placements the nPOC plant may try. */
 const MAX_PRIOR_ATTEMPTS = 6;
 /** Guard band (points) the path must keep from an untouched nPOC. */
@@ -374,11 +390,22 @@ export function typicalPriorRange(priors: PriorSession[]): number {
 /**
  * Generate a full session from a compiled script: fabricated priors →
  * open placement → nPOC donor placement (measured POC) → path synthesis →
- * classifier verification loop → measured labels.
+ * classifier verification loop → FINAL re-verification → measured labels.
+ *
+ * The verification contract (GDD §7 "true by construction AND by
+ * measurement"): the returned labels.dayType / labels.openType ALWAYS
+ * measure back through core classifyDayType / classifyOpenType (openType
+ * over the first OPEN_VERIFY_BARS bars). Attempt 0 runs the script itself;
+ * an attempt whose re-noise budget ends unverified is discarded and the same
+ * taxonomy is recompiled from a sibling seed (up to MAX_REGEN_ATTEMPTS); if
+ * every regeneration fails too, the failing labels are re-derived from
+ * measurement (the shape drill's fallback pattern), so the label stays
+ * honest either way.
  *
  * Deterministic: same script.seed ⇒ byte-identical output. Substreams:
  * 'place' (open/prior placement), 'noise'/'noise#k' (innovations + wicks are
- * drawn from 'volume' stream alongside volume), 'decoys'.
+ * drawn from 'volume' stream alongside volume), 'decoys'; regeneration
+ * variants derive via siblingSeed(seed, 8600+v) — a fixed, bounded chain.
  */
 export function generateSession(script: SessionScript, basePrice = 5000): GeneratedSession {
   const cs: CompiledScript =
@@ -386,6 +413,37 @@ export function generateSession(script: SessionScript, basePrice = 5000): Genera
       ? (script as CompiledScript)
       : compileScript(new Prng(script.seed), script.dayType, script.openType, script.openLocation, DEFAULT_KNOBS, script.paramsVersion);
 
+  let attempt = generateVerified(cs, basePrice);
+  for (let v = 1; v <= MAX_REGEN_ATTEMPTS && !(attempt.dayOk && attempt.openOk); v++) {
+    const sibling = compileScript(
+      new Prng(siblingSeed(cs.seed, 8600 + v)),
+      cs.dayType,
+      cs.openType,
+      cs.openLocation,
+      cs.knobs,
+      cs.paramsVersion,
+    );
+    attempt = generateVerified(sibling, basePrice);
+  }
+  // Regen budget exhausted: re-derive whatever still fails from measurement
+  // so the served label is measurement-backed either way (GDD contract).
+  if (!attempt.dayOk) attempt.session.labels.dayType = attempt.measuredDay;
+  if (!attempt.openOk) attempt.session.labels.openType = attempt.measuredOpen;
+  return attempt.session;
+}
+
+/** One full generation pass + its FINAL-bars verification verdict. */
+interface VerifiedAttempt {
+  session: GeneratedSession;
+  /** classifyDayType over the KEPT bars === scripted dayType. */
+  dayOk: boolean;
+  /** classifyOpenType over the KEPT bars' opening window === scripted openType. */
+  openOk: boolean;
+  measuredDay: DayType;
+  measuredOpen: OpenType;
+}
+
+function generateVerified(cs: CompiledScript, basePrice: number): VerifiedAttempt {
   const prng = new Prng(cs.seed);
   const place = prng.stream('place');
   const n = cs.nBars;
@@ -510,16 +568,25 @@ export function generateSession(script: SessionScript, basePrice = 5000): Genera
     lo,
   };
 
-  // --- synthesis + classifier verification loop (rejection resampling)
+  // --- synthesis + classifier verification loop (rejection resampling).
+  // The flags survive the loop: after it, dayOk/openOk are the verdict on
+  // the KEPT bars (the final verification the caller acts on) — exhausting
+  // the re-noise budget can no longer smuggle an unverified label out.
   const refRange = typicalPriorRange([prior0, prior1, prior2]);
   let bars: Bar[] = [];
+  let measuredDay: DayType = cs.dayType;
+  let measuredOpen: OpenType = cs.openType;
+  let dayOk = false;
+  let openOk = false;
   for (let k = 0; k < MAX_NOISE_ATTEMPTS; k++) {
     const noise = prng.stream(k === 0 ? 'noise' : `noise#${k}`);
     const volume = prng.stream(k === 0 ? 'volume' : `volume#${k}`);
     bars = synthesizeBars(cs, dense, pins, ctx, noise, volume);
-    const tpo = buildTpoProfile(bars, cs.rowStep);
-    const dayOk = classifyDayType(bars, tpo, { ...GEN_DAYTYPE_OPTS, typicalRange: refRange }) === cs.dayType;
-    const openOk = classifyOpenType(bars.slice(0, 60), bars[0].o) === cs.openType;
+    const tpoK = buildTpoProfile(bars, cs.rowStep);
+    measuredDay = classifyDayType(bars, tpoK, { ...GEN_DAYTYPE_OPTS, typicalRange: refRange });
+    measuredOpen = classifyOpenType(bars.slice(0, OPEN_VERIFY_BARS), bars[0].o);
+    dayOk = measuredDay === cs.dayType;
+    openOk = measuredOpen === cs.openType;
     if (dayOk && openOk) break;
   }
 
@@ -618,5 +685,11 @@ export function generateSession(script: SessionScript, basePrice = 5000): Genera
     poolBaseRates: {},
   };
 
-  return { script: cs, bars, labels, priors: [prior0, prior1, prior2] };
+  return {
+    session: { script: cs, bars, labels, priors: [prior0, prior1, prior2] },
+    dayOk,
+    openOk,
+    measuredDay,
+    measuredOpen,
+  };
 }

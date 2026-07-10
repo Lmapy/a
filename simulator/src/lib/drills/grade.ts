@@ -79,6 +79,20 @@ function gradePocVa(li: LoopItem, answer: Answer): Verdict {
   const truthFarther = Math.abs(truth - p.poc) > Math.abs(pickRow - p.poc);
   const side = target === 'VAH' ? 'upper' : 'lower';
   const rel = target === 'VAH' ? 'above' : 'below';
+  // Wrong side of the POC (tap below it when VAH was asked / above it for
+  // VAL): neither "ran out" nor "swallowed" describes that geometry — the
+  // requested edge lives on the other side of the POC by construction.
+  // Template routing only; the distance/score math above is untouched.
+  const wrongSide = target === 'VAH' ? pickRow < p.poc : pickRow > p.poc;
+  if (wrongSide) {
+    return verdictOf(
+      false,
+      0,
+      'pocva.miss.va.wrongSide',
+      { target, n: dist, dir, rel, tapRel: target === 'VAH' ? 'below' : 'above' },
+      answer,
+    );
+  }
   if (truthFarther) {
     // mention the HVN bulge only when the profile actually has one out there
     const bulge = p.hvnRanges.some((r) => (target === 'VAH' ? r.hi > pickRow : r.lo < pickRow));

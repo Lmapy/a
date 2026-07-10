@@ -11,11 +11,12 @@ import { describe, expect, it } from 'vitest';
 import type { DayType, OpenLocation, OpenType } from '../types';
 import { Prng } from './prng';
 import { EASY_KNOBS, ROW_STEP, compileScript } from './scripts';
-import { GEN_DAYTYPE_OPTS, generateSession, typicalPriorRange } from './generator';
+import { GEN_DAYTYPE_OPTS, OPEN_VERIFY_BARS, generateSession, typicalPriorRange } from './generator';
 import type { GeneratedSession } from './generator';
 import { buildProfile } from '../core/profile';
 import { buildTpoProfile } from '../core/tpo';
 import { classifyDayType, classifyOpenType, measureExcessTicks } from '../core/classify';
+import { OPEN_CHIP, buildLoopItem } from '../drills/items';
 
 /** Canonical compatible (day type × open type × location) pairs (GDD §7). */
 const CANONICAL: Array<[DayType, OpenType, OpenLocation]> = [
@@ -69,6 +70,51 @@ describe('label recovery (N=40 per day type, easy difficulty)', () => {
       expect(openHits / N).toBeGreaterThanOrEqual(0.9);
     });
   }
+});
+
+describe('served open-type truth ≡ core measurement (GDD §7 final verification)', () => {
+  // Escapes of the pre-fix verification loop (re-noise budget exhausted with
+  // no final dayOk/openOk check): neutral days whose scripted
+  // open-rejection-reverse measured back as TEST-DRIVE or AUCTION. The first
+  // three are the audit's repro seeds; the rest fell out of a 400-item sweep.
+  const REGRESSION_SEEDS = ['92342', '615177', '1783867', '304', '1647', '2004', '2089', '3228', '4639'];
+
+  const measuredChip = (li: ReturnType<typeof buildLoopItem>): string =>
+    OPEN_CHIP[classifyOpenType(li.gen.bars.slice(0, OPEN_VERIFY_BARS), li.gen.bars[0].o)];
+
+  it('the regression seeds serve measurement-consistent truths, deterministically', () => {
+    for (const seed of REGRESSION_SEEDS) {
+      const li = buildLoopItem('open-type-ladder', seed);
+      expect(measuredChip(li), `seed ${seed}`).toBe(li.item.groundTruth);
+      // the regenerate/fallback path must stay deterministic: same seed ⇒
+      // byte-identical served session and truth
+      const again = buildLoopItem('open-type-ladder', seed);
+      expect(again.item.groundTruth).toBe(li.item.groundTruth);
+      expect(again.gen.bars).toEqual(li.gen.bars);
+      expect(again.gen.labels).toEqual(li.gen.labels);
+    }
+  });
+
+  it('400 sequential open-type-ladder items: served truth ALWAYS equals the measured classification', () => {
+    let openMiss = 0;
+    let dayMiss = 0;
+    for (let i = 0; i < 400; i++) {
+      const li = buildLoopItem('open-type-ladder', `${i + 1}`);
+      if (measuredChip(li) !== li.item.groundTruth) openMiss++;
+      const tpo = buildTpoProfile(li.gen.bars, ROW_STEP);
+      const measuredDay = classifyDayType(li.gen.bars, tpo, {
+        ...GEN_DAYTYPE_OPTS,
+        typicalRange: typicalPriorRange(li.gen.priors),
+      });
+      if (measuredDay !== li.gen.labels.dayType) dayMiss++;
+    }
+    // eslint-disable-next-line no-console
+    console.log(
+      `[recovery] served open-type items: open ${(100 * (1 - openMiss / 400)).toFixed(1)}%  day ${(100 * (1 - dayMiss / 400)).toFixed(1)}% (N=400)`,
+    );
+    expect(openMiss).toBe(0); // ALWAYS — not a rate: the label is the measurement
+    expect(dayMiss).toBe(0);
+  }, 120000);
 });
 
 describe('determinism (GDD §7)', () => {
