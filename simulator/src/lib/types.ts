@@ -111,6 +111,12 @@ export interface PlantedStructure {
   sourceSessionIndex: number;
   /** Resolution state at session end — consumed by boss grading (GDD §7 resolutionState). */
   resolved: boolean;
+  /**
+   * For resolved structures with a scripted first touch (e.g. an nPOC the
+   * script tags mid-session): the bar index of that touch. The price is
+   * guaranteed untouched by every earlier bar (planted-structure honesty).
+   */
+  touchBar?: number;
 }
 
 /** A decoy near-structure (0–2 per session, anti-obviousness rule, GDD §7). */
@@ -407,7 +413,7 @@ export interface RatingState {
   nodeId: string;
   /** Glicko-2 rating on the display scale (initial 1500). */
   rating: number;
-  /** Rating deviation RD (initial 350). */
+  /** Rating deviation RD (initial: schedule/glicko.INITIAL_RD). */
   rd: number;
   /** Volatility σ (initial 0.06). */
   volatility: number;
@@ -438,6 +444,21 @@ export interface QueueItem {
   lapses: number;
 }
 
+/**
+ * One executed boss/sim trade, attached to a boss-mode decision. Consumed by
+ * the Stats expectancy ledger (setup × regime, cells gray until n ≥ 30) and
+ * the R-multiple histogram (GDD §5 Expectancy Dashboard). Optional — drill
+ * decisions never carry it; the boss engine writes it on fills.
+ */
+export interface TradeFill {
+  /** Playbook setup name declared on the ticket (guide Part IV §4.1–4.9). */
+  setup: string;
+  /** Regime tag declared on the ticket at entry. */
+  regime: Regime;
+  /** Realized R-multiple of the trade (P&L / initial risk). */
+  rMultiple: number;
+}
+
 /** One persisted scored decision — the ledger row (GDD §9, Dexie table). */
 export interface DecisionRecord {
   /** Unique decision id. */
@@ -458,4 +479,13 @@ export interface DecisionRecord {
   at: number;
   /** Mode the decision was made in (only 'rated' and 'checkpoint' move rating). */
   mode: 'rated' | 'rush' | 'streak' | 'woodpecker' | 'calibration' | 'checkpoint' | 'warmup' | 'boss';
+  /** The executed trade, boss-mode decisions only (Stats expectancy ledger). */
+  trade?: TradeFill;
+  /**
+   * The served item's knob-derived rating (DrillItem.itemRating) at decision
+   * time. Optional (older rows lack it). Rating replay (schedule/tree) uses
+   * it as the exact Glicko opponent so replayed history matches the live
+   * update path one-for-one — never a second algorithm for the same number.
+   */
+  itemRating?: number;
 }

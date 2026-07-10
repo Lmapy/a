@@ -10,6 +10,7 @@ import {
   findHvnRanges,
   findLvnRanges,
   findPoc,
+  priceToBin,
   priceToRow,
   profileFromRows,
   rowToPrice,
@@ -232,5 +233,29 @@ describe('rowToPrice / priceToRow are inverse (snap-to-row invariant)', () => {
     for (let row = 0; row < 200; row++) {
       expect(priceToRow(geom, rowToPrice(geom, row))).toBe(row);
     }
+  });
+});
+
+describe('priceToBin (bin containment — floor semantics)', () => {
+  it('names the row whose bin contains the price, matching buildProfile binning', () => {
+    const geom = { minPrice: 100, rowStep: 0.5 };
+    // anywhere inside row 0's bin [100, 100.5) stays row 0 — priceToRow would
+    // round 100.3 up to the (possibly empty) row 1
+    expect(priceToBin(geom, 100.0)).toBe(0);
+    expect(priceToBin(geom, 100.3)).toBe(0);
+    expect(priceToBin(geom, 100.49)).toBe(0);
+    expect(priceToBin(geom, 100.5)).toBe(1);
+    expect(priceToRow(geom, 100.3)).toBe(1); // the snap behavior it corrects
+  });
+
+  it('a bar extreme lands in the same bin buildProfile deposited its volume into', () => {
+    // session low 100.3 → minPrice = floor(100.3/0.5)*0.5 = 100, low volume in row 0
+    const bars: Bar[] = [{ t: 0, o: 100.4, h: 101.9, l: 100.3, c: 101.5, v: 100 }];
+    const p = buildProfile(bars, 0.5);
+    expect(p.rows[priceToBin(p, 100.3)]).toBeGreaterThan(0);
+    expect(priceToBin(p, 100.3)).toBe(0);
+    // session high 101.9 → top row
+    expect(priceToBin(p, 101.9)).toBe(p.rows.length - 1);
+    expect(p.rows[priceToBin(p, 101.9)]).toBeGreaterThan(0);
   });
 });

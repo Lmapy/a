@@ -20,12 +20,21 @@ describe('compileScript (stub contract)', () => {
   });
 
   it('echoes taxonomy and carries seed + paramsVersion (re-derivability)', () => {
-    const s = compileScript(new Prng('5'), 'neutral', 'open-test-drive', 'out-of-value-in-range');
-    expect(s.dayType).toBe('neutral');
+    const s = compileScript(new Prng('5'), 'normal-variation', 'open-test-drive', 'out-of-value-in-range');
+    expect(s.dayType).toBe('normal-variation');
     expect(s.openType).toBe('open-test-drive');
     expect(s.openLocation).toBe('out-of-value-in-range');
     expect(s.seed).toBe('5');
     expect(s.paramsVersion).toBeTruthy();
     expect(s.rowStep).toBeGreaterThan(0);
+  });
+
+  it('coerces open types that contradict the day-type range premise', () => {
+    // a nontrend day cannot host a drive; a neutral day cannot hold a
+    // never-re-trade floor while extending both sides of the IB
+    const a = compileScript(new Prng('5'), 'nontrend', 'open-drive', 'in-value');
+    expect(a.openType).toBe('open-auction');
+    const b = compileScript(new Prng('5'), 'neutral', 'open-test-drive', 'in-value');
+    expect(b.openType).toBe('open-rejection-reverse');
   });
 });

@@ -9,6 +9,9 @@
    SINGLE-LIBRARY RULE (GDD §9): this module is used identically by
    generation-verification, rendering, and grading. No other code may compute
    POC/VA/HVN/LVN. Pure TS — zero DOM/Svelte imports.
+
+   STATUS: COMPLETE — real binning, POC, VA expansion, HVN/LVN detection.
+   Owner: core team.
    ========================================================================== */
 
 import type { Bar, Profile, RowRange } from '../types';
@@ -335,4 +338,16 @@ export function rowToPrice(profile: Pick<Profile, 'minPrice' | 'rowStep'>, row: 
 /** Nearest row index for a price (snap-to-row). */
 export function priceToRow(profile: Pick<Profile, 'minPrice' | 'rowStep'>, price: number): number {
   return Math.round((price - profile.minPrice) / profile.rowStep);
+}
+
+/**
+ * Row index of the bin CONTAINING a price — floor semantics, exactly the
+ * binning buildProfile uses (row r covers [minPrice + r·rowStep,
+ * minPrice + (r+1)·rowStep)). Use this to point at the row a traded price
+ * actually deposited volume into (e.g. highlighting a session extreme);
+ * priceToRow's rounding can name the EMPTY neighbor when the price sits in
+ * the outer half of its bin.
+ */
+export function priceToBin(profile: Pick<Profile, 'minPrice' | 'rowStep'>, price: number): number {
+  return Math.floor((price - profile.minPrice) / profile.rowStep);
 }

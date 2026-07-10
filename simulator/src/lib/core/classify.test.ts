@@ -54,6 +54,20 @@ describe('classifyShape', () => {
     expect(classifyShape(profileFromRows(rows, 100, 1))).toBe('thin-trend');
   });
 
+  it('hand case: a ladder of 3+ comparable bulges = thin-trend, never B (fig-02: B is TWO bulges)', () => {
+    // staircase footprint: three comparable consolidation beads with thin traverses
+    const ladder = [1, 8, 12, 8, 1, 1, 1, 7, 11, 7, 1, 1, 1, 8, 12, 8, 1];
+    expect(classifyShape(profileFromRows(ladder, 100, 1))).toBe('thin-trend');
+    // raising the ladder threshold restores the pre-rule reading (option honored)
+    expect(classifyShape(profileFromRows(ladder, 100, 1), { ladderMinPeaks: 4 })).toBe('B');
+    // exactly two bulges stay B regardless
+    const two = [1, 8, 12, 8, 1, 1, 1, 7, 11, 7, 1];
+    expect(classifyShape(profileFromRows(two, 100, 1))).toBe('B');
+    // a third bulge BELOW the comparable threshold does not trip the ladder
+    const twoAndDwarf = [1, 8, 12, 8, 1, 1, 1, 7, 11, 7, 1, 1, 1, 2, 3, 2, 1];
+    expect(classifyShape(profileFromRows(twoAndDwarf, 100, 1))).toBe('B');
+  });
+
   it('golden parity — fig-02: recovers all five reference shapes', () => {
     for (const ref of fig02.profiles) {
       const profile = profileFromRows([...ref.rows], 0, 1);

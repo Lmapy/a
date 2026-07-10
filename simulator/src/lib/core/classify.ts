@@ -15,6 +15,8 @@
    against the Python reference fixtures — the generator may tighten them.
 
    Pure TS — zero DOM/Svelte imports.
+   STATUS: COMPLETE — all classifiers measurement-based, fixture-verified.
+   Owner: core team.
    ========================================================================== */
 
 import type {
@@ -48,6 +50,14 @@ export interface ShapeOptions {
   neckFrac?: number;
   /** POC above this fraction of the range ⇒ P; below (1 − it) ⇒ b. */
   upperThirdFrac?: number;
+  /**
+   * ≥ this many COMPARABLE bulges (each ≥ bimodalPeakFrac × the dominant)
+   * read as a one-timeframing ladder ⇒ thin-trend, never B. fig-02 defines B
+   * as exactly TWO similar bulges split by one LVN neck; a staircase of 3+
+   * beads is the trend-day footprint (each impulse leg leaves a small
+   * consolidation distribution behind it), not a double distribution.
+   */
+  ladderMinPeaks?: number;
 }
 
 const SHAPE_DEFAULTS: Required<ShapeOptions> = {
@@ -57,13 +67,17 @@ const SHAPE_DEFAULTS: Required<ShapeOptions> = {
   bimodalPeakFrac: 0.4,
   neckFrac: 0.5,
   upperThirdFrac: 2 / 3,
+  ladderMinPeaks: 3,
 };
 
 /**
  * Classify the profile shape into the drill-D alphabet (fig-02 semantics):
- *  · B — two comparable HVN bulges separated by a thin LVN neck;
+ *  · B — exactly TWO comparable HVN bulges separated by a thin LVN neck;
  *  · thin-trend — elongated, no dominant bulge: high "flatness"
  *    (volume spread evenly over many rows), POC typically near one extreme;
+ *    OR a ladder of ≥ ladderMinPeaks comparable bulges — the staircase
+ *    footprint an unbroken one-timeframing day prints (fig-02's B is two
+ *    bulges; three-plus beads are impulse-leg consolidations, not a DD);
  *  · P — dominant bulge in the upper third (thin tail down);
  *  · b — mirror of P (bulge in the lower third, thin tail up);
  *  · D — symmetric balance bell (everything else).
@@ -83,11 +97,14 @@ export function classifyShape(profile: Profile, opts: ShapeOptions = {}): Profil
   const flatness = total / max / n;
   const pocPos = n === 1 ? 0.5 : profile.poc / (n - 1);
 
-  // --- B: double distribution ------------------------------------------------
+  // --- B vs ladder: how many COMPARABLE distributions? ------------------------
   const nodes = detectVolumeNodes(rows);
   if (nodes.length >= 2) {
     const byHeight = nodes.slice().sort((a, b) => b.height - a.height);
     const [p0, p1] = byHeight;
+    // one-timeframing ladder: ≥3 comparable beads ⇒ thin-trend, never B
+    const comparable = byHeight.filter((nd) => nd.height >= o.bimodalPeakFrac * p0.height).length;
+    if (comparable >= o.ladderMinPeaks) return 'thin-trend';
     if (p1.height >= o.bimodalPeakFrac * p0.height) {
       const s = smoothRows(rows, 2);
       const a = Math.min(p0.peak, p1.peak);

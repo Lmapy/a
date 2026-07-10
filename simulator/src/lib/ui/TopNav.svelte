@@ -12,7 +12,7 @@
   ];
 </script>
 
-<header class="topbar">
+<header class="topbar" class:mobile-hidden={router.route === 'home' || router.route === 'stats'}>
   <a class="wordmark" href="#/"><span class="tick">▮</span>THE AUCTION</a>
   <nav aria-label="Primary">
     {#each items as item (item.id)}
@@ -37,6 +37,13 @@
     padding: 0 var(--s5);
     border-bottom: var(--hairline-w) solid var(--hairline);
     background: var(--surface-0);
+  }
+  /* Home/Stats own their mobile chrome (MobileTopbar + BottomNav, design
+     system §3.6); the desktop top bar hides beneath the breakpoint there. */
+  @media (max-width: 479px) {
+    .topbar.mobile-hidden {
+      display: none;
+    }
   }
   .wordmark {
     font-family: var(--font-mono);

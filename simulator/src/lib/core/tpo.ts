@@ -6,9 +6,10 @@
    Pure TS — zero DOM/Svelte imports. Used by Drills F/G/H/I stimuli and the
    one-timeframing detector.
 
-   STATUS: bracket lettering, IB, and TPO counts implemented; POC/VA reuse the
-   volume-profile expansion on TPO counts (standard practice). Single-print
-   detection implemented. Owner: core team (verify against fig-12 goldens).
+   STATUS: COMPLETE — bracket lettering, IB, TPO counts, single prints, and
+   the one-timeframing break detector; POC/VA reuse the volume-profile
+   expansion on TPO counts (standard practice). fig-12 golden parity pinned
+   by __fixtures__/fig12.ts. Owner: core team.
    ========================================================================== */
 
 import type { Bar, TpoProfile } from '../types';
