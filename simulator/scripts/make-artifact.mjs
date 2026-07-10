@@ -10,7 +10,7 @@ html = html.replace(/url\((['"]?)\/fonts\/([^'")]+)\1\)/g, (_, __, file) => {
   return `url(data:font/woff2;base64,${b64})`;
 });
 const pick = (re) => [...html.matchAll(re)].map((m) => m[0]).join('\n');
-const title = '<title>The Auction — Volume Profile Trainer</title>';
+const title = `<meta charset="utf-8">\n<title>The Auction — Volume Profile Trainer</title>`;
 const styles = pick(/<style[\s\S]*?<\/style>/g);
 const scripts = pick(/<script type="module"[\s\S]*?<\/script>/g);
 const bodyInner = html.match(/<body[^>]*>([\s\S]*?)<\/body>/)?.[1] ?? '<div id="app"></div>';

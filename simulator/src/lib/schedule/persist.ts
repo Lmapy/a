@@ -146,13 +146,40 @@ class DexieStore implements LedgerStore {
 let _store: LedgerStore | null = null;
 
 /**
- * The active store: Dexie where IndexedDB exists, MemoryStore otherwise
- * (Node/Vitest). Resolution happens once, lazily.
+ * True when IndexedDB is actually usable. In sandboxed iframes (e.g. an
+ * artifact/embed viewer without allow-same-origin) merely ACCESSING
+ * `indexedDB` — even via `typeof` on its throwing accessor — or calling
+ * `open()` raises SecurityError, so the whole probe lives in a try/catch.
+ */
+function idbAvailable(): boolean {
+  try {
+    if (typeof indexedDB === 'undefined' || indexedDB === null) return false;
+    indexedDB.open('auction:probe').onsuccess = () => {
+      try {
+        indexedDB.deleteDatabase('auction:probe');
+      } catch {
+        /* best-effort cleanup */
+      }
+    };
+    return true;
+  } catch {
+    return false;
+  }
+}
+
+/**
+ * The active store: Dexie where IndexedDB is usable, MemoryStore otherwise
+ * (Node/Vitest, sandboxed embeds). Resolution happens once, lazily, and any
+ * construction failure also lands on the in-memory fallback — storage must
+ * degrade to session-memory, never break play.
  */
 export function store(): LedgerStore {
   if (!_store) {
-    _store =
-      typeof indexedDB !== 'undefined' ? new DexieStore(db()) : new MemoryStore();
+    try {
+      _store = idbAvailable() ? new DexieStore(db()) : new MemoryStore();
+    } catch {
+      _store = new MemoryStore();
+    }
   }
   return _store;
 }
