@@ -1,0 +1,316 @@
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>The Auction — Boss Intro (Terminal)</title>
+<style>
+/* ---------- fonts ---------- */
+@font-face{font-family:'Inter';font-weight:400;src:url('../fonts/inter-latin-400-normal.woff2') format('woff2')}
+@font-face{font-family:'Inter';font-weight:500;src:url('../fonts/inter-latin-500-normal.woff2') format('woff2')}
+@font-face{font-family:'Inter';font-weight:600;src:url('../fonts/inter-latin-600-normal.woff2') format('woff2')}
+@font-face{font-family:'Inter';font-weight:700;src:url('../fonts/inter-latin-700-normal.woff2') format('woff2')}
+@font-face{font-family:'JetBrains Mono';font-weight:400;src:url('../fonts/jetbrains-mono-latin-400-normal.woff2') format('woff2')}
+@font-face{font-family:'JetBrains Mono';font-weight:600;src:url('../fonts/jetbrains-mono-latin-600-normal.woff2') format('woff2')}
+
+/* ---------- design tokens (source of truth: direction-terminal.html) ---------- */
+:root{
+  /* surface ramp — 4 steps, elevation by lightness */
+  --surface-0:#141413;   /* app base */
+  --surface-1:#1a1a19;   /* chart panel */
+  --surface-2:#222220;   /* raised chips / cards */
+  --hairline:#2c2c2a;    /* borders, gridlines */
+  /* ink ramp */
+  --ink-hero:#ffffff;    /* hero numbers + verdict word only */
+  --ink-body:#c3c2b7;    /* body, labels, explanation */
+  --ink-muted:#898781;   /* meta, axis, captions */
+  /* chart owns color */
+  --vol-blue:#3987e5;
+  --vol-blue-dim:#2a5a8f;
+  --poc-orange:#d95926;
+  --highlight:#eda100;
+  /* semantic — verdicts only, always with a glyph */
+  --buy-green:#1baf7a;
+  --sell-red:#e66767;
+  /* type */
+  --font-ui:'Inter',system-ui,sans-serif;
+  --font-mono:'JetBrains Mono',monospace;
+  /* spacing (4px base) */
+  --s1:4px; --s2:8px; --s3:12px; --s4:16px; --s5:24px; --s6:32px;
+  --radius:8px;
+  /* CTA surface — per panel note 15: no pure-white pill */
+  --cta-ink:#e8e8e4;
+}
+*{margin:0;padding:0;box-sizing:border-box}
+html,body{height:100%}
+body{
+  width:390px;height:844px;overflow:hidden;
+  background:var(--surface-0);
+  color:var(--ink-body);
+  font-family:var(--font-ui);
+  font-size:14px;line-height:1.45;
+  -webkit-font-smoothing:antialiased;
+  font-variant-numeric:tabular-nums;
+}
+.mono{font-family:var(--font-mono);font-variant-numeric:tabular-nums}
+
+/* ---------- frame ---------- */
+.app{height:100%;display:flex;flex-direction:column;padding:0 var(--s4)}
+
+/* ---------- top chrome ---------- */
+.topbar{
+  height:52px;display:flex;align-items:center;justify-content:space-between;
+  padding-top:var(--s3);
+}
+.back{
+  display:flex;align-items:center;gap:8px;
+  font-family:var(--font-mono);font-size:11px;letter-spacing:.08em;
+  text-transform:uppercase;color:var(--ink-muted);
+}
+.back .chev{font-size:13px}
+.bosspos{font-family:var(--font-mono);font-size:11px;letter-spacing:.08em;color:var(--ink-muted)}
+
+/* ---------- boss head ---------- */
+.head{padding:var(--s2) 0 var(--s4)}
+.overline{
+  display:flex;align-items:center;gap:8px;
+  font-family:var(--font-mono);font-size:11px;font-weight:600;
+  letter-spacing:.14em;text-transform:uppercase;color:var(--highlight);
+}
+.overline .skull{font-size:9px;line-height:0;letter-spacing:0;transform:translateY(-.5px)}
+.overline .rule{flex:1;height:1px;background:var(--hairline)}
+.overline .gate{color:var(--ink-muted);font-weight:400;letter-spacing:.08em}
+.bossname{
+  margin-top:var(--s3);
+  font-size:24px;font-weight:700;line-height:1.15;color:var(--ink-hero);
+  letter-spacing:-.01em;white-space:nowrap;
+}
+.expect{
+  margin-top:var(--s2);
+  font-size:14px;color:var(--ink-body);
+}
+.expect b{font-family:var(--font-mono);font-weight:600;color:var(--highlight)}
+
+/* ---------- chart panel ---------- */
+.chart{
+  flex:1;min-height:0;
+  background:var(--surface-1);
+  border:1px solid var(--hairline);
+  border-radius:var(--radius);
+  position:relative;
+  overflow:hidden;
+}
+.chart svg{position:absolute;inset:0}
+.panelhead{
+  position:absolute;top:0;left:0;right:0;z-index:2;
+  display:flex;align-items:baseline;justify-content:space-between;
+  padding:var(--s3) var(--s3) 0;
+  font-family:var(--font-mono);font-size:11px;letter-spacing:.06em;color:var(--ink-muted);
+}
+.panelhead .cap{color:var(--ink-body)}
+
+/* ---------- trap ---------- */
+.trap{padding:var(--s4) 0 0}
+.seclabel{
+  font-family:var(--font-mono);font-size:11px;font-weight:400;
+  letter-spacing:.14em;text-transform:uppercase;color:var(--ink-muted);
+}
+.trapline{
+  margin-top:var(--s2);
+  font-size:15px;font-weight:500;line-height:1.4;color:var(--ink-body);
+}
+.trapline em{font-style:normal;color:var(--ink-hero)}
+.tells{margin-top:var(--s3);display:flex;flex-direction:column;gap:6px}
+.tell{
+  display:flex;align-items:baseline;gap:10px;
+  font-family:var(--font-mono);font-size:12px;color:var(--ink-muted);
+}
+.tell .dot{color:var(--highlight);font-size:10px;transform:translateY(-1px)}
+.tell b{font-weight:600;color:var(--ink-body)}
+
+/* ---------- rules of engagement ---------- */
+.roe{
+  margin-top:var(--s4);
+  background:var(--surface-1);
+  border:1px solid var(--hairline);
+  border-radius:var(--radius);
+  padding:var(--s3) var(--s4) var(--s4);
+}
+.roe .seclabel{display:block}
+.roerow{
+  display:flex;align-items:baseline;justify-content:space-between;gap:var(--s3);
+  padding:8px 0 0;
+}
+.roerow .k{font-size:13px;font-weight:500;color:var(--ink-body)}
+.roerow .v{font-family:var(--font-mono);font-size:13px;font-weight:600;color:var(--ink-hero);white-space:nowrap}
+.roerow .v .u{font-weight:400;color:var(--ink-muted)}
+.roefoot{
+  margin-top:var(--s3);padding-top:10px;
+  border-top:1px solid var(--hairline);
+  font-size:12px;color:var(--ink-muted);white-space:nowrap;
+}
+
+/* ---------- best attempt ---------- */
+.best{
+  display:flex;align-items:baseline;justify-content:space-between;
+  padding:var(--s4) var(--s1) 0;
+}
+.best .k{font-family:var(--font-mono);font-size:11px;letter-spacing:.14em;text-transform:uppercase;color:var(--ink-muted);white-space:nowrap}
+.best .v{font-family:var(--font-mono);font-size:12px;color:var(--ink-muted);white-space:nowrap}
+.best .v b{font-weight:600;color:var(--ink-body)}
+
+/* ---------- footer CTA ---------- */
+.footer{padding:var(--s4) 0 var(--s4)}
+.enter{
+  height:52px;width:100%;
+  display:flex;align-items:center;justify-content:center;gap:10px;
+  background:var(--cta-ink);color:var(--surface-0);
+  border-radius:var(--radius);
+  font-size:14px;font-weight:600;letter-spacing:.1em;
+}
+.enter .arrow{font-size:12px}
+</style>
+
+<div class="app">
+
+  <!-- top chrome -->
+  <div class="topbar">
+    <div class="back"><span class="chev">‹</span>Skill tree</div>
+    <div class="bosspos">BOSS 1 / 3</div>
+  </div>
+
+  <!-- boss head -->
+  <div class="head">
+    <div class="overline"><span class="skull">◆</span>Boss session<span class="rule"></span><span class="gate">GATES T2 → T3</span></div>
+    <h1 class="bossname">Trend-Day Fade Gauntlet</h1>
+    <p class="expect">Expect <b>~40%</b> success. Errors are the content.</p>
+  </div>
+
+  <!-- sample tape -->
+  <div class="chart" id="chartbox">
+    <div class="panelhead"><span class="cap">LAST RUN OF THIS BOSS</span><span>RTH · 1 pt rows</span></div>
+    <svg id="tape"></svg>
+  </div>
+
+  <!-- the trap -->
+  <div class="trap">
+    <div class="seclabel">The trap</div>
+    <p class="trapline">Every fade from VAH will look perfect — <em>and lose</em>. One-timeframing never breaks.</p>
+    <div class="tells">
+      <div class="tell"><span class="dot">●</span><span>IB <b>0.4×</b> normal width</span></div>
+      <div class="tell"><span class="dot">●</span><span>pullbacks never exceed <b>40%</b></span></div>
+      <div class="tell"><span class="dot">●</span><span>impulse volume <b>rising</b></span></div>
+    </div>
+  </div>
+
+  <!-- rules of engagement -->
+  <div class="roe">
+    <span class="seclabel">Rules of engagement</span>
+    <div class="roerow"><span class="k">Daily loss limit</span><span class="v">−$500</span></div>
+    <div class="roerow"><span class="k">Trailing drawdown</span><span class="v">−$300</span></div>
+    <div class="roerow"><span class="k">KILL / HOLD interrupts</span><span class="v">5.0s <span class="u">to answer</span></span></div>
+    <div class="roefoot">A breach ends the session — open positions included.</div>
+  </div>
+
+  <!-- best attempt -->
+  <div class="best">
+    <span class="k">Best attempt</span>
+    <span class="v">READ <b>61</b> · <b>−1.8R</b> · not passed</span>
+  </div>
+
+  <!-- CTA -->
+  <div class="footer">
+    <div class="enter">ENTER THE GAUNTLET<span class="arrow">▸</span></div>
+  </div>
+
+</div>
+
+<script>
+// Sample tape: scripted trend day up. Price path with three "perfect" fades (all lose),
+// live-built elongated profile on the right edge (thin trend distribution).
+const box=document.getElementById('chartbox');
+const svg=document.getElementById('tape');
+const W=box.clientWidth, H=box.clientHeight;
+svg.setAttribute('width',W); svg.setAttribute('height',H);
+svg.setAttribute('viewBox',`0 0 ${W} ${H}`);
+const ns='http://www.w3.org/2000/svg';
+const el=(t,a)=>{const e=document.createElementNS(ns,t);for(const k in a)e.setAttribute(k,a[k]);return e};
+const mono={'font-family':"'JetBrains Mono',monospace"};
+
+const padT=38,padB=30,axisW=60,profW=52,padL=12;
+const plotW=W-axisW-profW-padL-8;                 // path zone
+const y=v=>padT+v*(H-padT-padB);                  // v: 0 top … 1 bottom
+const x=u=>padL+u*plotW;
+
+// price scale: 26 one-point rows, top 5312
+const TOP=5312, STEP=1, ROWS=26;
+const rowY=i=>padT+(i/ROWS)*(H-padT-padB);
+
+// hairline gridlines at labeled ticks (arena steal)
+for(let i=2;i<ROWS;i+=6){
+  svg.appendChild(el('line',{x1:padL,y1:rowY(i),x2:W-axisW-4,y2:rowY(i),stroke:'#2c2c2a','stroke-width':1}));
+  const t=el('text',{...mono,x:W-10,y:rowY(i)+3.5,'text-anchor':'end',fill:'#898781','font-size':'11'});
+  t.textContent=(TOP-i*STEP).toFixed(2);
+  svg.appendChild(t);
+}
+
+// prior-day VAH — the level every fade keyed off
+const pvahY=y(0.80);
+svg.appendChild(el('line',{x1:padL,y1:pvahY,x2:W-axisW-profW-10,y2:pvahY,stroke:'#3987e5','stroke-opacity':.45,'stroke-width':1,'stroke-dasharray':'3 4'}));
+const pvahT=el('text',{...mono,x:W-axisW-profW-14,y:pvahY-6,'text-anchor':'end',fill:'#3987e5','font-size':'10','letter-spacing':'.08em'});
+pvahT.textContent='pVAH';
+svg.appendChild(pvahT);
+
+// path anchors (u,v): open above prior value, one-timeframing higher all day
+const anchors=[[0,.90],[.05,.86],[.16,.66],[.24,.745],[.30,.70],[.42,.42],[.50,.505],[.56,.46],[.68,.20],[.76,.275],[.82,.24],[.94,.05],[1,.09]];
+// deterministic jitter between anchors
+let seed=7;const rnd=()=>{seed=(seed*1103515245+12345)&0x7fffffff;return seed/0x7fffffff-.5};
+const pts=[];
+for(let a=0;a<anchors.length-1;a++){
+  const [u0,v0]=anchors[a],[u1,v1]=anchors[a+1];
+  const steps=Math.max(2,Math.round((u1-u0)*40));
+  for(let s=0;s<steps;s++){
+    const f=s/steps;
+    pts.push([x(u0+(u1-u0)*f), y(v0+(v1-v0)*f+rnd()*.018)]);
+  }
+}
+pts.push([x(1),y(anchors[anchors.length-1][1])]);
+svg.appendChild(el('polyline',{points:pts.map(p=>p.map(n=>n.toFixed(1)).join(',')).join(' '),fill:'none',stroke:'#c3c2b7','stroke-width':1.5,'stroke-linejoin':'round'}));
+
+// three textbook fades — all lost (sell-red, glyph-paired)
+const fades=[[.16,.66],[.42,.42],[.68,.20]];
+fades.forEach(([u,v],i)=>{
+  const cx=x(u), cy=y(v)-13;
+  svg.appendChild(el('circle',{cx,cy,r:8.5,fill:'#1a1a19',stroke:'#e66767','stroke-width':1.25}));
+  const t=el('text',{x:cx,y:cy+3.5,'text-anchor':'middle',fill:'#e66767','font-size':'10','font-weight':'700','font-family':"'Inter',sans-serif"});
+  t.textContent='✗';
+  svg.appendChild(t);
+  const lab=el('text',{...mono,x:cx,y:cy-14,'text-anchor':'middle',fill:'#e66767','font-size':'10','letter-spacing':'.06em'});
+  lab.textContent='FADE '+(i+1);
+  svg.appendChild(lab);
+});
+
+// elongated trend profile at the right edge (thin rows, min 6px length)
+const profR=W-axisW-4;
+const widths=[0.10,0.16,0.22,0.30,0.24,0.18,0.30,0.44,0.36,0.22,0.16,0.26,0.42,0.56,0.44,0.30,0.20,0.28,0.40,0.34,0.26,0.42,0.66,1.00,0.72,0.38];
+const POCROW=23, rowH=(H-padT-padB)/ROWS, barH=Math.max(4,rowH-3);
+widths.forEach((w,i)=>{
+  const bw=Math.max(6,w*(profW-6));
+  const fill=i===POCROW?'#d95926':(w>=.4?'#3987e5':'#2a5a8f');
+  svg.appendChild(el('rect',{x:profR-bw,y:rowY(i)+1.5,width:bw,height:barH,rx:1,fill}));
+});
+// POC price on axis + text tag beside the bar — never color-alone (panel note 16)
+const pocY=rowY(POCROW)+rowH/2+3.5;
+const pocT=el('text',{...mono,x:W-10,y:pocY,'text-anchor':'end',fill:'#d95926','font-size':'11','font-weight':'600'});
+pocT.textContent=(TOP-POCROW*STEP).toFixed(2);
+svg.appendChild(pocT);
+const pocTag=el('text',{...mono,x:profR-widths[POCROW]*(profW-6)-6,y:pocY,'text-anchor':'end',fill:'#d95926','font-size':'10','letter-spacing':'.08em'});
+pocTag.textContent='POC';
+svg.appendChild(pocTag);
+
+// close marker
+const [cu,cv]=anchors[anchors.length-1];
+svg.appendChild(el('circle',{cx:x(cu),cy:y(cv),r:2.5,fill:'#eda100'}));
+
+// in-panel verdict caption (bottom-left, its own strip below the plot)
+const cap=el('text',{...mono,x:padL+2,y:H-11,fill:'#898781','font-size':'11','letter-spacing':'.04em'});
+cap.textContent='3 fades taken · 3 losses · limit breached 13:42';
+svg.appendChild(cap);
+</script>

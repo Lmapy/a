@@ -1,0 +1,331 @@
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>The Auction — Skill Tree (Terminal)</title>
+<style>
+/* ---------- fonts ---------- */
+@font-face{font-family:'Inter';font-weight:400;src:url('../fonts/inter-latin-400-normal.woff2') format('woff2')}
+@font-face{font-family:'Inter';font-weight:500;src:url('../fonts/inter-latin-500-normal.woff2') format('woff2')}
+@font-face{font-family:'Inter';font-weight:600;src:url('../fonts/inter-latin-600-normal.woff2') format('woff2')}
+@font-face{font-family:'Inter';font-weight:700;src:url('../fonts/inter-latin-700-normal.woff2') format('woff2')}
+@font-face{font-family:'JetBrains Mono';font-weight:400;src:url('../fonts/jetbrains-mono-latin-400-normal.woff2') format('woff2')}
+@font-face{font-family:'JetBrains Mono';font-weight:600;src:url('../fonts/jetbrains-mono-latin-600-normal.woff2') format('woff2')}
+
+/* ---------- design tokens (source of truth: direction-terminal.html) ---------- */
+:root{
+  /* surface ramp — 4 steps, elevation by lightness */
+  --surface-0:#141413;   /* app base */
+  --surface-1:#1a1a19;   /* chart panel */
+  --surface-2:#222220;   /* raised chips / cards */
+  --hairline:#2c2c2a;    /* borders, gridlines */
+  /* ink ramp */
+  --ink-hero:#ffffff;    /* hero numbers + verdict word only */
+  --ink-body:#c3c2b7;    /* body, labels, explanation */
+  --ink-muted:#898781;   /* meta, axis, captions */
+  /* chart owns color */
+  --vol-blue:#3987e5;
+  --vol-blue-dim:#2a5a8f;
+  --poc-orange:#d95926;
+  --highlight:#eda100;
+  /* semantic — verdicts only, always with a glyph */
+  --buy-green:#1baf7a;
+  --sell-red:#e66767;
+  /* type */
+  --font-ui:'Inter',system-ui,sans-serif;
+  --font-mono:'JetBrains Mono',monospace;
+  /* spacing (4px base) */
+  --s1:4px; --s2:8px; --s3:12px; --s4:16px; --s5:24px; --s6:32px;
+  --radius:8px;
+  /* CTA surface — panel note 15: no pure-white pill */
+  --cta:#e8e8e4;
+}
+*{margin:0;padding:0;box-sizing:border-box}
+html,body{height:100%}
+body{
+  width:390px;height:844px;overflow:hidden;
+  background:var(--surface-0);
+  color:var(--ink-body);
+  font-family:var(--font-ui);
+  font-size:14px;line-height:1.45;
+  -webkit-font-smoothing:antialiased;
+  font-variant-numeric:tabular-nums;
+}
+.mono{font-family:var(--font-mono);font-variant-numeric:tabular-nums}
+
+.app{height:100%;display:flex;flex-direction:column;padding:0 var(--s4)}
+
+/* ---------- top chrome ---------- */
+.topbar{
+  height:44px;flex:none;
+  display:flex;align-items:center;justify-content:space-between;
+  padding-top:var(--s2);
+}
+.wordmark{
+  font-family:var(--font-mono);font-size:11px;font-weight:600;
+  letter-spacing:.14em;color:var(--ink-body);
+}
+.wordmark .tick{color:var(--poc-orange)}
+.gear{color:var(--ink-muted);font-size:15px}
+
+/* ---------- warm-up card ---------- */
+.warmup{
+  flex:none;
+  background:var(--surface-1);
+  border:1px solid var(--hairline);
+  border-radius:var(--radius);
+  padding:var(--s4);
+  margin-top:var(--s3);
+}
+.warmup-head{display:flex;align-items:baseline;justify-content:space-between}
+.warmup-title{font-size:11px;font-weight:600;letter-spacing:.1em;color:var(--ink-body);font-family:var(--font-mono)}
+.warmup-title span{color:var(--ink-muted);font-weight:400}
+.streak{font-family:var(--font-mono);font-size:11px;color:var(--ink-muted);letter-spacing:.04em}
+.streak b{font-weight:600;color:var(--ink-body)}
+.warmup-desc{margin-top:var(--s2);font-size:13px;color:var(--ink-muted)}
+.warmup-desc b{font-weight:500;color:var(--ink-body)}
+.start{
+  margin-top:var(--s3);height:44px;
+  display:flex;align-items:center;justify-content:center;gap:8px;
+  background:var(--cta);color:var(--surface-0);
+  border-radius:var(--radius);
+  font-size:14px;font-weight:600;letter-spacing:.1em;
+}
+.start .arrow{font-size:12px}
+
+/* ---------- tree ---------- */
+.tree{flex:1;min-height:0;overflow:hidden;margin-top:var(--s2)}
+.tier{margin-top:var(--s3)}
+.tier-head{
+  display:flex;align-items:baseline;justify-content:space-between;
+  padding:0 var(--s3) var(--s1);
+}
+.tier-name{
+  font-family:var(--font-mono);font-size:11px;font-weight:600;
+  letter-spacing:.1em;color:var(--ink-muted);
+}
+.tier-name b{color:var(--ink-body)}
+.tier-meta{font-family:var(--font-mono);font-size:11px;color:var(--ink-muted);letter-spacing:.04em}
+
+.node{
+  display:grid;grid-template-columns:28px 1fr auto;align-items:center;
+  min-height:38px;padding:2px var(--s3);
+  position:relative;
+}
+/* subway rail */
+.rail{position:relative;width:28px;height:100%;min-height:34px;align-self:stretch}
+.rail::before{
+  content:'';position:absolute;left:9px;top:-3px;bottom:-3px;width:1px;background:var(--hairline);
+}
+.node.first .rail::before{top:50%}
+.node.last .rail::before{bottom:50%}
+.dot{
+  position:absolute;left:0;top:50%;transform:translateY(-50%);
+  width:19px;height:19px;border-radius:50%;
+  display:flex;align-items:center;justify-content:center;
+  background:var(--surface-0);
+}
+/* node states */
+.dot.mastered{background:var(--ink-body)}
+.dot.mastered::after{content:'✓';font-size:11px;font-weight:700;color:var(--surface-0)}
+.dot.rusty{border:1.5px solid var(--highlight)}
+.dot.rusty::after{content:'⟳';font-size:11px;color:var(--highlight)}
+.dot.armed{border:1.5px solid var(--highlight)}
+.dot.armed::after{content:'';width:7px;height:7px;border-radius:50%;background:var(--highlight)}
+.dot.locked{border:1px solid var(--hairline)}
+.dot svg{display:block}
+
+.node-name{font-size:14px;font-weight:500;color:var(--ink-body);line-height:1.25}
+.node-sub{font-size:11px;color:var(--ink-muted);line-height:1.35;margin-top:1px}
+.node-sub .amber{color:var(--highlight)}
+.node.locked-row .node-name{color:var(--ink-muted);font-weight:400}
+
+/* rating chip */
+.rating{
+  font-family:var(--font-mono);font-size:12px;font-weight:600;color:var(--ink-body);
+  background:var(--surface-2);border:1px solid var(--hairline);border-radius:6px;
+  padding:2px 8px;letter-spacing:.02em;
+  justify-self:end;
+}
+.rating .delta{font-weight:400;color:var(--ink-muted);margin-left:4px}
+.rating.dim{background:transparent;border-color:transparent;color:var(--ink-muted);font-weight:400}
+
+/* active (tap-next) row */
+.node.active{
+  background:var(--surface-1);
+  border:1px solid var(--hairline);
+  border-radius:var(--radius);
+  margin:2px 0;
+}
+.node.active .rail::before{display:none}
+.node.active .node-name{color:var(--ink-hero);font-weight:600}
+.node.active .chev{color:var(--ink-body);font-size:12px;margin-left:var(--s3);justify-self:end}
+.active-right{display:flex;align-items:center;justify-self:end}
+
+/* T3 silhouette */
+.silhouette{
+  display:flex;align-items:center;gap:8px;
+  padding:var(--s2) var(--s3) 0;
+  font-family:var(--font-mono);font-size:11px;letter-spacing:.1em;color:var(--ink-muted);
+}
+.silhouette .boxes{display:flex;gap:4px}
+.silhouette .bx{width:14px;height:8px;border:1px solid var(--hairline);border-radius:2px}
+
+/* ---------- bottom nav ---------- */
+.nav{
+  flex:none;height:56px;
+  display:flex;align-items:stretch;
+  border-top:1px solid var(--hairline);
+  margin:0 calc(-1 * var(--s4));
+}
+.nav a{
+  flex:1;display:flex;align-items:center;justify-content:center;
+  text-decoration:none;position:relative;
+  font-family:var(--font-mono);font-size:11px;font-weight:500;letter-spacing:.16em;
+  color:var(--ink-muted);
+}
+.nav a.on{color:var(--ink-hero);font-weight:600}
+.nav a.on::before{
+  content:'';position:absolute;top:-1px;left:50%;transform:translateX(-50%);
+  width:32px;height:2px;background:var(--ink-body);
+}
+</style>
+
+<div class="app">
+
+  <!-- top chrome -->
+  <div class="topbar">
+    <div class="wordmark"><span class="tick">▮</span> THE AUCTION</div>
+    <div class="gear">⚙</div>
+  </div>
+
+  <!-- daily warm-up -->
+  <div class="warmup">
+    <div class="warmup-head">
+      <div class="warmup-title">DAILY WARM-UP</div>
+      <div class="streak">STREAK <b>12</b> · 2 freezes</div>
+    </div>
+    <div class="warmup-desc">3 min · <b>2 misses due</b> · Excess vs Poor review</div>
+    <div class="start">START<span class="arrow">▸</span></div>
+  </div>
+
+  <!-- tree -->
+  <div class="tree">
+
+    <div class="tier">
+      <div class="tier-head">
+        <div class="tier-name"><b>T0</b> · READ THE MAP</div>
+        <div class="tier-meta">3/5 MASTERED</div>
+      </div>
+      <div class="node first">
+        <div class="rail"><div class="dot mastered"></div></div>
+        <div><div class="node-name">POC Snap</div></div>
+        <div class="rating">1512</div>
+      </div>
+      <div class="node">
+        <div class="rail"><div class="dot mastered"></div></div>
+        <div><div class="node-name">Value Area Shade</div></div>
+        <div class="rating">1488</div>
+      </div>
+      <div class="node">
+        <div class="rail"><div class="dot mastered"></div></div>
+        <div><div class="node-name">HVN / LVN Marker</div></div>
+        <div class="rating">1451</div>
+      </div>
+      <div class="node">
+        <div class="rail"><div class="dot rusty"></div></div>
+        <div>
+          <div class="node-name">Excess vs Poor</div>
+          <div class="node-sub"><span class="amber">⟳ Rusty</span> — review queued in Warm-Up</div>
+        </div>
+        <div class="rating">1395<span class="delta">↓18</span></div>
+      </div>
+      <div class="node last">
+        <div class="rail"><div class="dot armed"></div></div>
+        <div>
+          <div class="node-name">Shape Alphabet</div>
+          <div class="node-sub"><span class="amber">◉ Checkpoint armed</span> — unlocks tomorrow</div>
+        </div>
+        <div class="rating">1184</div>
+      </div>
+    </div>
+
+    <div class="tier">
+      <div class="tier-head">
+        <div class="tier-name"><b>T1</b> · SESSION STRUCTURE</div>
+        <div class="tier-meta">0/4</div>
+      </div>
+      <div class="node active first">
+        <div class="rail">
+          <div class="dot">
+            <svg width="19" height="19" viewBox="0 0 19 19">
+              <circle cx="9.5" cy="9.5" r="7" fill="none" stroke="#55534d" stroke-width="1.5"/>
+              <circle cx="9.5" cy="9.5" r="7" fill="none" stroke="var(--ink-hero)" stroke-width="1.5"
+                stroke-dasharray="34.3 44" stroke-linecap="round" transform="rotate(-90 9.5 9.5)"/>
+              <circle cx="9.5" cy="9.5" r="2.5" fill="var(--ink-hero)"/>
+            </svg>
+          </div>
+        </div>
+        <div>
+          <div class="node-name">Open Type</div>
+          <div class="node-sub">In progress · 78% — gate arms at 85%</div>
+        </div>
+        <div class="active-right">
+          <div class="rating">1102</div>
+          <div class="chev">▸</div>
+        </div>
+      </div>
+      <div class="node locked-row">
+        <div class="rail"><div class="dot locked"></div></div>
+        <div><div class="node-name">Initial Balance</div></div>
+        <div class="rating dim">—</div>
+      </div>
+      <div class="node locked-row">
+        <div class="rail"><div class="dot locked"></div></div>
+        <div><div class="node-name">One-Timeframing</div></div>
+        <div class="rating dim">—</div>
+      </div>
+      <div class="node locked-row last">
+        <div class="rail"><div class="dot locked"></div></div>
+        <div><div class="node-name">Day Type</div></div>
+        <div class="rating dim">—</div>
+      </div>
+    </div>
+
+    <div class="tier">
+      <div class="tier-head">
+        <div class="tier-name"><b>T2</b> · REGIME &amp; CALIBRATION</div>
+        <div class="tier-meta">0/3</div>
+      </div>
+      <div class="node locked-row first">
+        <div class="rail"><div class="dot locked"></div></div>
+        <div>
+          <div class="node-name">Regime Gate</div>
+          <div class="node-sub">Gated by the calibration intro module</div>
+        </div>
+        <div class="rating dim">—</div>
+      </div>
+      <div class="node locked-row">
+        <div class="rail"><div class="dot locked"></div></div>
+        <div><div class="node-name">Calibration Range</div></div>
+        <div class="rating dim">—</div>
+      </div>
+      <div class="node locked-row last">
+        <div class="rail"><div class="dot locked"></div></div>
+        <div><div class="node-name">Folklore Audit</div></div>
+        <div class="rating dim">—</div>
+      </div>
+      <div class="silhouette">
+        <span>T3 · PLAYBOOK</span>
+        <div class="boxes"><div class="bx"></div><div class="bx"></div><div class="bx"></div></div>
+      </div>
+    </div>
+
+  </div>
+
+  <!-- bottom nav -->
+  <div class="nav">
+    <a class="on">TREE</a>
+    <a>DRILL</a>
+    <a>STATS</a>
+  </div>
+
+</div>
