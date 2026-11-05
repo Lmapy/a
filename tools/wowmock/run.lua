@@ -94,6 +94,13 @@ local function installModern(m, profs, childInfos)
 		IsNPCCrafting = function() return false end,
 		GetAllRecipeIDs = function()
 			local ids = {}
+			for _, r in ipairs(trade.noAll and {} or trade.recipes or {}) do
+				ids[#ids + 1] = r[1]
+			end
+			return ids
+		end,
+		GetFilteredRecipeIDs = function()
+			local ids = {}
 			for _, r in ipairs(trade.recipes or {}) do
 				ids[#ids + 1] = r[1]
 			end
@@ -832,6 +839,60 @@ scenarios[#scenarios + 1] = { "camp recipes, long names and a compact map", func
 	eq(branchKeys(ns), "rank,next", "fishing map")
 	check(ns.Map.frame:GetWidth() < ns.Map.metrics.WIDTH - 100, "maps with one open side are narrower")
 	checkMapGeometry(m, ns, "fishing")
+	eq(#m.warnings, 0, "no conflicting anchors")
+	eq(ns.lastError, nil, "no contained errors")
+end }
+
+scenarios[#scenarios + 1] = { "recipe cache follows what you know", function()
+	local m = Mock.new()
+	m.level = 20
+	local profs = {
+		{ slot = 1, name = "Blacksmithing", icon = 136241, rank = 60, max = 75, line = 164 },
+		{ slot = 2, name = "Mining", icon = 136248, rank = 40, max = 75, line = 186 },
+	}
+	installModern(m, profs, {})
+	local ns = boot(m)
+	local function cachedNames()
+		local names = {}
+		for _, recipe in ipairs(ns.GetRecipeCache("blacksmithing").list) do
+			names[#names + 1] = recipe.name
+		end
+		table.sort(names)
+		return table.concat(names, ",")
+	end
+	local function scan(recipes)
+		m.trade.open, m.trade.recipes = profs[1], recipes
+		m.Fire("TRADE_SKILL_LIST_UPDATE")
+		m.Advance(1)
+	end
+	scan({ { 1, "A", 0, 1, { { 2840, 1 } } }, { 2, "B", 0, 1, { { 2840, 1 } } }, { 3, "C", 0, 1, { { 2840, 1 } } } })
+	eq(cachedNames(), "A,B,C", "learned recipes cached")
+
+	-- Dropped and relearned: A is unlearned now and B is no longer listed.
+	scan({ { 1, "A", 0, 1, { { 2840, 1 } }, false }, { 3, "C", 0, 1, { { 2840, 1 } } } })
+	eq(cachedNames(), "C", "unlearned and missing recipes are forgotten")
+
+	-- A filtered list hides recipes without unlearning them: keep those.
+	m.trade.noAll = true
+	scan({ { 4, "D", 0, 1, { { 2840, 1 } } } })
+	eq(cachedNames(), "C,D", "recipes hidden by the window's filters are kept")
+	scan({ { 3, "C", 0, 1, { { 2840, 1 } }, false } })
+	eq(cachedNames(), "D", "even a filtered list forgets recipes reported as unlearned")
+	m.trade.noAll = false
+
+	-- No answers yet (data still loading) never wipes the cache.
+	local realInfo = m.env.C_TradeSkillUI.GetRecipeInfo
+	m.env.C_TradeSkillUI.GetRecipeInfo = function() return nil end
+	scan({ { 4, "D", 0, 1, { { 2840, 1 } } } })
+	eq(cachedNames(), "D", "a scan with no answers keeps the cache")
+	m.env.C_TradeSkillUI.GetRecipeInfo = realInfo
+
+	-- A miner at 40 is not shown zone-specific veins they cannot mine yet.
+	m.Click(ns.Bars.bars.mining)
+	m.Hover(findNode(ns, "Ore"))
+	local tip = table.concat(m.env.GameTooltip.lines, "\n")
+	check(tip:find("Incendicite", 1, true) == nil and tip:find("Zone-specific", 1, true) == nil, "locked zone-specific nodes are not listed as in range")
+	m.Leave()
 	eq(#m.warnings, 0, "no conflicting anchors")
 	eq(ns.lastError, nil, "no contained errors")
 end }

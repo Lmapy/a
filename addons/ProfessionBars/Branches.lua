@@ -437,7 +437,7 @@ local function nodesBranch(prof)
 	for _, node in ipairs(nodes) do
 		local diff = ns.GatherDifficulty(prof.rank, node[1])
 		if node.rare then
-			if diff ~= "trivial" then
+			if diff ~= "trivial" and diff ~= "locked" then
 				rare[#rare + 1] = line(node[2] .. " (" .. node[1] .. ")", DIFF[diff])
 			end
 		elseif diff == "locked" then

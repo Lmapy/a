@@ -278,12 +278,14 @@ function ns.ScanOpenProfession()
 	if not key then
 		return nil
 	end
-	local ids
+	-- GetAllRecipeIDs lists every recipe; GetFilteredRecipeIDs only what the
+	-- window's filters show, so missing recipes there may still be known.
+	local ids, complete
 	for _, fnName in ipairs({ "GetAllRecipeIDs", "GetFilteredRecipeIDs" }) do
 		if not ids and T[fnName] then
 			local okIDs, result = pcall(T[fnName])
 			if okIDs and type(result) == "table" and #result > 0 then
-				ids = result
+				ids, complete = result, fnName == "GetAllRecipeIDs"
 			end
 		end
 	end
@@ -296,13 +298,18 @@ function ns.ScanOpenProfession()
 	for _, entry in ipairs(cache.list) do
 		existing[entry.id] = entry
 	end
-	local found = 0
+	local found, known, unlearned = 0, {}, {}
 	for _, rawID in ipairs(ids) do
 		local recipeID = ns.PlainNumber(rawID)
+		local okInfo, info = false, nil
 		if recipeID then
-			local okInfo, info = pcall(T.GetRecipeInfo, recipeID)
-			if okInfo and type(info) == "table" and ns.Plain(info.learned)
-				and not ns.Plain(info.isDummyRecipe) and not ns.Plain(info.isGatheringRecipe) and not ns.Plain(info.isRecraft) then
+			okInfo, info = pcall(T.GetRecipeInfo, recipeID)
+		end
+		if okInfo and type(info) == "table" then
+			if not ns.Plain(info.learned) then
+				unlearned[recipeID] = true
+			elseif not ns.Plain(info.isDummyRecipe) and not ns.Plain(info.isGatheringRecipe) and not ns.Plain(info.isRecraft) then
+				known[recipeID] = true
 				local entry = existing[recipeID]
 				if not entry then
 					entry = { id = recipeID }
@@ -324,9 +331,20 @@ function ns.ScanOpenProfession()
 			end
 		end
 	end
-	if found == 0 then
+	-- Nothing answered yet (data still loading): keep what we had.
+	if found == 0 and next(unlearned) == nil then
 		return nil
 	end
+	-- Forget recipes you no longer know (for example after dropping and
+	-- relearning the profession): anything the game now reports as unlearned,
+	-- and, when the list is complete, anything missing from it.
+	local kept = {}
+	for _, entry in ipairs(cache.list) do
+		if known[entry.id] or (not complete and not unlearned[entry.id]) then
+			kept[#kept + 1] = entry
+		end
+	end
+	cache.list = kept
 	cache.rank = ns.PlainNumber(base.skillLevel) or (ns.byKey and ns.byKey[key] and ns.byKey[key].rank) or cache.rank
 	cache.time = time()
 	return key
