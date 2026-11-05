@@ -332,7 +332,8 @@ function ns.ScanOpenProfession()
 	return key
 end
 
-local function itemCount(itemID, memo)
+-- How many of an item are in your bags.
+function ns.ItemCount(itemID, memo)
 	if memo and memo[itemID] then
 		return memo[itemID]
 	end
@@ -357,10 +358,96 @@ function ns.CraftableCount(recipe, memo)
 	end
 	local best
 	for _, reagent in ipairs(reagents) do
-		local can = math.floor(itemCount(reagent[1], memo) / reagent[2])
+		local can = math.floor(ns.ItemCount(reagent[1], memo) / reagent[2])
 		if not best or can < best then
 			best = can
 		end
 	end
 	return best or 0
+end
+
+-- Item names load asynchronously; until then this returns nil and asks the
+-- client to fetch them (ITEM_DATA_LOAD_RESULT then triggers a redraw).
+local itemNames, requested = {}, {}
+function ns.ItemName(itemID)
+	if itemNames[itemID] then
+		return itemNames[itemID]
+	end
+	local name
+	if C_Item and C_Item.GetItemNameByID then
+		local ok, value = pcall(C_Item.GetItemNameByID, itemID)
+		name = ok and ns.PlainString(value) or nil
+	end
+	if name then
+		itemNames[itemID] = name
+	elseif not requested[itemID] and C_Item and C_Item.RequestLoadItemDataByID then
+		requested[itemID] = true
+		pcall(C_Item.RequestLoadItemDataByID, itemID)
+	end
+	return name
+end
+
+---------------------------------------------------------------------------
+-- Session gains and your other characters
+---------------------------------------------------------------------------
+
+ns.sessionStart = {}
+
+-- Remember each profession's skill the first time it is seen this session.
+function ns.TrackSession(list)
+	for _, prof in ipairs(list) do
+		local start = ns.sessionStart[prof.key]
+		if not start or prof.rank < start then
+			ns.sessionStart[prof.key] = prof.rank
+		end
+	end
+end
+
+function ns.SessionGain(prof)
+	local start = ns.sessionStart[prof.key]
+	return start and math.max(0, prof.rank - start) or 0
+end
+
+-- An account-wide summary so every character can see the others' skills.
+function ns.RememberCharacter(list)
+	local name = UnitName and ns.PlainString(UnitName("player"))
+	if not name or not ns.db then
+		return
+	end
+	local realm = GetRealmName and ns.PlainString(GetRealmName()) or nil
+	local id = realm and (name .. "-" .. realm) or name
+	local className, classFile
+	if UnitClass then
+		className, classFile = UnitClass("player")
+	end
+	local profs = {}
+	for _, prof in ipairs(list) do
+		profs[prof.key] = { prof.rank, prof.max, prof.name }
+	end
+	ns.db.alts[id] = {
+		name = name, realm = realm, class = ns.PlainString(classFile), className = ns.PlainString(className),
+		level = UnitLevel and ns.PlainNumber(UnitLevel("player")), seen = time(), profs = profs,
+	}
+	ns.playerID = id
+end
+
+-- Your other characters that know a profession, highest skill first.
+function ns.AltsWith(key)
+	local out = {}
+	for id, alt in pairs(ns.db and ns.db.alts or {}) do
+		local prof = id ~= ns.playerID and alt.profs and alt.profs[key]
+		if prof then
+			out[#out + 1] = {
+				id = id, name = alt.name or id, class = alt.class, className = alt.className,
+				level = alt.level, rank = prof[1], max = prof[2],
+			}
+		end
+	end
+	table.sort(out, function(a, b)
+		if a.rank ~= b.rank then
+			return a.rank > b.rank
+		end
+		return a.name < b.name
+	end)
+	return out
 end

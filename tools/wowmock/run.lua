@@ -59,6 +59,10 @@ local BS_RECIPES = {
 	{ 3292, "Heavy Copper Broadsword", 0, 3, { { ITEMS.copperBar, 14 }, { ITEMS.weakFlux, 2 } }, false },
 }
 local CATEGORIES = { [1] = "Materials", [2] = "Armor", [3] = "Weapons" }
+local ITEM_NAMES = {
+	[ITEMS.copperBar] = "Copper Bar", [ITEMS.roughStone] = "Rough Stone", [ITEMS.lightLeather] = "Light Leather",
+	[ITEMS.wool] = "Wool Cloth", [ITEMS.weakFlux] = "Weak Flux", [ITEMS.bronzeBar] = "Bronze Bar",
+}
 
 local function installModern(m, profs, childInfos)
 	local env = m.env
@@ -212,7 +216,13 @@ scenarios[#scenarios + 1] = { "mainline client", function()
 	m.level = 18
 	installModern(m, MODERN_PROFS, CHILD_INFOS)
 	m.bags = { [ITEMS.copperBar] = 26, [ITEMS.roughStone] = 7, [ITEMS.weakFlux] = 2, [ITEMS.lightLeather] = 3, [ITEMS.wool] = 1 }
+	for id, name in pairs(ITEM_NAMES) do
+		m.itemNames[id] = name
+	end
 	local ns = boot(m)
+	check(m.ChatHas("click a bar to open that profession's map") ~= nil and ns.db.welcomed, "first login shows a one-time tip")
+	local me = ns.db.alts["Tester-Mockrealm"]
+	check(me and me.class == "PALADIN" and me.profs.blacksmithing[1] == 45, "this character is remembered account-wide")
 
 	-- Bars
 	local bars = shownBars(ns)
@@ -267,15 +277,69 @@ scenarios[#scenarios + 1] = { "mainline client", function()
 	eq(ns.CraftableCount(byName["Copper Axe"]), 1, "craftable count limited by flux")
 	eq(ns.CraftableCount(byName["Copper Bracers"]), 13, "craftable count from copper bars")
 
-	eq(branchKeys(ns), "rank,next,skillups,craft,recipes", "branches with recipe data")
+	eq(branchKeys(ns), "rank,next,skillups,plan,craft,recipes", "branches with recipe data")
 	checkMapGeometry(m, ns, "blacksmithing default")
 	local skillups = findNode(ns, "Skill-ups")
-	check(skillups and skillups.data.open, "skill-ups branch opens by default")
+	check(skillups and not skillups.data.open, "skill-ups starts folded")
 	eq(skillups.sign, -1, "content branches sit on the left")
 	eq(plain(skillups.value:GetText()), "6 · 2 · 2", "skill-up counts by colour")
+	m.Click(skillups)
+	m.Advance(0.5)
 	local axe = findNode(ns, "Copper Axe")
 	check(axe ~= nil and axe.value:GetText() == "x1", "orange recipe leaf with craftable count")
 	check(findNode(ns, "+3 more") ~= nil, "long branches end with '+N more'")
+	m.Click(findNode(ns, "Skill-ups"))
+	m.Advance(0.5)
+
+	-- The plan: orange crafts to reach 50 and the reagents you are missing.
+	local plan = ns.PlanSkillUps(cache, 5)
+	local planned, total = {}, 0
+	for _, craft in ipairs(plan.crafts) do
+		planned[#planned + 1] = craft.count .. "x " .. craft.recipe.name
+		total = total + craft.count
+	end
+	eq(total, 5, "plan covers exactly the points needed")
+	eq(table.concat(planned, ", "), "3x Rough Grinding Stone, 1x Copper Axe, 1x Coarse Sharpening Stone", "plan uses what you can make first, then the cheapest recipe")
+	eq(plan.reagents[1].itemID, ITEMS.coarseStone, "missing reagents come first")
+	eq(plan.reagents[1].short, 1, "one coarse stone short")
+	local planNode = findNode(ns, "Plan to 50")
+	check(planNode and planNode.data.open, "plan opens by default")
+	eq(plain(planNode and planNode.value:GetText()), "1 item short", "plan summary")
+	check(findNode(ns, "Item " .. ITEMS.coarseStone) ~= nil, "unknown item names show a placeholder")
+	check(m.itemRequests[ITEMS.coarseStone], "unknown item names are requested from the client")
+	m.itemNames[ITEMS.coarseStone] = "Coarse Stone"
+	m.Fire("ITEM_DATA_LOAD_RESULT", ITEMS.coarseStone, true)
+	m.Advance(1)
+	local coarse = findNode(ns, "Coarse Stone")
+	check(coarse ~= nil and coarse.value:GetText() == "0/1", "item name arrives and the shortage shows")
+	check(coarse ~= nil and coarse.stripe.color[1] == ns.BAD[1], "missing reagents are marked red")
+	local grind = findNode(ns, "3x Rough Grinding Stone")
+	check(grind ~= nil and grind.value:GetText() == "ready", "crafts your bags cover are marked ready")
+	local sharpen = findNode(ns, "1x Coarse Sharpening Stone")
+	check(sharpen ~= nil and sharpen.value:GetText() == "", "crafts that need shopping are not marked ready")
+	m.Hover(coarse)
+	eq(m.env.GameTooltip.lines[1], "[item] " .. ITEMS.coarseStone, "reagent leaf shows the item tooltip")
+	m.Leave()
+	m.bags[ITEMS.coarseStone] = 1
+	m.Fire("BAG_UPDATE_DELAYED")
+	m.Advance(1)
+	eq(plain(findNode(ns, "Plan to 50").value:GetText()), "all in bags", "plan updates as you loot")
+	m.bags[ITEMS.coarseStone] = nil
+	m.Fire("BAG_UPDATE_DELAYED")
+	m.Advance(1)
+
+	-- Placement: the map unfolds beside the bars, on the side with room.
+	local mapRect, barsRect = m.Resolve(ns.Map.frame), m.Resolve(ns.Bars.frame)
+	eq(math.floor(mapRect.l - barsRect.r + 0.5), 12, "map opens just right of the bars")
+	eq(math.floor(mapRect.t - barsRect.t + 0.5), 0, "map lines up with the top of the bars")
+	ns.db.point = { m.W - 240, 600 }
+	ns.Bars:RestorePosition()
+	ns.Map:Refresh()
+	mapRect, barsRect = m.Resolve(ns.Map.frame), m.Resolve(ns.Bars.frame)
+	eq(math.floor(barsRect.l - mapRect.r + 0.5), 12, "with the bars on the right, the map opens on their left")
+	ns.db.point = nil
+	ns.Bars:RestorePosition()
+	ns.Map:Refresh()
 
 	-- Unfold "Ready to craft" and check the layout again.
 	local craft = findNode(ns, "Ready to craft")
@@ -293,6 +357,50 @@ scenarios[#scenarios + 1] = { "mainline client", function()
 	m.Click(ns.Map.center)
 	check(findNode(ns, "Apprentice") ~= nil and findNode(ns, "Armor") ~= nil, "second centre click unfolds every branch")
 	checkMapGeometry(m, ns, "blacksmithing fully open")
+
+	-- After a drag the middle node stays put while branches fold and unfold.
+	m.RunScript(ns.Map.frame, "OnDragStart")
+	m.dragDX, m.dragDY = 120, -40
+	m.RunScript(ns.Map.frame, "OnDragStop")
+	m.dragDX, m.dragDY = nil, nil
+	check(ns.db.mapPoint ~= nil, "dragging the map remembers its spot")
+	local before = m.Resolve(ns.Map.center)
+	local widthBefore = ns.Map.frame:GetWidth()
+	local rightSide = {}
+	for _, branch in ipairs(ns.Map.tree.branches) do
+		if branch.sign == 1 and branch.open then
+			rightSide[#rightSide + 1] = branch.label
+		end
+	end
+	for _, label in ipairs(rightSide) do
+		m.Click(findNode(ns, label))
+	end
+	local after = m.Resolve(ns.Map.center)
+	check(math.abs(before.l - after.l) < 0.5 and math.abs(before.t - after.t) < 0.5, "middle node stays pinned when a side folds")
+	check(ns.Map.frame:GetWidth() < widthBefore - 100, "panel narrows when a side folds")
+	for _, label in ipairs(rightSide) do
+		m.Click(findNode(ns, label))
+	end
+	checkMapGeometry(m, ns, "after a drag")
+
+	-- Other characters.
+	ns.db.alts["Bob-Mockrealm"] = { name = "Bob", realm = "Mockrealm", class = "WARRIOR", className = "Warrior", level = 40,
+		profs = { blacksmithing = { 150, 150, "Blacksmithing" }, mining = { 210, 225, "Mining" } } }
+	ns.Map:Refresh()
+	eq(branchKeys(ns), "rank,next,skillups,plan,craft,recipes,alts", "alts branch appears")
+	m.Click(findNode(ns, "Alts"))
+	local bob = findNode(ns, "Bob")
+	check(bob ~= nil and bob.value:GetText() == "150/150", "alt and their skill are listed")
+	check(bob ~= nil and bob.label.textColor[1] == 0.78, "alts use class colours")
+	checkMapGeometry(m, ns, "with alts")
+	m.Hover(ns.Bars.bars.blacksmithing)
+	check(table.concat(m.env.GameTooltip.lines, "\n"):find("Also on: Bob 150/150", 1, true) ~= nil, "bar tooltip mentions alts")
+	m.Leave()
+	slash(m, "alts")
+	check(m.ChatHas("Bob-Mockrealm: Blacksmithing 150/150, Mining 210/225") ~= nil, "/pb alts lists other characters")
+	slash(m, "forget bob")
+	check(ns.db.alts["Bob-Mockrealm"] == nil and m.ChatHas("forgot Bob-Mockrealm") ~= nil, "/pb forget removes one")
+	check(ns.db.alts["Tester-Mockrealm"] ~= nil, "forget never removes the current character")
 
 	-- Recipe tooltip and shift-click link.
 	axe = findNode(ns, "Copper Axe")
@@ -336,11 +444,13 @@ scenarios[#scenarios + 1] = { "mainline client", function()
 	local mid = ns.Bars.bars.blacksmithing.status:GetValue()
 	check(mid > 45 / 75 and mid < 50 / 75, "bar fill animates toward the new value")
 	m.Advance(1)
-	eq(ns.Bars.bars.blacksmithing.value:GetText(), "|cffffd10050/75|r", "gold once Journeyman is trainable")
+	eq(ns.Bars.bars.blacksmithing.value:GetText(), "|cff59ff73+5|r  |cffffd10050/75|r", "gold once Journeyman is trainable, with the session gain")
 	eq(math.floor(ns.Bars.bars.blacksmithing.status:GetValue() * 75 + 0.5), 50, "bar fill settles on the new value")
 	m.Click(ns.Bars.bars.blacksmithing)
 	check(findNode(ns, "Visit a trainer").data.value == "now", "next step says to train now")
 	check(ns.Map.frame.footer:GetText():find("from skill 45", 1, true) ~= nil, "footer warns the recipe colours are stale")
+	check(ns.Map.center.sub:GetText():find("+5", 1, true) ~= nil, "middle node shows the session gain")
+	check(findNode(ns, "Plan to 75") ~= nil, "once trainable, the plan aims for the cap")
 	m.Click(ns.Bars.bars.blacksmithing)
 
 	-- Linked professions are never cached as ours.
@@ -455,6 +565,29 @@ scenarios[#scenarios + 1] = { "mainline client", function()
 	ns.Map.frame:Hide()
 	check(ns.Map.current == nil, "hiding the map clears its state")
 
+	-- A failing API is contained and reported once.
+	local realLevel = m.env.UnitLevel
+	m.env.UnitLevel = function() error("boom") end
+	m.Fire("SKILL_LINES_CHANGED")
+	m.Advance(1)
+	m.Fire("SKILL_LINES_CHANGED")
+	m.Advance(1)
+	local reports = 0
+	for _, text in ipairs(m.chat) do
+		if text:find("something failed while updating professions", 1, true) then
+			reports = reports + 1
+		end
+	end
+	eq(reports, 1, "an error is reported once, not on every event")
+	check(ns.lastError and ns.lastError:find("boom", 1, true) ~= nil, "the error is kept for /pb debug")
+	m.env.UnitLevel = realLevel
+	m.Fire("SKILL_LINES_CHANGED")
+	m.Advance(1)
+	check(ns.Bars.bars.blacksmithing:IsShown(), "bars recover once the API works again")
+	slash(m, "debug")
+	check(m.ChatHas("last error: updating professions") ~= nil, "/pb debug shows the last error")
+	ns.lastError = nil
+
 	slash(m, "debug")
 	check(m.ChatHas("interface 16001") and m.ChatHas("read from: GetProfessions + C_TradeSkillUI") and m.ChatHas("12 recipes cached"), "/pb debug reports what it sees")
 	slash(m, "help")
@@ -463,8 +596,11 @@ scenarios[#scenarios + 1] = { "mainline client", function()
 	eq(ns.db.theme, "vibrant", "/pb reset restores the theme")
 	eq(ns.db.scale, 1, "/pb reset restores the scale")
 	check(ns.db.point == nil, "/pb reset forgets the position")
+	check(ns.db.alts["Tester-Mockrealm"] ~= nil, "/pb reset keeps the alt data")
+	check(#ns.GetRecipeCache("blacksmithing").list == 12, "/pb reset keeps the recipe cache")
 
 	eq(#m.warnings, 0, "no conflicting anchors (" .. table.concat(m.warnings, "; ") .. ")")
+	eq(ns.lastError, nil, "no contained errors")
 end }
 
 scenarios[#scenarios + 1] = { "classic-style skill lines only", function()
@@ -487,6 +623,7 @@ scenarios[#scenarios + 1] = { "classic-style skill lines only", function()
 	m.Click(ns.Bars.bars.enchanting)
 	check(findNode(ns, "Max skill 300") ~= nil, "artisan next step is the grind to max")
 	eq(#m.warnings, 0, "no conflicting anchors")
+	eq(ns.lastError, nil, "no contained errors")
 end }
 
 scenarios[#scenarios + 1] = { "no professions yet", function()
@@ -501,6 +638,7 @@ scenarios[#scenarios + 1] = { "no professions yet", function()
 	m.Hover(ns.Bars.empty)
 	check(ns.Bars.header:IsShown(), "empty state still reveals the header")
 	eq(#m.warnings, 0, "no conflicting anchors")
+	eq(ns.lastError, nil, "no contained errors")
 end }
 
 scenarios[#scenarios + 1] = { "secret values and an unknown profession", function()
@@ -540,6 +678,7 @@ scenarios[#scenarios + 1] = { "secret values and an unknown profession", functio
 	check(findNode(ns, "Level 15 beasts") ~= nil, "next skinning milestone")
 	checkMapGeometry(m, ns, "skinning")
 	eq(#m.warnings, 0, "no conflicting anchors")
+	eq(ns.lastError, nil, "no contained errors")
 end }
 
 scenarios[#scenarios + 1] = { "layout stress: every branch full and open", function()
@@ -562,7 +701,7 @@ scenarios[#scenarios + 1] = { "layout stress: every branch full and open", funct
 	if findNode(ns, "Copper Vein") == nil and findNode(ns, "Tin Vein") == nil and findNode(ns, "Apprentice") == nil then
 		m.Click(ns.Map.center)
 	end
-	eq(#ns.Map.tree.branches, 6, "six branches")
+	eq(#ns.Map.tree.branches, 7, "seven branches (rank, next, ore, skill-ups, plan, craft, recipes)")
 	for _, branch in ipairs(ns.Map.tree.branches) do
 		check(branch.open, "branch " .. branch.key .. " is open")
 	end
@@ -575,11 +714,45 @@ scenarios[#scenarios + 1] = { "layout stress: every branch full and open", funct
 	small.trade.open, small.trade.recipes = profs[1], recipes
 	small.Fire("TRADE_SKILL_LIST_UPDATE")
 	small.Advance(1)
-	ns2.db.expanded.mining = { rank = true, next = true, nodes = true, skillups = true, craft = true, recipes = true }
+	ns2.db.expanded.mining = { rank = true, next = true, nodes = true, skillups = true, plan = true, craft = true, recipes = true }
 	slash(small, "map mining")
 	check(ns2.Map.frame:GetScale() < 1, "panel scales down on a short screen")
 	checkMapGeometry(small, ns2, "short screen")
 	eq(#m.warnings + #small.warnings, 0, "no conflicting anchors")
+end }
+
+scenarios[#scenarios + 1] = { "camp recipes, long names and a compact map", function()
+	local m = Mock.new()
+	m.level = 30
+	local profs = {
+		{ slot = 1, name = "Enchanting", icon = 136244, rank = 90, max = 150, line = 333 },
+		{ slot = 4, name = "Fishing", icon = 136245, rank = 40, max = 75, line = 356 },
+		{ slot = 5, name = "Cooking", icon = 133971, rank = 60, max = 75, line = 185 },
+	}
+	installModern(m, profs, {})
+	local ns = boot(m)
+	eq(ns.ShortRecipeName("Enchant Bracer - Minor Stamina"), "Bracer - Minor Stamina", "long enchant names are shortened")
+	m.trade.open, m.trade.recipes = profs[1], { { 7457, "Enchant Bracer - Minor Stamina", 0, 1, { { 10940, 3 } } } }
+	m.Fire("TRADE_SKILL_LIST_UPDATE")
+	m.Advance(1)
+	m.trade.open = profs[3]
+	m.trade.recipes = { { 818, "Basic Campfire", 1, 1, { { 4470, 1 } } }, { 2538, "Charred Wolf Meat", 0, 1, { { 2672, 1 } } } }
+	m.Fire("TRADE_SKILL_LIST_UPDATE")
+	m.Advance(1)
+	slash(m, "map cooking")
+	eq(branchKeys(ns), "rank,next,skillups,plan,craft,recipes,camp", "camp branch appears for camp recipes")
+	check(findNode(ns, "Plan to 75") ~= nil, "trainable rank plans to the cap")
+	slash(m, "map enchanting")
+	check(findNode(ns, "Plan to 125") ~= nil and findNode(ns, "35x Bracer - Minor Stamina") ~= nil, "plan aims for the next training level, with the short recipe name")
+	m.Click(findNode(ns, "Skill-ups"))
+	check(findNode(ns, "Bracer - Minor Stamina") ~= nil, "skill-up leaves use the short name")
+	checkMapGeometry(m, ns, "enchanting")
+	slash(m, "map fishing")
+	eq(branchKeys(ns), "rank,next", "fishing map")
+	check(ns.Map.frame:GetWidth() < ns.Map.metrics.WIDTH - 100, "maps with one open side are narrower")
+	checkMapGeometry(m, ns, "fishing")
+	eq(#m.warnings, 0, "no conflicting anchors")
+	eq(ns.lastError, nil, "no contained errors")
 end }
 
 ---------------------------------------------------------------------------
@@ -589,10 +762,21 @@ end }
 local function sceneMock(theme)
 	local m = Mock.new()
 	m.level = 18
-	MODERN_PROFS[1].rank = 45
+	MODERN_PROFS[1].rank = 43
 	installModern(m, MODERN_PROFS, CHILD_INFOS)
 	m.bags = { [ITEMS.copperBar] = 26, [ITEMS.roughStone] = 7, [ITEMS.weakFlux] = 2, [ITEMS.lightLeather] = 3, [ITEMS.wool] = 1 }
+	for id, name in pairs(ITEM_NAMES) do
+		m.itemNames[id] = name
+	end
+	m.itemNames[ITEMS.coarseStone] = "Coarse Stone"
 	local ns = boot(m)
+	ns.db.alts["Bob-Mockrealm"] = { name = "Bob", class = "WARRIOR", className = "Warrior", level = 40,
+		profs = { blacksmithing = { 150, 150, "Blacksmithing" }, mining = { 210, 225, "Mining" } } }
+	ns.db.alts["Ivy-Mockrealm"] = { name = "Ivy", class = "MAGE", className = "Mage", level = 27,
+		profs = { blacksmithing = { 92, 150, "Blacksmithing" } } }
+	MODERN_PROFS[1].rank = 45
+	m.Fire("CHAT_MSG_SKILL")
+	m.Advance(1)
 	m.trade.open, m.trade.recipes = MODERN_PROFS[1], BS_RECIPES
 	m.Fire("TRADE_SKILL_LIST_UPDATE")
 	m.Advance(1)
@@ -612,10 +796,8 @@ local SCENES = {}
 -- Bars plus the Blacksmithing map, as in the screenshots in the README.
 function SCENES.main()
 	local m, ns = sceneMock()
-	ns.db.point = { 40, 560 }
+	ns.db.point = { 40, 600 }
 	ns.Bars:RestorePosition()
-	ns.db.mapPoint = { 300 + ns.Map.metrics.WIDTH / 2, 400 }
-	ns.Map:RestorePosition()
 	m.Click(ns.Bars.bars.blacksmithing)
 	m.Advance(1)
 	m.Hover(ns.Bars.bars.blacksmithing)
@@ -646,8 +828,6 @@ function SCENES.gather()
 	local m, ns = sceneMock("midnight")
 	ns.db.point = { 40, 560 }
 	ns.Bars:RestorePosition()
-	ns.db.mapPoint = { 300 + ns.Map.metrics.WIDTH / 2, 420 }
-	ns.Map:RestorePosition()
 	m.Click(ns.Bars.bars.mining)
 	m.Click(ns.Map.nodes.active[1]) -- unfold Rank too
 	m.Advance(1)

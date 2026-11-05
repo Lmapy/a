@@ -28,7 +28,7 @@ for _, name in ipairs({
 	"ADDON_LOADED", "PLAYER_LOGIN", "PLAYER_ENTERING_WORLD", "SKILL_LINES_CHANGED", "CHAT_MSG_SKILL",
 	"LEARNED_SPELL_IN_SKILL_LINE", "PLAYER_LEVEL_UP", "TRADE_SKILL_SHOW", "TRADE_SKILL_CLOSE",
 	"TRADE_SKILL_LIST_UPDATE", "TRADE_SKILL_DATA_SOURCE_CHANGED", "BAG_UPDATE_DELAYED",
-	"PLAYER_REGEN_DISABLED", "PLAYER_REGEN_ENABLED",
+	"PLAYER_REGEN_DISABLED", "PLAYER_REGEN_ENABLED", "ITEM_DATA_LOAD_RESULT", "GET_ITEM_INFO_RECEIVED",
 }) do
 	KNOWN_EVENTS[name] = true
 end
@@ -63,7 +63,7 @@ function Mock.new(options)
 	local m = {
 		W = options.width or 1366, H = options.height or 768,
 		now = 0, chat = {}, warnings = {}, level = 1, inCombat = false, shift = false,
-		bags = {}, mouseOver = nil,
+		bags = {}, itemNames = {}, itemRequests = {}, mouseOver = nil, playerName = "Tester",
 	}
 	local env = setmetatable({}, { __index = _G })
 	m.env = env
@@ -334,6 +334,7 @@ function Mock.new(options)
 		table.insert(self.lines, "[link] " .. link)
 	end
 	function TooltipOnly:SetSpellByID(id) table.insert(self.lines, "[spell] " .. tostring(id)) end
+	function TooltipOnly:SetItemByID(id) table.insert(self.lines, "[item] " .. tostring(id)) end
 
 	local CLASSES = {
 		Frame = compose(Region, FrameOnly),
@@ -710,7 +711,19 @@ function Mock.new(options)
 		TradeskillRelativeDifficulty = { Optimal = 0, Medium = 1, Easy = 2, Trivial = 3 },
 		CraftingReagentType = { Modifying = 0, Basic = 1, Finishing = 2 },
 	}
-	env.C_Item = { GetItemCount = function(itemID) return m.bags[itemID] or 0 end }
+	env.C_Item = {
+		GetItemCount = function(itemID) return m.bags[itemID] or 0 end,
+		GetItemNameByID = function(itemID) return m.itemNames[itemID] end,
+		RequestLoadItemDataByID = function(itemID) m.itemRequests[itemID] = true end,
+	}
+	env.UnitName = function() return m.playerName end
+	env.GetRealmName = function() return "Mockrealm" end
+	env.UnitClass = function() return "Paladin", "PALADIN", 2 end
+	env.RAID_CLASS_COLORS = {
+		PALADIN = { r = 0.96, g = 0.55, b = 0.73 }, WARRIOR = { r = 0.78, g = 0.61, b = 0.43 },
+		MAGE = { r = 0.25, g = 0.78, b = 0.92 }, ROGUE = { r = 1, g = 0.96, b = 0.41 },
+	}
+	env.date = os.date
 	env.ChatEdit_InsertLink = function(link) m.insertedLink = link return true end
 
 	-- Load an addon folder in TOC order, passing (name, namespace) like the client.

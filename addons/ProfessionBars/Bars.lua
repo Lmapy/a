@@ -161,8 +161,20 @@ local function BarOnEnter(self)
 	if prof.modifier and prof.modifier > 0 then
 		GameTooltip:AddDoubleLine("Bonus from gear or race", "+" .. prof.modifier, 0.65, 0.65, 0.7, 0.35, 1, 0.45)
 	end
+	local gain = ns.SessionGain(prof)
+	if gain > 0 then
+		GameTooltip:AddDoubleLine("This session", "+" .. gain, 0.65, 0.65, 0.7, 0.35, 1, 0.45)
+	end
 	local _, long, color = ns.DescribeStep(step, prof)
 	GameTooltip:AddLine(long, color[1], color[2], color[3], true)
+	local alts = ns.AltsWith(prof.key)
+	if #alts > 0 then
+		local names = {}
+		for i = 1, math.min(3, #alts) do
+			names[i] = alts[i].name .. " " .. alts[i].rank .. "/" .. alts[i].max
+		end
+		GameTooltip:AddLine("Also on: " .. table.concat(names, ", ") .. (#alts > 3 and ", ..." or ""), 0.65, 0.65, 0.7, true)
+	end
 	GameTooltip:AddLine(" ")
 	if Bars.editing then
 		GameTooltip:AddLine("Click to show or hide this bar", 0.65, 0.65, 0.7)
@@ -181,7 +193,7 @@ local function BarOnClick(self)
 	if Bars.editing then
 		ns.SetHidden(self.key, not ns.char.hidden[self.key])
 	else
-		ns.Map:Toggle(self.key)
+		ns.SafeCall("opening the map", ns.Map.Toggle, ns.Map, self.key)
 	end
 end
 
@@ -286,12 +298,15 @@ function Bars:UpdateBar(bar, prof, hidden)
 		bar.tick:Hide()
 	end
 
+	-- Skill gained this session shows as a small green "+5".
+	local gain = ns.SessionGain(prof)
+	local gained = gain > 0 and ("|cff59ff73+" .. gain .. "|r  ") or ""
 	if self.editing then
 		bar.value:SetText(hidden and "|cff8a8a90hidden|r" or "shown")
 	elseif step.state == "train" then
-		bar.value:SetText("|cffffd100" .. prof.rank .. "/" .. prof.max .. "|r")
+		bar.value:SetText(gained .. "|cffffd100" .. prof.rank .. "/" .. prof.max .. "|r")
 	else
-		bar.value:SetText(prof.rank .. "/" .. prof.max)
+		bar.value:SetText(gained .. prof.rank .. "/" .. prof.max)
 	end
 	self:UpdateSelection(bar)
 end

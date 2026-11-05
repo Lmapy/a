@@ -12,7 +12,11 @@ local DEFAULTS = {
 	hideInCombat = false,
 	colors = {}, -- [key] = { r, g, b } custom colours
 	expanded = {}, -- [key][branch] = true/false
+	alts = {}, -- ["Name-Realm"] = { class, level, profs = { [key] = { rank, max } } }
+	welcomed = false,
 }
+-- What /pb reset puts back (it keeps your alts and recipe data).
+local LOOK = { "shown", "locked", "theme", "scale", "width", "mapScale", "hideInCombat", "colors", "expanded" }
 local CHAR_DEFAULTS = {
 	hidden = {}, -- [key] = true for professions without a bar
 	recipes = {}, -- [key] = { list = {...}, rank = n, time = t }
@@ -46,6 +50,8 @@ function ns.UpdateProfessions()
 	for _, prof in ipairs(ns.profs) do
 		ns.byKey[prof.key] = prof
 	end
+	ns.TrackSession(ns.profs)
+	ns.RememberCharacter(ns.profs)
 	ns.Bars:Refresh()
 	ns.Map:OnProfessionsChanged()
 end
@@ -116,7 +122,10 @@ local PROFESSION_EVENTS = {
 	"PLAYER_LEVEL_UP", "TRADE_SKILL_LIST_UPDATE",
 }
 local RECIPE_EVENTS = { "TRADE_SKILL_SHOW", "TRADE_SKILL_LIST_UPDATE", "TRADE_SKILL_DATA_SOURCE_CHANGED" }
-local OTHER_EVENTS = { "BAG_UPDATE_DELAYED", "PLAYER_REGEN_DISABLED", "PLAYER_REGEN_ENABLED" }
+local OTHER_EVENTS = {
+	"BAG_UPDATE_DELAYED", "PLAYER_REGEN_DISABLED", "PLAYER_REGEN_ENABLED",
+	"ITEM_DATA_LOAD_RESULT", "GET_ITEM_INFO_RECEIVED",
+}
 
 local handlers = {}
 local isProfessionEvent, isRecipeEvent = {}, {}
@@ -146,14 +155,23 @@ function handlers.PLAYER_LOGIN()
 	ns.UpdateProfessions()
 	ns.ApplyVisibility()
 	-- Some clients fill in profession data a moment after login.
-	C_Timer.After(3, ns.UpdateProfessions)
-end
-
-function handlers.BAG_UPDATE_DELAYED()
-	if ns.Map.current then
-		ns.Throttle("bags", 0.5, function() ns.Map:Refresh() end)
+	ns.Throttle("professions", 3, ns.UpdateProfessions)
+	if not ns.db.welcomed then
+		ns.db.welcomed = true
+		ns.Print("click a bar to open that profession's map. Hover the bars for options, /pb help for commands.")
 	end
 end
+
+local function refreshOpenMap()
+	if ns.Map.current then
+		ns.Throttle("the map", 0.5, function() ns.Map:Refresh() end)
+	end
+end
+
+-- Bag counts drive "ready to craft" and the plan; item names load lazily.
+handlers.BAG_UPDATE_DELAYED = refreshOpenMap
+handlers.ITEM_DATA_LOAD_RESULT = refreshOpenMap
+handlers.GET_ITEM_INFO_RECEIVED = refreshOpenMap
 
 function handlers.PLAYER_REGEN_DISABLED()
 	ns.inCombat = true
@@ -169,7 +187,7 @@ function handlers.PLAYER_REGEN_ENABLED()
 	end
 end
 
-events:SetScript("OnEvent", function(_, event, ...)
+local function onEvent(event, ...)
 	local handler = handlers[event]
 	if handler then
 		handler(...)
@@ -183,6 +201,10 @@ events:SetScript("OnEvent", function(_, event, ...)
 	if isRecipeEvent[event] then
 		ns.Throttle("recipes", 0.4, ns.UpdateRecipes)
 	end
+end
+
+events:SetScript("OnEvent", function(_, event, ...)
+	ns.SafeCall("handling " .. event, onEvent, event, ...)
 end)
 events:RegisterEvent("ADDON_LOADED")
 events:RegisterEvent("PLAYER_LOGIN")
@@ -231,7 +253,8 @@ local HELP = {
 	"|cffffd100/pb lock|r, |cffffd100/pb unlock|r  stop or allow dragging",
 	"|cffffd100/pb scale <0.5-2>|r, |cffffd100/pb mapscale <0.5-2>|r, |cffffd100/pb width <140-400>|r",
 	"|cffffd100/pb combat|r  hide the bars during combat (toggle)",
-	"|cffffd100/pb reset|r  reset position and look",
+	"|cffffd100/pb alts|r, |cffffd100/pb forget <name>|r  your other characters' professions",
+	"|cffffd100/pb reset|r  reset position and look (keeps alts and recipes)",
 	"|cffffd100/pb debug|r  show what the addon can read (handy for bug reports)",
 }
 
@@ -255,6 +278,13 @@ local function printDebug()
 		.. ", GetRecipeInfo " .. yesNo(T.GetRecipeInfo)
 		.. ", GetRecipeSchematic " .. yesNo(T.GetRecipeSchematic)) or ""))
 	ns.Print("read from: " .. (#ns.scanSources > 0 and table.concat(ns.scanSources, " + ") or "nothing"))
+	local others = 0
+	for id in pairs(ns.db.alts) do
+		if id ~= ns.playerID then
+			others = others + 1
+		end
+	end
+	ns.Print("other characters remembered: " .. others .. (ns.lastError and ("; last error: " .. ns.lastError) or "; no errors"))
 	for _, prof in ipairs(ns.profs or {}) do
 		local cache = ns.GetRecipeCache(prof.key)
 		ns.Print(string.format("  %s (%s, id %s): %d/%d%s, %s", prof.name, prof.key, tostring(prof.skillLine),
@@ -403,8 +433,41 @@ function commands.combat()
 	ns.Print("hide in combat: " .. (ns.db.hideInCombat and "on" or "off"))
 end
 
+function commands.alts()
+	local count = 0
+	for id, alt in pairs(ns.db.alts) do
+		if id ~= ns.playerID then
+			local parts = {}
+			for _, prof in pairs(alt.profs or {}) do
+				parts[#parts + 1] = (prof[3] or "?") .. " " .. prof[1] .. "/" .. prof[2]
+			end
+			table.sort(parts)
+			ns.Print("  " .. id .. ": " .. (#parts > 0 and table.concat(parts, ", ") or "no professions"))
+			count = count + 1
+		end
+	end
+	if count == 0 then
+		ns.Print("no other characters yet - log in on them once with the addon enabled.")
+	else
+		ns.Print("/pb forget <name> removes one.")
+	end
+end
+
+function commands.forget(arg)
+	local query = arg:lower()
+	for id, alt in pairs(ns.db.alts) do
+		if query ~= "" and id ~= ns.playerID and (id:lower() == query or (alt.name or ""):lower() == query) then
+			ns.db.alts[id] = nil
+			ns.RefreshAll()
+			return ns.Print("forgot " .. id .. ".")
+		end
+	end
+	ns.Print("usage: /pb forget <character name> (see /pb alts)")
+end
+
 function commands.reset()
-	for key, value in pairs(DEFAULTS) do
+	for _, key in ipairs(LOOK) do
+		local value = DEFAULTS[key]
 		ns.db[key] = type(value) == "table" and {} or value
 	end
 	ns.db.point, ns.db.mapPoint = nil, nil
@@ -438,7 +501,9 @@ end
 
 SLASH_PROFESSIONBARS1 = "/pb"
 SLASH_PROFESSIONBARS2 = "/profbars"
-SlashCmdList.PROFESSIONBARS = handleSlash
+SlashCmdList.PROFESSIONBARS = function(message)
+	ns.SafeCall("running /pb " .. tostring(message), handleSlash, message)
+end
 
 ---------------------------------------------------------------------------
 -- Key binding and minimap addon compartment

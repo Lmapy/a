@@ -41,6 +41,21 @@ function ns.Print(message)
 	end
 end
 
+-- Run `fn`, containing any error: it is reported once per label (and kept
+-- for /pb debug) instead of breaking the UI or repeating on every event.
+local reported = {}
+function ns.SafeCall(label, fn, ...)
+	local ok, err = pcall(fn, ...)
+	if not ok then
+		ns.lastError = label .. ": " .. tostring(err)
+		if not reported[label] then
+			reported[label] = true
+			ns.Print("something failed while " .. label .. "; everything else keeps working. /pb debug shows the error.")
+		end
+	end
+	return ok
+end
+
 -- Run `fn` once, `delay` seconds after the first request; extra requests
 -- in that window are merged into the same run.
 local pending = {}
@@ -51,7 +66,7 @@ function ns.Throttle(key, delay, fn)
 	pending[key] = true
 	C_Timer.After(delay, function()
 		pending[key] = nil
-		fn()
+		ns.SafeCall("updating " .. key, fn)
 	end)
 end
 

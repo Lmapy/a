@@ -18,10 +18,11 @@ previewed.
   - a Classic-style client;
   - a character with no professions;
   - secret values and unknown professions;
-  - a layout stress test.
+  - a layout stress test;
+  - camp recipes, long names and a compact map.
 
-  It checks the results, including that no two mind-map nodes overlap and that the
-  panel stays on screen.
+  It checks the results, including that no two mind-map nodes overlap, that the
+  panel stays on screen, and that no error was swallowed by the addon's error guard.
 - **`preview.js`** renders a dumped scene to a PNG with headless Chromium
   (Playwright). Icons are replaced by emoji and the game font by Inter, so treat the
   result as a layout and colour preview, not a screenshot.

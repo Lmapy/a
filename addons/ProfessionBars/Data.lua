@@ -153,3 +153,8 @@ function ns.SkinMaxLevel(skill)
 	end
 	return math.floor(skill / 5)
 end
+
+-- Shorter labels for long recipe names ("Enchant Bracer - Minor Stamina").
+function ns.ShortRecipeName(name)
+	return (name:gsub("^Enchant ", ""))
+end

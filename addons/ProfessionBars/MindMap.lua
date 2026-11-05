@@ -13,7 +13,7 @@ local G1, G2 = 26, 16 -- horizontal gaps: centre -> branch, branch -> leaf
 local VB, VL = 10, 4 -- vertical gaps: between branches, between leaves
 local PAD, TOP, FOOT = 14, 26, 22
 local MAX_LEAVES = 6
-local SIDE = CW / 2 + G1 + BW + G2 + LW
+local SIDE = CW / 2 + G1 + BW + G2 + LW -- widest a column can reach
 local WIDTH = 2 * SIDE + 2 * PAD
 local MASK = "Interface\\CharacterFrame\\TempPortraitAlphaMask"
 
@@ -80,8 +80,22 @@ local function placeColumn(column, sign)
 	end
 end
 
+-- How far a column reaches from the centre of the middle node.
+local function columnExtent(column)
+	if #column == 0 then
+		return CW / 2
+	end
+	for _, branch in ipairs(column) do
+		if branch.open and #branch.shown > 0 then
+			return CW / 2 + G1 + BW + G2 + LW
+		end
+	end
+	return CW / 2 + G1 + BW
+end
+
 -- Split branches into a right and a left column (keeping them balanced),
--- position everything and return the content height.
+-- position everything relative to the middle node and return the content
+-- height and how far the content reaches to the left and to the right.
 function Map.Layout(tree)
 	local right, left = {}, {}
 	for _, branch in ipairs(tree.branches) do
@@ -100,7 +114,7 @@ function Map.Layout(tree)
 	end
 	placeColumn(right, 1)
 	placeColumn(left, -1)
-	return math.max(columnHeight(right), columnHeight(left), CH)
+	return math.max(columnHeight(right), columnHeight(left), CH), columnExtent(left), columnExtent(right)
 end
 
 Map.metrics = { CW = CW, CH = CH, BW = BW, BH = BH, LW = LW, LH = LH, WIDTH = WIDTH, TOP = TOP, FOOT = FOOT, PAD = PAD }
@@ -148,6 +162,13 @@ local function NodeOnEnter(self)
 	if data.recipe and showRecipeTooltip(data) then
 		return
 	end
+	if data.itemID and GameTooltip.SetItemByID and pcall(GameTooltip.SetItemByID, GameTooltip, data.itemID) then
+		for _, entry in ipairs(data.tooltip or {}) do
+			GameTooltip:AddLine(entry[1], entry[2], entry[3], entry[4], true)
+		end
+		GameTooltip:Show()
+		return
+	end
 	GameTooltip:AddLine(data.title or data.label, 1, 1, 1)
 	for _, entry in ipairs(data.tooltip or {}) do
 		GameTooltip:AddLine(entry[1], entry[2], entry[3], entry[4], true)
@@ -165,7 +186,7 @@ end
 local function NodeOnClick(self)
 	local data = self.data
 	if self.kind == "branch" then
-		Map:ToggleBranch(data.key)
+		ns.SafeCall("unfolding a branch", Map.ToggleBranch, Map, data.key)
 	elseif data and data.recipe and data.recipe.link and IsShiftKeyDown and IsShiftKeyDown() then
 		insertLink(data.recipe.link)
 	end
@@ -340,7 +361,7 @@ local function CreateCenter(parent)
 	c.hl = c:CreateTexture(nil, "HIGHLIGHT")
 	c.hl:SetAllPoints()
 	c.hl:SetColorTexture(1, 1, 1, 0.05)
-	c:SetScript("OnClick", function() Map:ToggleAll() end)
+	c:SetScript("OnClick", function() ns.SafeCall("unfolding the map", Map.ToggleAll, Map) end)
 	c:SetScript("OnEnter", function(self)
 		GameTooltip:SetOwner(self, "ANCHOR_TOP")
 		GameTooltip:AddLine(self.title or "", 1, 1, 1)
@@ -351,18 +372,20 @@ local function CreateCenter(parent)
 	return c
 end
 
-function Map:DrawCenter(prof, step, r, g, b)
+function Map:DrawCenter(prof, step, r, g, b, ox)
 	local c = self.center
 	c.title = prof.name
 	c:ClearAllPoints()
-	c:SetPoint("CENTER", self.frame.canvas, "CENTER", 0, 0)
+	c:SetPoint("CENTER", self.frame.canvas, "CENTER", ox or 0, 0)
 	c.bg:SetColorTexture(r * 0.22, g * 0.22, b * 0.22, 0.97)
 	ns.SetBorderColor(c, r, g, b, 1)
 	c.ring:SetColorTexture(r, g, b, 1)
 	c.icon:SetTexture(prof.icon)
 	c.name:SetText(prof.name)
 	c.name:SetTextColor(1, 1, 1)
-	c.sub:SetText(ns.ColorCode(r, g, b) .. prof.rank .. "/" .. prof.max .. "|r · " .. step.rank.name)
+	local gain = ns.SessionGain(prof)
+	c.sub:SetText(ns.ColorCode(r, g, b) .. prof.rank .. "/" .. prof.max .. "|r · " .. step.rank.name
+		.. (gain > 0 and ("  |cff59ff73+" .. gain .. "|r") or ""))
 	c.sub:SetTextColor(0.72, 0.72, 0.78)
 	c.bar:SetStatusBarColor(r, g, b, 1)
 	c.barBg:SetColorTexture(r * 0.25, g * 0.25, b * 0.25, 1)
@@ -450,10 +473,13 @@ function Map:Render()
 		end
 		self.openState[branch.key] = branch.open
 	end
-	local contentHeight = Map.Layout(tree)
+	local contentHeight, leftExtent, rightExtent = Map.Layout(tree)
 	contentHeight = contentHeight + contentHeight % 2
 	local height = TOP + FOOT + 2 * PAD + contentHeight
-	frame:SetSize(WIDTH, height)
+	frame:SetSize(leftExtent + rightExtent + 2 * PAD, height)
+	self.extents = { left = leftExtent, right = rightExtent }
+	-- The middle node sits off-centre when one side reaches further.
+	local ox = round((leftExtent - rightExtent) / 2)
 
 	-- Shrink to fit the screen if a lot is unfolded.
 	local scale = ns.db.mapScale
@@ -463,30 +489,30 @@ function Map:Render()
 	end
 	if math.abs(frame:GetScale() - scale) > 0.001 then
 		frame:SetScale(scale)
-		self:RestorePosition()
 	end
+	self:Place()
 
 	local r, g, b = ns.Color(prof.key)
 	frame.bg:SetColorTexture(0.035, 0.035, 0.05, math.min(0.97, ns.GetTheme().panel + 0.4))
 	ns.SetBorderColor(frame, r * 0.8, g * 0.8, b * 0.8, 0.9)
 	frame.accent:SetColorTexture(r, g, b, 1)
 	frame.footer:SetText(tree.footer or "")
-	self:DrawCenter(prof, tree.step, r, g, b)
+	self:DrawCenter(prof, tree.step, r, g, b, ox)
 
 	self.lines:ReleaseAll()
 	self.nodes:ReleaseAll()
 	local canvas = frame.canvas
 	for _, branch in ipairs(tree.branches) do
 		local s = branch.sign
-		local bx, by = round(branch.x), round(branch.y)
-		ns.DrawCurve(self.lines, canvas, s * CW / 2, 0, bx - s * BW / 2, by, r, g, b, 0.8, 2)
+		local bx, by = ox + round(branch.x), round(branch.y)
+		ns.DrawCurve(self.lines, canvas, ox + s * CW / 2, 0, bx - s * BW / 2, by, r, g, b, 0.8, 2)
 		local node = self.nodes:Acquire()
 		self:StyleBranch(node, branch, r, g, b)
 		node:SetPoint("CENTER", canvas, "CENTER", bx, by)
 		if branch.open then
 			local fresh = (self.animate == branch.key) and {} or nil
 			for _, leaf in ipairs(branch.shown) do
-				local lx, ly = round(leaf.x), round(leaf.y)
+				local lx, ly = ox + round(leaf.x), round(leaf.y)
 				ns.DrawCurve(self.lines, canvas, bx + s * BW / 2, by, lx - s * LW / 2, ly, r, g, b, 0.45, 1.5, fresh)
 				local leafNode = self.nodes:Acquire()
 				self:StyleLeaf(leafNode, leaf, s, r, g, b)
@@ -593,24 +619,48 @@ function Map:OnProfessionsChanged()
 	end
 end
 
-function Map:SavePosition()
+-- Where the panel goes. Until you drag it, it unfolds beside the bars on
+-- the side with more room. After a drag the middle node stays where you put
+-- it and the panel grows around it as branches unfold.
+function Map:Place()
 	local frame = self.frame
-	local x, y = frame:GetCenter()
-	if x and y then
-		local scale = frame:GetEffectiveScale()
-		ns.db.mapPoint = { x * scale, y * scale }
-	end
-	self:RestorePosition()
-end
-
-function Map:RestorePosition()
-	local frame = self.frame
+	local extents = self.extents or { left = SIDE, right = SIDE }
 	frame:ClearAllPoints()
 	local point = ns.db.mapPoint
 	if point then
 		local scale = frame:GetEffectiveScale()
-		frame:SetPoint("CENTER", UIParent, "BOTTOMLEFT", point[1] / scale, point[2] / scale)
+		frame:SetPoint("CENTER", UIParent, "BOTTOMLEFT", point[1] / scale + (extents.right - extents.left) / 2, point[2] / scale + (TOP - FOOT) / 2)
+		return
+	end
+	local bars = ns.Bars.frame
+	local left, right = bars and bars:GetLeft(), bars and bars:GetRight()
+	if bars and bars:IsShown() and left and right then
+		local barScale = bars:GetEffectiveScale()
+		local roomRight = UIParent:GetWidth() * UIParent:GetEffectiveScale() - right * barScale
+		if roomRight >= left * barScale then
+			frame:SetPoint("TOPLEFT", bars, "TOPRIGHT", 12, 0)
+		else
+			frame:SetPoint("TOPRIGHT", bars, "TOPLEFT", -12, 0)
+		end
 	else
 		frame:SetPoint("CENTER", UIParent, "CENTER", 0, 40)
+	end
+end
+
+-- Remember where the middle node is (in screen pixels) after a drag.
+function Map:SavePosition()
+	local frame = self.frame
+	local x, y = frame:GetCenter()
+	local extents = self.extents
+	if x and y and extents then
+		local scale = frame:GetEffectiveScale()
+		ns.db.mapPoint = { (x - (extents.right - extents.left) / 2) * scale, (y - (TOP - FOOT) / 2) * scale }
+	end
+	self:Place()
+end
+
+function Map:RestorePosition()
+	if self.frame then
+		self:Place()
 	end
 end
