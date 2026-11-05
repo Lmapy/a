@@ -6,7 +6,8 @@ local DEFAULTS = {
 	shown = true,
 	locked = false,
 	theme = "vibrant",
-	style = "classic", -- "classic" (framed bars) or "slim"
+	style = "clean", -- "clean" (minimal), "classic" (framed) or "slim"
+	fade = false, -- dim the bars until hovered
 	scale = 1,
 	width = 240,
 	mapScale = 1,
@@ -17,7 +18,7 @@ local DEFAULTS = {
 	welcomed = false,
 }
 -- What /pb reset puts back (it keeps your alts and recipe data).
-local LOOK = { "shown", "locked", "theme", "style", "scale", "width", "mapScale", "hideInCombat", "colors", "expanded" }
+local LOOK = { "shown", "locked", "theme", "style", "fade", "scale", "width", "mapScale", "hideInCombat", "colors", "expanded" }
 local CHAR_DEFAULTS = {
 	hidden = {}, -- [key] = true for professions without a bar
 	recipes = {}, -- [key] = { list = {...}, rank = n, time = t }
@@ -249,7 +250,8 @@ local HELP = {
 	"|cffffd100/pb map <profession>|r  open a profession's mind map",
 	"|cffffd100/pb edit|r  pick which professions get a bar (or hover the bars and click 'edit')",
 	"|cffffd100/pb hide <profession>|r, |cffffd100/pb show <profession|all>|r",
-	"|cffffd100/pb style [classic|slim]|r  framed bars with the rank inside, or compact bars",
+	"|cffffd100/pb style [clean|classic|slim]|r  minimal, framed or compact bars",
+	"|cffffd100/pb fade|r  dim the bars until you hover them (toggle)",
 	"|cffffd100/pb theme [vibrant|soft|midnight|mono]|r  set or cycle the colour theme",
 	"|cffffd100/pb color <profession> <#rrggbb|reset>|r  your own colour for one profession",
 	"|cffffd100/pb lock|r, |cffffd100/pb unlock|r  stop or allow dragging",
@@ -370,17 +372,25 @@ function commands.theme(arg)
 	ns.Print("theme: " .. ns.GetTheme().label)
 end
 
+local STYLE_CYCLE = { clean = "classic", classic = "slim", slim = "clean" }
+
 function commands.style(arg)
 	local style = arg:lower()
 	if style == "" then
-		style = ns.Bars:Style() == "classic" and "slim" or "classic"
+		style = STYLE_CYCLE[ns.Bars:Style()]
 	end
-	if style ~= "classic" and style ~= "slim" then
-		return ns.Print("styles: classic, slim")
+	if not STYLE_CYCLE[style] then
+		return ns.Print("styles: clean, classic, slim")
 	end
 	ns.db.style = style
 	ns.RefreshAll()
 	ns.Print("bar style: " .. style)
+end
+
+function commands.fade()
+	ns.db.fade = not ns.db.fade
+	ns.Bars:ApplyFade()
+	ns.Print("fade when idle: " .. (ns.db.fade and "on - hover the bars to bring them back" or "off"))
 end
 
 function commands.color(arg)

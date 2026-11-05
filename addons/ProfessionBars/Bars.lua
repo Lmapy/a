@@ -1,6 +1,7 @@
--- The bar stack: one colour-themed bar per profession, in the framed
--- "classic" style or the compact "slim" style. Click a bar to open its mind
--- map. Hovering reveals a small header with controls.
+-- The bar stack: one colour-themed bar per profession, in the minimal
+-- "clean" style (default), the framed "classic" style or the compact "slim"
+-- style. Click a bar to open its mind map. Hovering reveals a small header
+-- with controls.
 local _, ns = ...
 
 local Bars = { bars = {} }
@@ -118,7 +119,7 @@ function Bars:UpdateHeader()
 	for i, cell in ipairs(header.theme.cells) do
 		cell:SetColorTexture(ns.Color(SWATCH_KEYS[i]))
 	end
-	header.bg:SetColorTexture(0, 0, 0, ns.GetTheme().panel + 0.1)
+	header.bg:SetColorTexture(0, 0, 0, self:Style() == "clean" and 0.3 or (ns.GetTheme().panel + 0.1))
 	if self.editing then
 		header:Show()
 	end
@@ -127,6 +128,29 @@ end
 function Bars:ShowHeader()
 	self.hoverToken = (self.hoverToken or 0) + 1
 	self.header:Show()
+	self.hovered = true
+	self:ApplyFade()
+end
+
+-- Optional idle fade (/pb fade): the bars dim until you hover them, edit
+-- them or skill up.
+function Bars:ApplyFade()
+	local frame = self.frame
+	if not frame then
+		return
+	end
+	local awake = not ns.db.fade or self.hovered or self.editing or (self.wakeUntil and GetTime() < self.wakeUntil)
+	local target = awake and 1 or 0.3
+	local current = frame:GetAlpha()
+	if math.abs(current - target) > 0.01 then
+		ns.Tween(frame, 0.25, current, target, ns.SetAlphaTo)
+	end
+end
+
+function Bars:Wake(seconds)
+	self.wakeUntil = GetTime() + seconds
+	self:ApplyFade()
+	C_Timer.After(seconds + 0.05, function() self:ApplyFade() end)
 end
 
 -- Hide the header shortly after the mouse leaves, unless it came back.
@@ -141,6 +165,8 @@ function Bars:MaybeHideHeader()
 			return
 		end
 		self.header:Hide()
+		self.hovered = false
+		self:ApplyFade()
 	end)
 end
 
@@ -200,26 +226,30 @@ end
 
 ---------------------------------------------------------------------------
 -- Bar styles
---   classic (default): name and value above a gold-framed, glossy bar with
---                      the rank written inside and a gold marker at your skill
---   slim:              one compact bar per profession
+--   clean (default): icon, name and value above a thin colour line
+--   classic:         name and value above a gold-framed, glossy bar with the
+--                    rank written inside and a gold marker at your skill
+--   slim:            one compact bar per profession
 ---------------------------------------------------------------------------
 
 local GLOSS = "Interface\\TargetingFrame\\UI-StatusBar"
 local GOLD, GOLD_DARK, GOLD_BRIGHT = ns.GOLD_EDGE, { 0.42, 0.31, 0.10 }, { 1.00, 0.88, 0.50 }
 local SEGMENTS = 8
 local STYLES = {
-	slim = { row = BAR_H, gap = 3, pad = 0 },
+	clean = { row = 26, gap = 8, pad = 10, icon = 18, textX = 26, bar = 4 },
 	classic = { row = 37, gap = 7, pad = 8, bar = 18 },
+	slim = { row = BAR_H, gap = 3, pad = 0 },
 }
 
 function Bars:Style()
-	return (ns.db and STYLES[ns.db.style]) and ns.db.style or "classic"
+	return (ns.db and STYLES[ns.db.style]) and ns.db.style or "clean"
 end
 
 -- Width of a bar's fill area for the current style and width setting.
 function Bars:FillWidth(style)
-	if style == "classic" then
+	if style == "clean" then
+		return ns.db.width - 2 * STYLES.clean.pad - STYLES.clean.textX
+	elseif style == "classic" then
 		return ns.db.width - 2 * STYLES.classic.pad - 4
 	end
 	return ns.db.width - BAR_H - 1
@@ -282,6 +312,58 @@ function Bars:CreateSlimBar()
 	bar.name:SetJustifyH("LEFT")
 	bar.name:SetWordWrap(false)
 	return setupBar(bar)
+end
+
+function Bars:CreateCleanBar()
+	local metrics = STYLES.clean
+	local bar = CreateFrame("Button", nil, self.frame)
+	bar.style = "clean"
+	bar:SetHeight(metrics.row)
+
+	bar.icon = bar:CreateTexture(nil, "ARTWORK")
+	bar.icon:SetSize(metrics.icon, metrics.icon)
+	bar.icon:SetPoint("LEFT", 0, 0)
+	bar.icon:SetTexCoord(0.08, 0.92, 0.08, 0.92)
+
+	-- A thin colour line under the text; no frame, no gloss.
+	local status = CreateFrame("StatusBar", nil, bar)
+	status:SetPoint("BOTTOMLEFT", metrics.textX, 0)
+	status:SetPoint("BOTTOMRIGHT", 0, 0)
+	status:SetHeight(metrics.bar)
+	status:SetStatusBarTexture(FLAT)
+	status:SetMinMaxValues(0, 1)
+	bar.status = status
+	bar.track = status:CreateTexture(nil, "BACKGROUND")
+	bar.track:SetAllPoints()
+	bar.tick = status:CreateTexture(nil, "OVERLAY")
+	bar.tick:SetWidth(1)
+
+	-- Name ... note value, all sharing one baseline above the line.
+	bar.value = bar:CreateFontString(nil, "OVERLAY", "GameFontHighlight")
+	bar.value:SetPoint("BOTTOMRIGHT", 0, 8)
+	bar.value:SetJustifyH("RIGHT")
+	bar.note = bar:CreateFontString(nil, "OVERLAY", "GameFontHighlightSmall")
+	bar.note:SetPoint("BOTTOMRIGHT", bar.value, "BOTTOMLEFT", -6, 1)
+	bar.note:SetJustifyH("RIGHT")
+	bar.name = bar:CreateFontString(nil, "OVERLAY", "GameFontHighlight")
+	bar.name:SetPoint("BOTTOMLEFT", metrics.textX, 8)
+	bar.name:SetPoint("BOTTOMRIGHT", bar.note, "BOTTOMLEFT", -6, -1)
+	bar.name:SetJustifyH("LEFT")
+	bar.name:SetWordWrap(false)
+
+	-- Selection: a thin colour line at the panel's edge.
+	bar.accent = bar:CreateTexture(nil, "ARTWORK")
+	bar.accent:SetWidth(2)
+	bar.accent:SetPoint("TOPLEFT", bar, "TOPLEFT", -metrics.pad, 3)
+	bar.accent:SetPoint("BOTTOMLEFT", bar, "BOTTOMLEFT", -metrics.pad, -3)
+	bar.accent:Hide()
+
+	setupBar(bar)
+	bar.hl:ClearAllPoints()
+	bar.hl:SetPoint("TOPLEFT", bar, "TOPLEFT", -metrics.pad, 4)
+	bar.hl:SetPoint("BOTTOMRIGHT", bar, "BOTTOMRIGHT", metrics.pad, -4)
+	bar.hl:SetColorTexture(1, 1, 1, 0.04)
+	return bar
 end
 
 -- A small gold diamond built from 1px rows, so it looks the same everywhere.
@@ -398,7 +480,7 @@ end
 function Bars:UpdateBar(bar, prof, hidden)
 	local previous = bar.prof
 	bar.key, bar.prof = prof.key, prof
-	local classic = bar.style == "classic"
+	local classic, clean = bar.style == "classic", bar.style == "clean"
 	local theme = ns.GetTheme()
 	local r, g, b = ns.Color(prof.key)
 	local width = self:FillWidth(bar.style)
@@ -407,7 +489,9 @@ function Bars:UpdateBar(bar, prof, hidden)
 	bar.icon:SetTexture(prof.icon)
 	bar.icon:SetDesaturated(hidden and true or false)
 	bar.status:SetStatusBarColor(r, g, b, 1)
-	if classic then
+	if clean then
+		bar.track:SetColorTexture(1, 1, 1, 0.09)
+	elseif classic then
 		bar.track:SetColorTexture(0.03 + r * 0.07, 0.04 + g * 0.07, 0.06 + b * 0.07, 1)
 	else
 		bar.track:SetColorTexture(r * theme.track, g * theme.track, b * theme.track, 0.95)
@@ -422,16 +506,29 @@ function Bars:UpdateBar(bar, prof, hidden)
 		ns.Tween(bar.status, 0.45, before, fraction, setBarValue)
 		if prof.rank > previous.rank then
 			ns.Tween(bar.flash, 0.6, 0.45, 0, ns.SetAlphaTo)
+			self:Wake(4)
 		end
 	else
 		ns.StopTween(bar.status)
 		setBarValue(bar.status, fraction)
 	end
 
-	-- Gold line where the next rank can be trained.
+	-- Gold line where the next rank can be trained (the clean style only
+	-- shows it until you get there; then the numbers turn gold instead).
 	local step = ns.NextStep(prof.rank, prof.max, playerLevel())
 	local nextRank = step.nextRank
-	if nextRank and nextRank.skill < prof.max then
+	if clean then
+		if step.state == "skill" and nextRank.skill < prof.max then
+			local x = math.floor(width * nextRank.skill / prof.max + 0.5)
+			bar.tick:ClearAllPoints()
+			bar.tick:SetPoint("TOPLEFT", bar.status, "TOPLEFT", x, 1)
+			bar.tick:SetPoint("BOTTOMLEFT", bar.status, "BOTTOMLEFT", x, -1)
+			bar.tick:SetColorTexture(1, 0.82, 0, 0.85)
+			bar.tick:Show()
+		else
+			bar.tick:Hide()
+		end
+	elseif nextRank and nextRank.skill < prof.max then
 		local x = math.floor(width * nextRank.skill / prof.max + 0.5)
 		local half = classic and 0 or 1
 		bar.tick:ClearAllPoints()
@@ -446,7 +543,25 @@ function Bars:UpdateBar(bar, prof, hidden)
 	-- Skill gained this session shows as a small green "+5".
 	local gain = ns.SessionGain(prof)
 	local gained = gain > 0 and ("|cff59ff73+" .. gain .. "|r  ") or ""
-	if self.editing then
+	if clean then
+		local notes = {}
+		if not self.editing then
+			if gain > 0 then
+				notes[#notes + 1] = "|cff59ff73+" .. gain .. "|r"
+			end
+			if step.state == "train" then
+				notes[#notes + 1] = "|cffffd100train|r"
+			end
+		end
+		bar.note:SetText(table.concat(notes, "  "))
+		if self.editing then
+			bar.value:SetText(hidden and "|cff8a8a90hidden|r" or "shown")
+		elseif step.state == "train" then
+			bar.value:SetText("|cffffd100" .. prof.rank .. " / " .. prof.max .. "|r")
+		else
+			bar.value:SetText(prof.rank .. "|cff8c8c96 / " .. prof.max .. "|r")
+		end
+	elseif self.editing then
 		bar.value:SetText(hidden and "|cff8a8a90hidden|r" or "shown")
 	elseif step.state == "train" then
 		bar.value:SetText(gained .. "|cffffd100" .. prof.rank .. "/" .. prof.max .. "|r")
@@ -478,7 +593,12 @@ function Bars:UpdateSelection(only)
 		if not only or only == bar then
 			local selected = ns.Map:IsOpenFor(key)
 			bar.selected = selected
-			if bar.style == "classic" then
+			if bar.style == "clean" then
+				bar.accent:SetShown(selected)
+				if selected then
+					bar.accent:SetColorTexture(ns.Color(key))
+				end
+			elseif bar.style == "classic" then
 				local edge = selected and GOLD_BRIGHT or GOLD
 				ns.SetBorderColor(bar.frame, edge[1], edge[2], edge[3], 1)
 				if selected then
@@ -496,17 +616,19 @@ function Bars:UpdateSelection(only)
 	end
 end
 
--- The classic style sits on a slate-blue panel with a thin dark edge.
+-- Clean: a flat, translucent panel. Classic: slate-blue with a dark edge.
+-- Slim: no panel.
 function Bars:UpdatePanel(style)
 	local frame = self.frame
-	local classic = style == "classic"
-	frame.bg:SetShown(classic)
+	frame.bg:SetShown(style == "clean" or style == "classic")
 	for _, edge in ipairs(frame.border) do
-		edge:SetShown(classic)
+		edge:SetShown(style == "classic")
 	end
-	if classic then
+	if style == "classic" then
 		local bottom, top = ns.PanelColors()
 		ns.SetVerticalGradient(frame.bg, bottom, top, 0.93)
+	elseif style == "clean" then
+		frame.bg:SetColorTexture(0.03, 0.035, 0.045, math.min(0.8, ns.GetTheme().panel + 0.1))
 	end
 end
 
@@ -537,7 +659,13 @@ function Bars:Refresh()
 		if self.editing or not hidden then
 			local bar = self.bars[prof.key]
 			if not bar then
-				bar = style == "classic" and self:CreateClassicBar() or self:CreateSlimBar()
+				if style == "clean" then
+					bar = self:CreateCleanBar()
+				elseif style == "classic" then
+					bar = self:CreateClassicBar()
+				else
+					bar = self:CreateSlimBar()
+				end
 				self.bars[prof.key] = bar
 			end
 			local y = -(metrics.pad + shown * (metrics.row + metrics.gap))
@@ -565,6 +693,7 @@ function Bars:Refresh()
 	end
 	self:UpdatePanel(shown > 0 and style or "slim")
 	self:UpdateHeader()
+	self:ApplyFade()
 end
 
 function Bars:SetEditing(on)
@@ -587,8 +716,8 @@ function Bars:Create()
 	frame:SetSize(ns.db.width, BAR_H)
 	ns.AddBackground(frame, 0, 0, 0, 0)
 	ns.AddBorder(frame, 0, 0, 0, 0.7)
-	self.byStyle = { classic = {}, slim = {} }
-	self.bars = self.byStyle.classic
+	self.byStyle = { clean = {}, classic = {}, slim = {} }
+	self.bars = self.byStyle.clean
 	frame:SetFrameStrata("MEDIUM")
 	frame:SetClampedToScreen(true)
 	frame:SetMovable(true)

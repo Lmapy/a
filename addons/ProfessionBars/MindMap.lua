@@ -227,14 +227,20 @@ end
 function Map:StyleBranch(node, branch, r, g, b)
 	node.kind, node.data, node.sign = "branch", branch, branch.sign
 	node:SetSize(BW, BH)
-	node.bg:SetColorTexture(r * 0.15, g * 0.15, b * 0.15, 0.96)
-	ns.SetBorderColor(node, r, g, b, branch.open and 0.9 or 0.4)
+	if Map.clean then
+		-- Clean: a soft tile, no border.
+		node.bg:SetColorTexture(1, 1, 1, branch.open and 0.07 or 0.045)
+		ns.SetBorderColor(node, 1, 1, 1, 0)
+	else
+		node.bg:SetColorTexture(r * 0.15, g * 0.15, b * 0.15, 0.96)
+		ns.SetBorderColor(node, r, g, b, branch.open and 0.9 or 0.4)
+	end
 	node.stripe:SetColorTexture(r, g, b, 1)
 	node.stripe:ClearAllPoints()
 	node.label:ClearAllPoints()
 	node.value:ClearAllPoints()
 	node.toggle:ClearAllPoints()
-	node.stripe:SetWidth(3)
+	node.stripe:SetWidth(Map.clean and 2 or 3)
 	-- Text hugs the side facing the centre; the +/- sits on the outer side.
 	if branch.sign > 0 then
 		node.stripe:SetPoint("TOPLEFT", 1, -1)
@@ -270,8 +276,14 @@ end
 function Map:StyleLeaf(node, leaf, sign, r, g, b)
 	node.kind, node.data, node.sign = "leaf", leaf, sign
 	node:SetSize(LW, LH)
-	node.bg:SetColorTexture(0.075, 0.075, 0.095, 0.95)
-	ns.SetBorderColor(node, 1, 1, 1, 0.07)
+	if Map.clean then
+		-- Clean: leaves are just text with a colour tick.
+		node.bg:SetColorTexture(1, 1, 1, 0)
+		ns.SetBorderColor(node, 1, 1, 1, 0)
+	else
+		node.bg:SetColorTexture(0.075, 0.075, 0.095, 0.95)
+		ns.SetBorderColor(node, 1, 1, 1, 0.07)
+	end
 	local stripe = leaf.stripe or { r, g, b }
 	node.stripe:SetColorTexture(stripe[1], stripe[2], stripe[3], 1)
 	node.stripe:ClearAllPoints()
@@ -377,8 +389,13 @@ function Map:DrawCenter(prof, step, r, g, b, ox)
 	c.title = prof.name
 	c:ClearAllPoints()
 	c:SetPoint("CENTER", self.frame.canvas, "CENTER", ox or 0, 0)
-	c.bg:SetColorTexture(r * 0.22, g * 0.22, b * 0.22, 0.97)
-	ns.SetBorderColor(c, r, g, b, 1)
+	if Map.clean then
+		c.bg:SetColorTexture(1, 1, 1, 0.06)
+		ns.SetBorderColor(c, 1, 1, 1, 0)
+	else
+		c.bg:SetColorTexture(r * 0.22, g * 0.22, b * 0.22, 0.97)
+		ns.SetBorderColor(c, r, g, b, 1)
+	end
 	c.ring:SetColorTexture(r, g, b, 1)
 	c.icon:SetTexture(prof.icon)
 	c.name:SetText(prof.name)
@@ -388,7 +405,11 @@ function Map:DrawCenter(prof, step, r, g, b, ox)
 		.. (gain > 0 and ("  |cff59ff73+" .. gain .. "|r") or ""))
 	c.sub:SetTextColor(0.72, 0.72, 0.78)
 	c.bar:SetStatusBarColor(r, g, b, 1)
-	c.barBg:SetColorTexture(r * 0.25, g * 0.25, b * 0.25, 1)
+	if Map.clean then
+		c.barBg:SetColorTexture(1, 1, 1, 0.1)
+	else
+		c.barBg:SetColorTexture(r * 0.25, g * 0.25, b * 0.25, 1)
+	end
 	c.bar:SetValue(prof.max > 0 and math.min(1, prof.rank / prof.max) or 0)
 end
 
@@ -429,7 +450,7 @@ function Map:Create()
 
 	frame.hint = frame:CreateFontString(nil, "OVERLAY", "GameFontDisableSmall")
 	frame.hint:SetPoint("TOPLEFT", 10, -9)
-	frame.hint:SetText("Click a branch to unfold it  ·  drag to move  ·  Esc closes")
+	frame.hint:SetText("Click a branch to unfold it  ·  Esc closes")
 
 	frame.close = ns.CreateCloseButton(frame, 18)
 	frame.close:SetPoint("TOPRIGHT", -5, -4)
@@ -493,7 +514,13 @@ function Map:Render()
 	self:Place()
 
 	local r, g, b = ns.Color(prof.key)
-	if ns.Bars:Style() == "classic" then
+	local style = ns.Bars:Style()
+	Map.clean = style == "clean"
+	if Map.clean then
+		-- Clean: flat dark panel, hairline edge, the colour only in the top line.
+		frame.bg:SetColorTexture(0.04, 0.045, 0.06, 0.96)
+		ns.SetBorderColor(frame, 1, 1, 1, 0.06)
+	elseif style == "classic" then
 		-- Same slate-blue panel and gold edge as the classic bars.
 		local bottom, top = ns.PanelColors()
 		ns.SetVerticalGradient(frame.bg, bottom, top, 0.96)
@@ -512,7 +539,12 @@ function Map:Render()
 	for _, branch in ipairs(tree.branches) do
 		local s = branch.sign
 		local bx, by = ox + round(branch.x), round(branch.y)
-		ns.DrawCurve(self.lines, canvas, ox + s * CW / 2, 0, bx - s * BW / 2, by, r, g, b, 0.8, 2)
+		local mainAlpha, mainWidth = 0.8, 2
+		local leafAlpha, leafWidth = 0.45, 1.5
+		if Map.clean then
+			mainAlpha, mainWidth, leafAlpha, leafWidth = 0.55, 1.5, 0.3, 1
+		end
+		ns.DrawCurve(self.lines, canvas, ox + s * CW / 2, 0, bx - s * BW / 2, by, r, g, b, mainAlpha, mainWidth)
 		local node = self.nodes:Acquire()
 		self:StyleBranch(node, branch, r, g, b)
 		node:SetPoint("CENTER", canvas, "CENTER", bx, by)
@@ -520,7 +552,7 @@ function Map:Render()
 			local fresh = (self.animate == branch.key) and {} or nil
 			for _, leaf in ipairs(branch.shown) do
 				local lx, ly = ox + round(leaf.x), round(leaf.y)
-				ns.DrawCurve(self.lines, canvas, bx + s * BW / 2, by, lx - s * LW / 2, ly, r, g, b, 0.45, 1.5, fresh)
+				ns.DrawCurve(self.lines, canvas, bx + s * BW / 2, by, lx - s * LW / 2, ly, r, g, b, leafAlpha, leafWidth, fresh)
 				local leafNode = self.nodes:Acquire()
 				self:StyleLeaf(leafNode, leaf, s, r, g, b)
 				leafNode:SetPoint("CENTER", canvas, "CENTER", lx, ly)

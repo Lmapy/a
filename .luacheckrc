@@ -15,7 +15,7 @@ files["addons/"] = {
 		"CreateFrame", "UIParent", "GameTooltip", "DEFAULT_CHAT_FRAME", "C_Timer", "C_TradeSkillUI",
 		"C_Item", "Enum", "GetProfessions", "GetProfessionInfo", "GetNumSkillLines", "GetSkillLineInfo",
 		"GetItemCount", "UnitLevel", "InCombatLockdown", "IsShiftKeyDown", "GetBuildInfo",
-		"ChatEdit_InsertLink", "ChatFrameUtil", "issecretvalue", "GameFontHighlightSmall", "time",
+		"ChatEdit_InsertLink", "ChatFrameUtil", "issecretvalue", "GameFontHighlightSmall", "time", "GetTime",
 		"UnitName", "UnitClass", "GetRealmName", "RAID_CLASS_COLORS", "CreateColor",
 	},
 }

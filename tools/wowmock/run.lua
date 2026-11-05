@@ -1,6 +1,6 @@
 -- Headless tests for addons/ProfessionBars.
 --   lua5.1 tools/wowmock/run.lua                 run every scenario
---   lua5.1 tools/wowmock/run.lua --dump out.json [main|themes|gather]
+--   lua5.1 tools/wowmock/run.lua --dump out.json [main|styles|themes|gather]
 --                                               write a preview scene
 -- Run from the repository root.
 local Mock = dofile("tools/wowmock/wow.lua")
@@ -232,14 +232,30 @@ scenarios[#scenarios + 1] = { "mainline client", function()
 		order[i] = bar.key
 	end
 	eq(table.concat(order, ","), "blacksmithing,mining,cooking,firstaid,fishing", "primaries first, then secondaries")
-	eq(plain(ns.Bars.bars.blacksmithing.value:GetText()), "45/75", "blacksmithing value text")
-	eq(ns.Bars.bars.firstaid.value:GetText(), "|cffffd10075/75|r", "first aid (capped, trainable) is gold")
+	eq(plain(ns.Bars.bars.blacksmithing.value:GetText()), "45 / 75", "blacksmithing value text")
+	eq(ns.Bars.bars.blacksmithing.value:GetText(), "45|cff8c8c96 / 75|r", "the max is dimmed")
+	eq(ns.Bars.bars.firstaid.value:GetText(), "|cffffd10075 / 75|r", "first aid (capped, trainable) is gold")
+	eq(ns.Bars.bars.firstaid.note:GetText(), "|cffffd100train|r", "a small gold 'train' appears when you can train")
+	eq(ns.Bars.bars.blacksmithing.note:GetText(), "", "no note when there is nothing to act on")
 	check(ns.Bars.bars.blacksmithing.tick:IsShown(), "training tick is shown")
 	eq(math.floor(ns.Bars.bars.blacksmithing.status:GetValue() * 75 + 0.5), 45, "bar fill matches skill")
 
-	-- The default classic style: label row, framed bar, rank inside, marker.
+	-- The default clean style: icon, name and value above a thin line.
+	local clean = ns.Bars.bars.blacksmithing
+	eq(clean.style, "clean", "clean style is the default")
+	local line, cleanName = m.Resolve(clean.status), m.Resolve(clean.name)
+	eq(math.floor(line.t - line.b + 0.5), 4, "the bar is a 4px line")
+	check(cleanName.b > line.t, "name sits above the line")
+	check(math.abs(cleanName.l - line.l) < 0.5, "name and line share a left edge")
+	check(not ns.Bars.frame.border[1]:IsShown() and ns.Bars.frame.bg:IsShown(), "flat panel without a border")
+	local tick = m.Resolve(clean.tick)
+	check(clean.tick:IsShown() and math.abs(tick.l - (line.l + (line.r - line.l) * 50 / 75)) < 1, "gold tick at 50 where Journeyman can be trained")
+	check(not ns.Bars.bars.firstaid.tick:IsShown(), "no tick once the threshold is reached")
+
+	-- The framed classic style: label row, framed bar, rank inside, marker.
+	slash(m, "style classic")
 	local smith = ns.Bars.bars.blacksmithing
-	eq(smith.style, "classic", "classic style is the default")
+	eq(smith.style, "classic", "/pb style classic")
 	eq(smith.rank:GetText(), "Apprentice", "rank name sits inside the bar")
 	eq(ns.Bars.bars.firstaid.rank:GetText(), "|cffffd100Ready for Journeyman|r", "a trainable rank says so inside the bar")
 	eq(#smith.dividers, 7, "bar is split into eight segments")
@@ -251,6 +267,12 @@ scenarios[#scenarios + 1] = { "mainline client", function()
 	local nameRect, barFrame = m.Resolve(smith.name), m.Resolve(smith.frame)
 	check(nameRect.b > barFrame.t, "name sits above the bar")
 	check(ns.Bars.frame.bg.gradient ~= nil, "classic bars sit on a gradient panel")
+	m.Click(smith)
+	check(smith.selected and smith.frame.border[1].color[2] > 0.85, "selected classic bar gets a bright gold frame")
+	check(ns.Map.frame.bg.gradient ~= nil, "the map matches the classic panel")
+	m.Click(smith)
+	slash(m, "style clean")
+	eq(ns.Bars.bars.blacksmithing.style, "clean", "/pb style clean")
 	eq(table.concat(ns.scanSources, "+"), "GetProfessions+C_TradeSkillUI", "first aid came from C_TradeSkillUI")
 	local r, g, b = unpack(ns.Bars.bars.blacksmithing.status.barColor)
 	check(r > 0.8 and g < 0.6 and b < 0.3, "blacksmithing uses its ember colour")
@@ -273,9 +295,9 @@ scenarios[#scenarios + 1] = { "mainline client", function()
 	check(findNode(ns, "Open your Blacksmithing window") ~= nil, "map explains how to load recipes")
 	local br, bg, bb = ns.Color("blacksmithing")
 	check(ns.Bars.bars.blacksmithing.selected, "the bar whose map is open is marked selected")
-	check(ns.Bars.bars.blacksmithing.frame.border[1].color[2] > 0.85, "selected classic bar gets a bright gold frame")
-	check(ns.Bars.bars.blacksmithing.name.textColor[1] > 0.9 and ns.Bars.bars.blacksmithing.name.textColor[3] < 0.6, "selected name is tinted with its colour (" .. br .. "," .. bg .. "," .. bb .. ")")
-	check(ns.Map.frame.bg.gradient ~= nil, "the map matches the classic panel")
+	local accent = ns.Bars.bars.blacksmithing.accent
+	check(accent:IsShown() and accent.color[1] == br and accent.color[2] == bg and accent.color[3] == bb, "selection is a thin line in the profession's colour")
+	check(ns.Map.frame.bg.gradient == nil and ns.Map.frame.border[1].color[4] < 0.1, "the clean map is a flat panel with a hairline edge")
 
 	-- Open the Blacksmithing window: recipes get cached.
 	m.trade.open, m.trade.recipes = MODERN_PROFS[1], BS_RECIPES
@@ -452,7 +474,7 @@ scenarios[#scenarios + 1] = { "mainline client", function()
 	checkMapGeometry(m, ns, "mining")
 	m.Click(ns.Bars.bars.mining)
 	check(not ns.Map.frame:IsShown(), "clicking the open bar closes the map")
-	check(not ns.Bars.bars.mining.selected and ns.Bars.bars.mining.frame.border[1].color[2] < 0.8, "selection cleared")
+	check(not ns.Bars.bars.mining.selected and not ns.Bars.bars.mining.accent:IsShown(), "selection cleared")
 
 	-- Skill-up: bar animates and turns gold when Journeyman becomes trainable.
 	MODERN_PROFS[1].rank = 50
@@ -462,7 +484,8 @@ scenarios[#scenarios + 1] = { "mainline client", function()
 	local mid = ns.Bars.bars.blacksmithing.status:GetValue()
 	check(mid > 45 / 75 and mid < 50 / 75, "bar fill animates toward the new value")
 	m.Advance(1)
-	eq(ns.Bars.bars.blacksmithing.value:GetText(), "|cff59ff73+5|r  |cffffd10050/75|r", "gold once Journeyman is trainable, with the session gain")
+	eq(ns.Bars.bars.blacksmithing.value:GetText(), "|cffffd10050 / 75|r", "gold once Journeyman is trainable")
+	eq(ns.Bars.bars.blacksmithing.note:GetText(), "|cff59ff73+5|r  |cffffd100train|r", "session gain and 'train' notes")
 	eq(math.floor(ns.Bars.bars.blacksmithing.status:GetValue() * 75 + 0.5), 50, "bar fill settles on the new value")
 	m.Click(ns.Bars.bars.blacksmithing)
 	check(findNode(ns, "Visit a trainer").data.value == "now", "next step says to train now")
@@ -534,7 +557,7 @@ scenarios[#scenarios + 1] = { "mainline client", function()
 	local left = ns.Bars.frame:GetLeft() * 1.25
 	eq(math.floor(left - ns.db.point[1] + 0.5), 0, "scaling keeps the bars where they were")
 	slash(m, "width 260")
-	eq(ns.Bars.bars.cooking:GetWidth(), 260 - 16, "/pb width (classic bars sit inside the panel's padding)")
+	eq(ns.Bars.bars.cooking:GetWidth(), 260 - 20, "/pb width (clean bars sit inside the panel's padding)")
 
 	-- The slim style, and back.
 	slash(m, "style slim")
@@ -550,10 +573,31 @@ scenarios[#scenarios + 1] = { "mainline client", function()
 	check(ns.Map.frame.bg.gradient == nil, "the map uses its plain look with slim bars")
 	m.Click(slim)
 	slash(m, "style")
-	eq(ns.db.style, "classic", "/pb style toggles back")
-	check(ns.Bars.bars.blacksmithing.style == "classic" and ns.Bars.bars.blacksmithing:IsShown(), "framed bars are back")
+	eq(ns.db.style, "clean", "/pb style cycles clean -> classic -> slim -> clean")
+	check(ns.Bars.bars.blacksmithing.style == "clean" and ns.Bars.bars.blacksmithing:IsShown(), "clean bars are back")
 	slash(m, "style fancy")
-	check(m.ChatHas("styles: classic, slim") ~= nil, "unknown style lists the options")
+	check(m.ChatHas("styles: clean, classic, slim") ~= nil, "unknown style lists the options")
+
+	-- Idle fade: dim until hovered, back on hover, awake again after a skill-up.
+	slash(m, "fade")
+	m.Advance(0.5)
+	check(math.abs(ns.Bars.frame:GetAlpha() - 0.3) < 0.01, "/pb fade dims the idle bars")
+	m.Hover(ns.Bars.bars.cooking)
+	m.Advance(0.5)
+	check(math.abs(ns.Bars.frame:GetAlpha() - 1) < 0.01, "hovering brings them back")
+	m.Leave()
+	m.Advance(1)
+	check(math.abs(ns.Bars.frame:GetAlpha() - 0.3) < 0.01, "they dim again after the mouse leaves")
+	MODERN_PROFS[4].rank = 121
+	m.Fire("CHAT_MSG_SKILL")
+	m.Advance(1)
+	check(math.abs(ns.Bars.frame:GetAlpha() - 1) < 0.01, "a skill-up wakes them")
+	m.Advance(5)
+	check(math.abs(ns.Bars.frame:GetAlpha() - 0.3) < 0.01, "and they dim again afterwards")
+	MODERN_PROFS[4].rank = 120
+	slash(m, "fade")
+	m.Advance(0.5)
+	check(math.abs(ns.Bars.frame:GetAlpha() - 1) < 0.01, "/pb fade again turns it off")
 	slash(m, "width abc")
 	check(m.ChatHas("usage: /pb width") ~= nil, "/pb width needs a number")
 	slash(m, "mapscale 0.9")
@@ -653,7 +697,7 @@ scenarios[#scenarios + 1] = { "classic-style skill lines only", function()
 	local ns = boot(m)
 	eq(#shownBars(ns), 3, "professions read from skill lines (weapon skills ignored)")
 	eq(table.concat(ns.scanSources, "+"), "GetSkillLineInfo", "fallback source used")
-	eq(ns.Bars.bars.enchanting.value:GetText(), "230/300", "artisan value")
+	eq(plain(ns.Bars.bars.enchanting.value:GetText()), "230 / 300", "artisan value")
 	m.Click(ns.Bars.bars.tailoring)
 	eq(branchKeys(ns), "rank,next,skillups", "map opens without C_TradeSkillUI")
 	checkMapGeometry(m, ns, "tailoring")
@@ -796,7 +840,7 @@ end }
 -- Preview scene for tools/wowmock/preview.js
 ---------------------------------------------------------------------------
 
-local function sceneMock(theme)
+local function sceneMock(theme, style)
 	local m = Mock.new()
 	m.level = 18
 	MODERN_PROFS[1].rank = 43
@@ -819,6 +863,9 @@ local function sceneMock(theme)
 	m.Advance(1)
 	if theme then
 		slash(m, "theme " .. theme)
+	end
+	if style then
+		slash(m, "style " .. style)
 	end
 	return m, ns
 end
@@ -853,6 +900,24 @@ function SCENES.themes()
 		ns.db.point = { x, 600 }
 		ns.Bars:RestorePosition()
 		ops[#ops + 1] = label(ns.GetTheme().label, x, 606, 12)
+		for _, op in ipairs(m.Dump()) do
+			ops[#ops + 1] = op
+		end
+	end
+	return m0, ops
+end
+
+-- The three bar styles side by side.
+function SCENES.styles()
+	local ops, m0 = {}, nil
+	local styles = { { "clean", "Clean (default)" }, { "classic", "Classic" }, { "slim", "Slim" } }
+	for i, entry in ipairs(styles) do
+		local m, ns = sceneMock(nil, entry[1])
+		m0 = m0 or m
+		local x = 30 + (i - 1) * 270
+		ns.db.point = { x, 600 }
+		ns.Bars:RestorePosition()
+		ops[#ops + 1] = label(entry[2], x, 606, 12)
 		for _, op in ipairs(m.Dump()) do
 			ops[#ops + 1] = op
 		end

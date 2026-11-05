@@ -1,8 +1,8 @@
 # Profession Bars
 
 Colour-themed skill bars for your professions in World of Warcraft: Forever, in a
-framed classic style or a compact slim style. Click a bar and that profession unfolds
-beside it as a mind map. The map shows:
+minimal clean style (the default), a framed classic style or a compact slim style.
+Click a bar and that profession unfolds beside it as a mind map. The map shows:
 - your rank, and what it takes to reach the next one;
 - a plan for the next skill points, with the reagents you're missing;
 - what you can craft right now, and where your gathering skill stands;
@@ -30,13 +30,15 @@ out of date, tick *Load out of date AddOns* or update the number on the
 ## Using it
 
 - **Bars.** One bar per profession: primaries first, then Cooking, First Aid and Fishing.
-  - **Classic style (the default).** The name and value sit above a gold-framed bar,
-    with your rank written inside. A gold marker with diamond ends sits at your current
-    skill. The inside text says *Ready for Journeyman* when you can train.
-  - **Slim style.** One compact bar per profession, for a minimal UI: `/pb style slim`.
-  - A thin gold line marks where the next rank can be trained. The numbers turn gold
-    when you can train it right now.
-  - A green **+N** shows the skill you've gained this session.
+  Pick a style with `/pb style`:
+  - **Clean (the default).** Icon, name and `45 / 75` above a thin colour line, on a
+    flat translucent panel. A small gold tick marks where the next rank can be trained.
+    Once you can train, the numbers turn gold and a small *train* appears. A green
+    **+N** shows the skill you've gained this session. Nothing else is drawn.
+  - **Classic.** The name and value sit above a gold-framed bar with your rank written
+    inside, and a gold marker with diamond ends sits at your current skill.
+  - **Slim.** One compact bar per profession with the text inside.
+  - `/pb fade` dims the bars until you hover them. A skill-up wakes them for a moment.
   - Hover a bar to see which of your other characters have that profession.
 - **Click a bar** to unfold its mind map beside the bars. Click the bar again, or
   press Esc, to close it.
@@ -52,6 +54,8 @@ out of date, tick *Load out of date AddOns* or update the number on the
   Drag the header to move the bars.
 - **Toggle everything** with `/pb`, a key binding (Key Bindings → AddOns → Profession
   Bars), or the minimap addon menu.
+
+![The three styles](../../docs/professionbars/styles.png)
 
 ![The four themes](../../docs/professionbars/themes.png)
 
@@ -88,14 +92,15 @@ a recipe to link it in chat.
 | `/pb <profession>` or `/pb map <profession>` | Open a profession's map, e.g. `/pb mining`. |
 | `/pb edit` | Choose which professions get a bar. |
 | `/pb hide <profession>`, `/pb show <profession\|all>` | Hide or show one bar. |
-| `/pb style [classic\|slim]` | Framed bars with the rank inside, or compact bars. Toggles with no name. |
+| `/pb style [clean\|classic\|slim]` | Minimal, framed or compact bars. Cycles with no name. |
+| `/pb fade` | Dim the bars until you hover them (toggle). |
 | `/pb theme [vibrant\|soft\|midnight\|mono]` | Set the theme, or cycle with no name. |
 | `/pb color <profession> <#rrggbb\|reset>` | Give one profession your own colour. |
 | `/pb lock`, `/pb unlock` | Stop or allow dragging. |
 | `/pb scale <0.5-2>`, `/pb mapscale <0.5-2>`, `/pb width <140-400>` | Sizes. |
 | `/pb combat` | Hide the bars while in combat (toggle). |
 | `/pb alts`, `/pb forget <name>` | List your other characters' professions, or forget one. |
-| `/pb reset` | Reset position, size, style, theme and colours. Alts and recipes are kept. |
+| `/pb reset` | Reset position, size, style, fade, theme and colours. Alts and recipes are kept. |
 | `/pb debug` | Print which game APIs the addon found, what they returned and the last error. |
 
 ## Known limitations

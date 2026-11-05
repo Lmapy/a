@@ -30,7 +30,7 @@ previewed.
 ```sh
 # from the repository root
 lua5.1 tools/wowmock/run.lua                                  # run the tests
-lua5.1 tools/wowmock/run.lua --dump /tmp/scene.json main      # or: themes, gather
+lua5.1 tools/wowmock/run.lua --dump /tmp/scene.json main      # or: styles, themes, gather
 node tools/wowmock/preview.js /tmp/scene.json docs/professionbars/main.png
 ```
 
