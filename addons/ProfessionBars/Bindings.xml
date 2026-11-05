@@ -1,0 +1,5 @@
+<Bindings>
+	<Binding name="PROFESSIONBARS_TOGGLE" header="PROFESSIONBARS" category="ADDONS">
+		ProfessionBars_Toggle()
+	</Binding>
+</Bindings>
