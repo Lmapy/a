@@ -163,7 +163,12 @@ function Mock.new(options)
 	function Drawable:SetVertexColor(r, g, b, a) self.vertex = { r, g, b, a or 1 } end
 	function Drawable:SetColorTexture(r, g, b, a)
 		assert(type(r) == "number" and type(g) == "number" and type(b) == "number", "SetColorTexture needs numbers")
-		self.color, self.texturePath = { r, g, b, a or 1 }, nil
+		self.color, self.texturePath, self.gradient = { r, g, b, a or 1 }, nil, nil
+	end
+	function Drawable:SetGradient(orientation, minColor, maxColor)
+		assert(orientation == "VERTICAL" or orientation == "HORIZONTAL", "SetGradient: bad orientation")
+		assert(type(minColor) == "table" and minColor.r and type(maxColor) == "table" and maxColor.r, "SetGradient needs ColorMixin colours")
+		self.gradient = { orientation, minColor, maxColor }
 	end
 
 	local TextureOnly = {}
@@ -556,6 +561,10 @@ function Mock.new(options)
 					local rect = m.Resolve(object, cache)
 					if rect and (object.color or object.texturePath) then
 						op.type, op.rect, op.color, op.path = "tex", rect, object.color, object.texturePath
+						if object.gradient then
+							local g = object.gradient
+							op.gradient = { g[1], { g[2].r, g[2].g, g[2].b, g[2].a }, { g[3].r, g[3].g, g[3].b, g[3].a } }
+						end
 						op.vertex, op.round, op.desaturated = object.vertex, object.masks ~= nil, object.desaturated
 						ops[#ops + 1] = op
 					end
@@ -586,7 +595,7 @@ function Mock.new(options)
 					local span = object.maxValue - object.minValue
 					local fraction = span > 0 and (object.value - object.minValue) / span or 0
 					local op = base(object, object, "ARTWORK", -1)
-					op.type, op.color = "tex", object.barColor
+					op.type, op.color, op.path = "tex", object.barColor, type(object.barTexture) == "string" and object.barTexture or nil
 					op.rect = { l = rect.l, r = rect.l + (rect.r - rect.l) * fraction, b = rect.b, t = rect.t }
 					ops[#ops + 1] = op
 				end
@@ -724,6 +733,7 @@ function Mock.new(options)
 		MAGE = { r = 0.25, g = 0.78, b = 0.92 }, ROGUE = { r = 1, g = 0.96, b = 0.41 },
 	}
 	env.date = os.date
+	env.CreateColor = function(r, g, b, a) return { r = r, g = g, b = b, a = a or 1 } end
 	env.ChatEdit_InsertLink = function(link) m.insertedLink = link return true end
 
 	-- Load an addon folder in TOC order, passing (name, namespace) like the client.

@@ -82,3 +82,14 @@ function ns.ParseHex(text)
 	end
 	return tonumber(hex:sub(1, 2), 16) / 255, tonumber(hex:sub(3, 4), 16) / 255, tonumber(hex:sub(5, 6), 16) / 255
 end
+
+-- Gold used for frames in the classic style.
+ns.GOLD_EDGE = { 0.86, 0.68, 0.26 }
+
+-- Bottom and top colours of the panel gradient behind classic bars and the map.
+function ns.PanelColors()
+	if ns.GetTheme().key == "midnight" then
+		return { 0.02, 0.02, 0.04 }, { 0.08, 0.09, 0.12 }
+	end
+	return { 0.05, 0.10, 0.17 }, { 0.14, 0.25, 0.38 }
+end

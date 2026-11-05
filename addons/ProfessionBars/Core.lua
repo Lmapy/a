@@ -6,8 +6,9 @@ local DEFAULTS = {
 	shown = true,
 	locked = false,
 	theme = "vibrant",
+	style = "classic", -- "classic" (framed bars) or "slim"
 	scale = 1,
-	width = 220,
+	width = 240,
 	mapScale = 1,
 	hideInCombat = false,
 	colors = {}, -- [key] = { r, g, b } custom colours
@@ -16,7 +17,7 @@ local DEFAULTS = {
 	welcomed = false,
 }
 -- What /pb reset puts back (it keeps your alts and recipe data).
-local LOOK = { "shown", "locked", "theme", "scale", "width", "mapScale", "hideInCombat", "colors", "expanded" }
+local LOOK = { "shown", "locked", "theme", "style", "scale", "width", "mapScale", "hideInCombat", "colors", "expanded" }
 local CHAR_DEFAULTS = {
 	hidden = {}, -- [key] = true for professions without a bar
 	recipes = {}, -- [key] = { list = {...}, rank = n, time = t }
@@ -248,6 +249,7 @@ local HELP = {
 	"|cffffd100/pb map <profession>|r  open a profession's mind map",
 	"|cffffd100/pb edit|r  pick which professions get a bar (or hover the bars and click 'edit')",
 	"|cffffd100/pb hide <profession>|r, |cffffd100/pb show <profession|all>|r",
+	"|cffffd100/pb style [classic|slim]|r  framed bars with the rank inside, or compact bars",
 	"|cffffd100/pb theme [vibrant|soft|midnight|mono]|r  set or cycle the colour theme",
 	"|cffffd100/pb color <profession> <#rrggbb|reset>|r  your own colour for one profession",
 	"|cffffd100/pb lock|r, |cffffd100/pb unlock|r  stop or allow dragging",
@@ -366,6 +368,19 @@ function commands.theme(arg)
 		return ns.Print("themes: " .. table.concat(names, ", "))
 	end
 	ns.Print("theme: " .. ns.GetTheme().label)
+end
+
+function commands.style(arg)
+	local style = arg:lower()
+	if style == "" then
+		style = ns.Bars:Style() == "classic" and "slim" or "classic"
+	end
+	if style ~= "classic" and style ~= "slim" then
+		return ns.Print("styles: classic, slim")
+	end
+	ns.db.style = style
+	ns.RefreshAll()
+	ns.Print("bar style: " .. style)
 end
 
 function commands.color(arg)

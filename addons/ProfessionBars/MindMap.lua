@@ -493,8 +493,15 @@ function Map:Render()
 	self:Place()
 
 	local r, g, b = ns.Color(prof.key)
-	frame.bg:SetColorTexture(0.035, 0.035, 0.05, math.min(0.97, ns.GetTheme().panel + 0.4))
-	ns.SetBorderColor(frame, r * 0.8, g * 0.8, b * 0.8, 0.9)
+	if ns.Bars:Style() == "classic" then
+		-- Same slate-blue panel and gold edge as the classic bars.
+		local bottom, top = ns.PanelColors()
+		ns.SetVerticalGradient(frame.bg, bottom, top, 0.96)
+		ns.SetBorderColor(frame, ns.GOLD_EDGE[1], ns.GOLD_EDGE[2], ns.GOLD_EDGE[3], 1)
+	else
+		frame.bg:SetColorTexture(0.035, 0.035, 0.05, math.min(0.97, ns.GetTheme().panel + 0.4))
+		ns.SetBorderColor(frame, r * 0.8, g * 0.8, b * 0.8, 0.9)
+	end
 	frame.accent:SetColorTexture(r, g, b, 1)
 	frame.footer:SetText(tree.footer or "")
 	self:DrawCenter(prof, tree.step, r, g, b, ox)

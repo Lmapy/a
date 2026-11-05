@@ -236,6 +236,21 @@ scenarios[#scenarios + 1] = { "mainline client", function()
 	eq(ns.Bars.bars.firstaid.value:GetText(), "|cffffd10075/75|r", "first aid (capped, trainable) is gold")
 	check(ns.Bars.bars.blacksmithing.tick:IsShown(), "training tick is shown")
 	eq(math.floor(ns.Bars.bars.blacksmithing.status:GetValue() * 75 + 0.5), 45, "bar fill matches skill")
+
+	-- The default classic style: label row, framed bar, rank inside, marker.
+	local smith = ns.Bars.bars.blacksmithing
+	eq(smith.style, "classic", "classic style is the default")
+	eq(smith.rank:GetText(), "Apprentice", "rank name sits inside the bar")
+	eq(ns.Bars.bars.firstaid.rank:GetText(), "|cffffd100Ready for Journeyman|r", "a trainable rank says so inside the bar")
+	eq(#smith.dividers, 7, "bar is split into eight segments")
+	local fill = m.Resolve(smith.status)
+	local marker = m.Resolve(smith.marker)
+	local expected = fill.l + (fill.r - fill.l) * 45 / 75
+	check(math.abs((marker.l + marker.r) / 2 - expected) < 1, "gold marker sits at the current skill")
+	check(marker.t > fill.t and marker.b < fill.b, "marker reaches past the top and bottom of the bar")
+	local nameRect, barFrame = m.Resolve(smith.name), m.Resolve(smith.frame)
+	check(nameRect.b > barFrame.t, "name sits above the bar")
+	check(ns.Bars.frame.bg.gradient ~= nil, "classic bars sit on a gradient panel")
 	eq(table.concat(ns.scanSources, "+"), "GetProfessions+C_TradeSkillUI", "first aid came from C_TradeSkillUI")
 	local r, g, b = unpack(ns.Bars.bars.blacksmithing.status.barColor)
 	check(r > 0.8 and g < 0.6 and b < 0.3, "blacksmithing uses its ember colour")
@@ -257,7 +272,10 @@ scenarios[#scenarios + 1] = { "mainline client", function()
 	eq(branchKeys(ns), "rank,next,skillups", "branches without recipe data")
 	check(findNode(ns, "Open your Blacksmithing window") ~= nil, "map explains how to load recipes")
 	local br, bg, bb = ns.Color("blacksmithing")
-	check(ns.Bars.bars.blacksmithing.border[1].color[1] == br and ns.Bars.bars.blacksmithing.border[1].color[2] == bg and ns.Bars.bars.blacksmithing.border[1].color[3] == bb, "selected bar gets a coloured border")
+	check(ns.Bars.bars.blacksmithing.selected, "the bar whose map is open is marked selected")
+	check(ns.Bars.bars.blacksmithing.frame.border[1].color[2] > 0.85, "selected classic bar gets a bright gold frame")
+	check(ns.Bars.bars.blacksmithing.name.textColor[1] > 0.9 and ns.Bars.bars.blacksmithing.name.textColor[3] < 0.6, "selected name is tinted with its colour (" .. br .. "," .. bg .. "," .. bb .. ")")
+	check(ns.Map.frame.bg.gradient ~= nil, "the map matches the classic panel")
 
 	-- Open the Blacksmithing window: recipes get cached.
 	m.trade.open, m.trade.recipes = MODERN_PROFS[1], BS_RECIPES
@@ -434,7 +452,7 @@ scenarios[#scenarios + 1] = { "mainline client", function()
 	checkMapGeometry(m, ns, "mining")
 	m.Click(ns.Bars.bars.mining)
 	check(not ns.Map.frame:IsShown(), "clicking the open bar closes the map")
-	check(ns.Bars.bars.mining.border[1].color[1] == 0, "selection border cleared")
+	check(not ns.Bars.bars.mining.selected and ns.Bars.bars.mining.frame.border[1].color[2] < 0.8, "selection cleared")
 
 	-- Skill-up: bar animates and turns gold when Journeyman becomes trainable.
 	MODERN_PROFS[1].rank = 50
@@ -516,7 +534,26 @@ scenarios[#scenarios + 1] = { "mainline client", function()
 	local left = ns.Bars.frame:GetLeft() * 1.25
 	eq(math.floor(left - ns.db.point[1] + 0.5), 0, "scaling keeps the bars where they were")
 	slash(m, "width 260")
-	eq(ns.Bars.bars.cooking:GetWidth(), 260, "/pb width")
+	eq(ns.Bars.bars.cooking:GetWidth(), 260 - 16, "/pb width (classic bars sit inside the panel's padding)")
+
+	-- The slim style, and back.
+	slash(m, "style slim")
+	eq(ns.db.style, "slim", "/pb style slim")
+	local slim = ns.Bars.bars.blacksmithing
+	check(slim.style == "slim" and slim:IsShown() and slim.rank == nil, "slim bars replace the framed ones")
+	eq(slim:GetWidth(), 260, "slim bars fill the width")
+	check(not ns.Bars.frame.bg:IsShown(), "slim bars have no panel")
+	check(ns.Bars.frame:GetHeight() < 120, "slim stack is compact")
+	m.Click(slim)
+	local sr2, sg2, sb2 = ns.Color("blacksmithing")
+	check(slim.border[1].color[1] == sr2 and slim.border[1].color[2] == sg2 and slim.border[1].color[3] == sb2, "selected slim bar gets a coloured border")
+	check(ns.Map.frame.bg.gradient == nil, "the map uses its plain look with slim bars")
+	m.Click(slim)
+	slash(m, "style")
+	eq(ns.db.style, "classic", "/pb style toggles back")
+	check(ns.Bars.bars.blacksmithing.style == "classic" and ns.Bars.bars.blacksmithing:IsShown(), "framed bars are back")
+	slash(m, "style fancy")
+	check(m.ChatHas("styles: classic, slim") ~= nil, "unknown style lists the options")
 	slash(m, "width abc")
 	check(m.ChatHas("usage: /pb width") ~= nil, "/pb width needs a number")
 	slash(m, "mapscale 0.9")

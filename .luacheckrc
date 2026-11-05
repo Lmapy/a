@@ -16,7 +16,7 @@ files["addons/"] = {
 		"C_Item", "Enum", "GetProfessions", "GetProfessionInfo", "GetNumSkillLines", "GetSkillLineInfo",
 		"GetItemCount", "UnitLevel", "InCombatLockdown", "IsShiftKeyDown", "GetBuildInfo",
 		"ChatEdit_InsertLink", "ChatFrameUtil", "issecretvalue", "GameFontHighlightSmall", "time",
-		"UnitName", "UnitClass", "GetRealmName", "RAID_CLASS_COLORS",
+		"UnitName", "UnitClass", "GetRealmName", "RAID_CLASS_COLORS", "CreateColor",
 	},
 }
 files["tools/"] = { globals = { "_G" }, allow_defined_top = true }

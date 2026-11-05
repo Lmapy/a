@@ -233,3 +233,17 @@ function ns.DrawCurve(pool, anchor, x1, y1, x2, y2, r, g, b, a, thickness, out)
 		px, py = x, y
 	end
 end
+
+-- Vertical gradient (bottom colour to top colour) on a texture. Falls back to
+-- the average colour on clients without ColorMixin gradients.
+function ns.SetVerticalGradient(texture, bottom, top, alpha)
+	texture:SetColorTexture(1, 1, 1, 1)
+	if texture.SetGradient and CreateColor then
+		local ok = pcall(texture.SetGradient, texture, "VERTICAL",
+			CreateColor(bottom[1], bottom[2], bottom[3], alpha), CreateColor(top[1], top[2], top[3], alpha))
+		if ok then
+			return
+		end
+	end
+	texture:SetColorTexture((bottom[1] + top[1]) / 2, (bottom[2] + top[2]) / 2, (bottom[3] + top[3]) / 2, alpha)
+end

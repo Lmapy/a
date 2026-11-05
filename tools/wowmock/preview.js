@@ -71,6 +71,19 @@ const parts = scene.ops.map((op, z) => {
     if (width <= 0.01 || height <= 0.01) return '';
     grow(left, top, left + width, top + height);
     const radius = op.round ? 'border-radius:50%;' : '';
+    if (op.gradient) {
+      const [dir, low, high] = op.gradient;
+      const toward = dir === 'VERTICAL' ? 'to top' : 'to right';
+      return `<div style="position:absolute;z-index:${z};left:${left}px;top:${top}px;width:${width}px;height:${height}px;${radius}`
+        + `background:linear-gradient(${toward},${css(low, op.alpha)},${css(high, op.alpha)})"></div>`;
+    }
+    if (op.color && op.path && /UI-StatusBar/.test(op.path)) {
+      // Approximate the game's glossy status bar texture.
+      const [r, g, b, a = 1] = op.color;
+      const shade = (k) => css([r * k, g * k, b * k, a], op.alpha);
+      return `<div style="position:absolute;z-index:${z};left:${left}px;top:${top}px;width:${width}px;height:${height}px;`
+        + `background:linear-gradient(to bottom,${shade(1.25)} 0%,${shade(1.0)} 40%,${shade(0.72)} 100%)"></div>`;
+    }
     if (op.color) {
       return `<div style="position:absolute;z-index:${z};left:${left}px;top:${top}px;width:${width}px;height:${height}px;${radius}background:${css(op.color, op.alpha)}"></div>`;
     }
