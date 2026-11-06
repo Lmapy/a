@@ -13,6 +13,17 @@ Click a bar and that profession unfolds beside it as a mind map. The map shows:
 *These images come from the headless test harness (`tools/wowmock`), so they use
 stand-in icons and fonts. They are not in-game screenshots.*
 
+### On a 1080p screen
+
+At the default position and scale, with a stand-in game scene and placeholder HUD.
+In normal play the bars sit on the left, between your unit frame and chat:
+
+![Profession Bars on a full screen](../../docs/professionbars/ingame.png)
+
+With a profession's map open, it unfolds beside the bars:
+
+![The map open on a full screen](../../docs/professionbars/ingame-map.png)
+
 ## Install
 
 1. Get this folder. On GitHub use **Code → Download ZIP**, then unzip it and find

@@ -1,6 +1,6 @@
 -- Headless tests for addons/ProfessionBars.
 --   lua5.1 tools/wowmock/run.lua                 run every scenario
---   lua5.1 tools/wowmock/run.lua --dump out.json [main|styles|themes|gather]
+--   lua5.1 tools/wowmock/run.lua --dump out.json [main|styles|themes|gather|ingame|ingamemap]
 --                                               write a preview scene
 -- Run from the repository root.
 local Mock = dofile("tools/wowmock/wow.lua")
@@ -994,6 +994,23 @@ function SCENES.gather()
 	m.Click(ns.Bars.bars.mining)
 	m.Click(ns.Map.nodes.active[1]) -- unfold Rank too
 	m.Advance(1)
+	return m, m.Dump()
+end
+
+-- Full-screen scenes at the default positions, for "in game" mock-ups
+-- (render with: node tools/wowmock/preview.js scene.json out.png game).
+function SCENES.ingame()
+	local m = sceneMock()
+	m.Advance(1)
+	return m, m.Dump()
+end
+
+function SCENES.ingamemap()
+	local m, ns = sceneMock()
+	m.Hover(ns.Bars.bars.blacksmithing)
+	m.Click(ns.Bars.bars.blacksmithing)
+	m.Advance(1)
+	m.env.GameTooltip:Hide()
 	return m, m.Dump()
 end
 

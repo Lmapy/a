@@ -32,6 +32,10 @@ previewed.
 lua5.1 tools/wowmock/run.lua                                  # run the tests
 lua5.1 tools/wowmock/run.lua --dump /tmp/scene.json main      # or: styles, themes, gather
 node tools/wowmock/preview.js /tmp/scene.json docs/professionbars/main.png
+
+# Full 1080p screen with a stand-in game scene and placeholder HUD
+lua5.1 tools/wowmock/run.lua --dump /tmp/screen.json ingame   # or: ingamemap
+node tools/wowmock/preview.js /tmp/screen.json docs/professionbars/ingame.png game
 ```
 
 The mock is not a full client. It doesn't render real fonts or textures, check
