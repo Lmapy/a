@@ -102,6 +102,11 @@ const parts = scene.ops.map((op, z) => {
     const base = `position:absolute;z-index:${z};font-family:Inter,'DejaVu Sans',sans-serif;font-weight:500;font-size:${op.size}px;`
       + `color:${css(op.color, op.alpha)};white-space:nowrap;text-shadow:1px 1px 0 rgba(0,0,0,0.9);line-height:${height}px;height:${height}px;`;
     grow(left, top, left + width, top + height);
+    // Strings the mock measured as several lines wrap like the client does.
+    const lines = Math.round(height / (op.size * 1.2));
+    if (op.fixedWidth && op.wrap && lines > 1) {
+      return `<div style="${base}left:${left}px;top:${top}px;width:${width}px;text-align:${align};white-space:normal;line-height:${height / lines}px">${richText(op.text)}</div>`;
+    }
     if (op.fixedWidth) {
       return `<div style="${base}left:${left}px;top:${top}px;width:${width}px;text-align:${align};overflow:hidden;text-overflow:ellipsis">${richText(op.text)}</div>`;
     }
@@ -175,7 +180,7 @@ function gameScene() {
  <div><span style="color:#ffc0c0">[2. Trade]</span> Someone: LF blacksmith, Copper Chain Boots</div>
  <div style="color:#c8f">[Guild] Bob: anyone need Copper Ore?</div>
  <div style="color:#59f">Your skill in Blacksmithing has increased to 45.</div>
- <div><span style="color:#66ccff">Profession Bars</span>: click a bar to open that profession's map. Hover the bars for options.</div>
+ <div><span style="color:#66ccff">Profession Bars</span>: click a bar for that profession's plan. Hover the bars for options, /pb help for commands.</div>
  <div style="color:#3c3">You receive loot: [Copper Ore]x2.</div>
  <div style="color:#9a9">Welcome to the realm!</div></div>
 <div class="hud" style="left:50%;bottom:50px;transform:translateX(-50%);white-space:nowrap">${slots(12, 200)}</div>

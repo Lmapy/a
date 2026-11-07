@@ -13,7 +13,7 @@ Data.lua
 Theme.lua
 Util.lua
 Scan.lua
-Branches.lua
+Content.lua
 Bars.lua
-MindMap.lua
+Detail.lua
 Core.lua

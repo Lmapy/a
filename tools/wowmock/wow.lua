@@ -29,6 +29,7 @@ for _, name in ipairs({
 	"LEARNED_SPELL_IN_SKILL_LINE", "PLAYER_LEVEL_UP", "TRADE_SKILL_SHOW", "TRADE_SKILL_CLOSE",
 	"TRADE_SKILL_LIST_UPDATE", "TRADE_SKILL_DATA_SOURCE_CHANGED", "BAG_UPDATE_DELAYED",
 	"PLAYER_REGEN_DISABLED", "PLAYER_REGEN_ENABLED", "ITEM_DATA_LOAD_RESULT", "GET_ITEM_INFO_RECEIVED",
+	"PLAYER_LOGOUT",
 }) do
 	KNOWN_EVENTS[name] = true
 end
@@ -47,15 +48,33 @@ local function stripCodes(text)
 	return (text:gsub("|c%x%x%x%x%x%x%x%x", ""):gsub("|r", ""))
 end
 
-local function utf8len(text)
-	local n = 0
-	for i = 1, #text do
+-- Advance widths, in hundredths of an em, of printable ASCII (32-126) in the
+-- preview's font (Inter Medium, measured in Chromium). Text is measured 5%
+-- wider than that because the game's Friz Quadrata runs a little wider, so
+-- "is this cut off?" checks err on the safe side.
+local GLYPHS = {
+	27, 30, 49, 64, 65, 99, 65, 31, 37, 37, 52, 67, 30, 46, 30, 37, 65, 42, 62,
+	63, 66, 62, 63, 57, 63, 63, 30, 32, 67, 67, 67, 53, 98, 71, 66, 73, 72, 60,
+	59, 75, 74, 27, 58, 69, 57, 91, 76, 77, 64, 77, 65, 65, 65, 74, 71, 100, 70,
+	70, 64, 37, 37, 37, 48, 46, 34, 57, 62, 58, 62, 59, 38, 62, 60, 25, 25, 56,
+	25, 89, 60, 60, 62, 62, 39, 54, 34, 60, 57, 83, 56, 58, 56, 44, 35, 44, 67,
+}
+local MIDDOT, OTHER, PADDING = 0.30, 0.60, 1.05
+
+local function textWidth(text)
+	local width, i = 0, 1
+	while i <= #text do
 		local byte = text:byte(i)
-		if byte < 0x80 or byte >= 0xC0 then
-			n = n + 1
+		if byte < 0x80 then
+			width = width + (GLYPHS[byte - 31] or 60) / 100
+		elseif byte == 0xC2 and text:byte(i + 1) == 0xB7 then
+			width = width + MIDDOT
+		elseif byte >= 0xC0 then
+			width = width + OTHER
 		end
+		i = i + 1
 	end
-	return n
+	return width * PADDING
 end
 
 function Mock.new(options)
@@ -208,11 +227,23 @@ function Mock.new(options)
 	function FontOnly:SetShadowOffset() end
 	function FontOnly:SetShadowColor() end
 	function FontOnly:SetSpacing() end
-	function FontOnly:GetStringWidth()
-		local text = self.text and stripCodes(self.text) or ""
-		return utf8len(text) * self.font.size * 0.52
+	-- Text width on one line, however wide the string is.
+	function FontOnly:GetUnboundedStringWidth()
+		return textWidth(self.text and stripCodes(self.text) or "") * self.font.size
 	end
-	function FontOnly:GetStringHeight() return self.font.size + 2 end
+	-- A string with a set width wraps (unless word wrap is off): it is never
+	-- wider than that width and grows a line at a time.
+	local function wraps(self)
+		return self.w ~= nil and self.wordWrap ~= false and self.w > 0
+	end
+	function FontOnly:GetStringWidth()
+		local natural = self:GetUnboundedStringWidth()
+		return wraps(self) and math.min(natural, self.w) or natural
+	end
+	function FontOnly:GetNumLines()
+		return wraps(self) and math.max(1, math.ceil(self:GetUnboundedStringWidth() / self.w - 1e-9)) or 1
+	end
+	function FontOnly:GetStringHeight() return self:GetNumLines() * (self.font.size + 2) end
 
 	local MaskOnly = {}
 	function MaskOnly:SetTexture(path) self.texturePath = path end

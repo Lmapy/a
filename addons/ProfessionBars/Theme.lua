@@ -86,7 +86,7 @@ end
 -- Gold used for frames in the classic style.
 ns.GOLD_EDGE = { 0.86, 0.68, 0.26 }
 
--- Bottom and top colours of the panel gradient behind classic bars and the map.
+-- Bottom and top colours of the panel gradient behind classic bars and their panel.
 function ns.PanelColors()
 	if ns.GetTheme().key == "midnight" then
 		return { 0.02, 0.02, 0.04 }, { 0.08, 0.09, 0.12 }

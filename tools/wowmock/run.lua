@@ -1,6 +1,6 @@
 -- Headless tests for addons/ProfessionBars.
 --   lua5.1 tools/wowmock/run.lua                 run every scenario
---   lua5.1 tools/wowmock/run.lua --dump out.json [main|styles|themes|gather|ingame|ingamemap]
+--   lua5.1 tools/wowmock/run.lua --dump out.json [main|panels|styles|themes|gather|ingame|ingamepanel]
 --                                               write a preview scene
 -- Run from the repository root.
 local Mock = dofile("tools/wowmock/wow.lua")
@@ -20,6 +20,17 @@ end
 
 local function eq(actual, expected, message)
 	return check(actual == expected, message .. " (expected " .. tostring(expected) .. ", got " .. tostring(actual) .. ")")
+end
+
+local function copy(value)
+	if type(value) ~= "table" then
+		return value
+	end
+	local out = {}
+	for k, v in pairs(value) do
+		out[k] = copy(v)
+	end
+	return out
 end
 
 ---------------------------------------------------------------------------
@@ -165,51 +176,152 @@ local function plain(text)
 	return (text or ""):gsub("|c%x%x%x%x%x%x%x%x", ""):gsub("|r", "")
 end
 
--- Visible map nodes as screen rectangles (no overlaps allowed).
-local function mapNodes(m, ns)
-	local nodes = {}
-	for _, node in ipairs(ns.Map.nodes.active) do
-		nodes[#nodes + 1] = { node = node, rect = m.Resolve(node) }
-	end
-	nodes[#nodes + 1] = { node = ns.Map.center, rect = m.Resolve(ns.Map.center) }
-	return nodes
-end
+---------------------------------------------------------------------------
+-- Reading the panel
+---------------------------------------------------------------------------
 
-local function checkMapGeometry(m, ns, label)
-	local nodes = mapNodes(m, ns)
-	local panel = m.Resolve(ns.Map.frame)
-	for i, a in ipairs(nodes) do
-		check(a.rect ~= nil, label .. ": node " .. i .. " is anchored")
-		if a.rect then
-			check(a.rect.l >= panel.l - 0.5 and a.rect.r <= panel.r + 0.5 and a.rect.b >= panel.b - 0.5 and a.rect.t <= panel.t + 0.5,
-				label .. ": node '" .. tostring(a.node.data and a.node.data.label or "centre") .. "' fits inside the panel")
-			for j = i + 1, #nodes do
-				local b = nodes[j]
-				if b.rect then
-					local overlap = a.rect.l < b.rect.r - 0.5 and b.rect.l < a.rect.r - 0.5 and a.rect.b < b.rect.t - 0.5 and b.rect.b < a.rect.t - 0.5
-					check(not overlap, label .. ": nodes '" .. tostring(a.node.data and a.node.data.label or "centre") .. "' and '" .. tostring(b.node.data and b.node.data.label) .. "' do not overlap")
-				end
-			end
-		end
-	end
-	local onScreen = panel.l >= -0.5 and panel.r <= m.W + 0.5 and panel.b >= -0.5 and panel.t <= m.H + 0.5
-	check(onScreen, label .. ": panel is on screen")
-end
-
-local function findNode(ns, label)
-	for _, node in ipairs(ns.Map.nodes.active) do
-		if node.data and plain(node.data.label) == label then
-			return node
+local function findRow(ns, label)
+	for _, row in ipairs(ns.Detail.rows.active) do
+		if plain(row.label:GetText()) == label then
+			return row
 		end
 	end
 end
 
-local function branchKeys(ns)
+local function rowValue(ns, label)
+	local row = findRow(ns, label)
+	return row and plain(row.value:GetText())
+end
+
+-- "label=value; label; ..." for every row of the open tab, top to bottom.
+local function rowList(ns)
+	local out = {}
+	for i, row in ipairs(ns.Detail.rows.active) do
+		local value = plain(row.value:GetText())
+		out[i] = plain(row.label:GetText()) .. (value ~= "" and ("=" .. value) or "")
+	end
+	return table.concat(out, "; ")
+end
+
+-- "TITLE | right text; ..." for every section of the open tab.
+local function titles(ns)
+	local out = {}
+	for i, title in ipairs(ns.Detail.titles.active) do
+		local right = plain(title.right:GetText())
+		out[i] = title.text:GetText() .. (right ~= "" and (" | " .. right) or "")
+	end
+	return table.concat(out, "; ")
+end
+
+local function tabKeys(ns)
 	local keys = {}
-	for _, branch in ipairs(ns.Map.tree.branches) do
-		keys[#keys + 1] = branch.key
+	for i, tab in ipairs(ns.Detail.view.tabs) do
+		keys[i] = tab.key
 	end
 	return table.concat(keys, ",")
+end
+
+local function nextText(ns)
+	return ns.Detail.frame.nextLine.text:GetText()
+end
+
+local function clickTab(m, ns, key)
+	for _, tab in ipairs(ns.Detail.tabs.active) do
+		if tab.key == key then
+			m.Click(tab)
+			return
+		end
+	end
+	check(false, "there is a " .. key .. " tab")
+end
+
+local function clickRow(m, ns, label)
+	local row = findRow(ns, label)
+	if check(row ~= nil, "there is a row '" .. label .. "'") then
+		m.Click(row)
+	end
+end
+
+-- Click every "Show all" row of the open tab.
+local function showEverything(m, ns)
+	for _ = 1, 10 do
+		local more
+		for _, row in ipairs(ns.Detail.rows.active) do
+			if row.data and row.data.expand then
+				more = row
+			end
+		end
+		if not more then
+			return
+		end
+		m.Click(more)
+	end
+end
+
+local function tooltipText(m)
+	return table.concat(m.env.GameTooltip.lines, "\n")
+end
+
+local function inside(a, b)
+	return a.l >= b.l - 0.5 and a.r <= b.r + 0.5 and a.b >= b.b - 0.5 and a.t <= b.t + 0.5
+end
+
+local function overlaps(a, b)
+	return a.l < b.r - 0.5 and b.l < a.r - 0.5 and a.b < b.t - 0.5 and b.b < a.t - 0.5
+end
+
+-- The open panel is on screen, everything in it fits inside it, nothing
+-- overlaps and no text is cut off.
+local function checkPanel(m, ns, label)
+	local frame = ns.Detail.frame
+	local panel = m.Resolve(frame)
+	if not check(panel ~= nil and frame:IsShown(), label .. ": the panel is open and anchored") then
+		return
+	end
+	check(panel.l >= -0.5 and panel.r <= m.W + 0.5 and panel.b >= -0.5 and panel.t <= m.H + 0.5, label .. ": the panel is on screen")
+	local boxes = {}
+	local function add(object, name)
+		local rect = m.Resolve(object)
+		if check(rect ~= nil, label .. ": " .. name .. " is anchored") then
+			boxes[#boxes + 1] = { rect = rect, name = name }
+		end
+	end
+	add(frame.icon, "the icon")
+	add(frame.track, "the track")
+	add(frame.nextLine, "the next line")
+	for _, tab in ipairs(ns.Detail.tabs.active) do
+		add(tab, "tab " .. tab.text:GetText())
+	end
+	for _, title in ipairs(ns.Detail.titles.active) do
+		add(title, "title " .. title.text:GetText())
+	end
+	for _, row in ipairs(ns.Detail.rows.active) do
+		add(row, "row '" .. plain(row.label:GetText()) .. "'")
+	end
+	if frame.footer:IsShown() then
+		add(frame.footer, "the footer")
+	end
+	for i, a in ipairs(boxes) do
+		check(inside(a.rect, panel), label .. ": " .. a.name .. " fits inside the panel")
+		for j = i + 1, #boxes do
+			check(not overlaps(a.rect, boxes[j].rect), label .. ": " .. a.name .. " and " .. boxes[j].name .. " do not overlap")
+		end
+	end
+	-- Header: name and rank stay clear of the value and the close button.
+	local rankName, value, close = m.Resolve(frame.rankName), m.Resolve(frame.value), m.Resolve(frame.close)
+	check(rankName.r < value.l - 4 and value.r < close.l, label .. ": the header's name, value and close button do not collide")
+	-- One-line text fits its space; wrapped text fits its row.
+	for _, row in ipairs(ns.Detail.rows.active) do
+		local text, rowRect = m.Resolve(row.label), m.Resolve(row)
+		local name = plain(row.label:GetText())
+		if row.data and row.data.wrap then
+			check(text.b >= rowRect.b - 0.5, label .. ": wrapped text '" .. name .. "' fits its row")
+		else
+			check(row.label:GetUnboundedStringWidth() <= text.r - text.l + 0.5, label .. ": '" .. name .. "' is not cut off")
+		end
+	end
+	local nextRect = m.Resolve(frame.nextLine.text)
+	check(frame.nextLine.text:GetUnboundedStringWidth() <= nextRect.r - nextRect.l + 0.5, label .. ": the next step is not cut off")
 end
 
 ---------------------------------------------------------------------------
@@ -227,7 +339,8 @@ scenarios[#scenarios + 1] = { "mainline client", function()
 		m.itemNames[id] = name
 	end
 	local ns = boot(m)
-	check(m.ChatHas("click a bar to open that profession's map") ~= nil and ns.db.welcomed, "first login shows a one-time tip")
+	local detail = ns.Detail
+	check(m.ChatHas("click a bar for that profession's plan") ~= nil and ns.db.welcomed, "first login shows a one-time tip")
 	local me = ns.db.alts["Tester-Mockrealm"]
 	check(me and me.class == "PALADIN" and me.profs.blacksmithing[1] == 45, "this character is remembered account-wide")
 
@@ -276,7 +389,7 @@ scenarios[#scenarios + 1] = { "mainline client", function()
 	check(ns.Bars.frame.bg.gradient ~= nil, "classic bars sit on a gradient panel")
 	m.Click(smith)
 	check(smith.selected and smith.frame.border[1].color[2] > 0.85, "selected classic bar gets a bright gold frame")
-	check(ns.Map.frame.bg.gradient ~= nil, "the map matches the classic panel")
+	check(detail.frame.bg.gradient ~= nil and detail.frame.border[1].color[1] == ns.GOLD_EDGE[1], "the panel matches the classic look")
 	m.Click(smith)
 	slash(m, "style clean")
 	eq(ns.Bars.bars.blacksmithing.style, "clean", "/pb style clean")
@@ -290,21 +403,42 @@ scenarios[#scenarios + 1] = { "mainline client", function()
 	check(ns.Bars.header:IsShown(), "header appears on hover")
 	check(m.env.GameTooltip.lines[1] == "Blacksmithing", "bar tooltip title")
 	check(m.env.GameTooltip.lines[3]:find("5 more skill", 1, true) ~= nil, "bar tooltip says what is next")
+	check(tooltipText(m):find("Click for the Blacksmithing plan", 1, true) ~= nil, "bar tooltip says what a click does")
 	m.Leave()
 	m.Advance(0.5)
 	check(not ns.Bars.header:IsShown(), "header hides after the mouse leaves")
 
-	-- Map before any recipes are cached.
+	-- The panel before any recipes are cached.
 	m.Click(ns.Bars.bars.blacksmithing)
-	check(ns.Map.frame:IsShown(), "clicking a bar opens the map")
-	eq(ns.Map.current, "blacksmithing", "map shows the clicked profession")
-	eq(branchKeys(ns), "rank,next,skillups", "branches without recipe data")
-	check(findNode(ns, "Open your Blacksmithing window") ~= nil, "map explains how to load recipes")
+	check(detail.frame:IsShown(), "clicking a bar opens its panel")
+	eq(detail.current, "blacksmithing", "the panel shows the clicked profession")
+	eq(tabKeys(ns), "plan", "only the plan before any recipes are known")
+	eq(detail.frame.name:GetText(), "Blacksmithing", "header: name")
+	eq(detail.frame.rankName:GetText(), "Apprentice", "header: rank")
+	eq(plain(detail.frame.value:GetText()), "45 / 75", "header: skill")
+	eq(nextText(ns), "5 to 50, then train Journeyman", "one line says what to do next")
+	m.Hover(detail.frame.nextLine)
+	eq(m.env.GameTooltip.lines[1], "5 more skill, then learn Journeyman from a city trainer.", "the next line explains itself")
+	m.Leave()
+	check(findRow(ns, "Open your Blacksmithing window once to load your recipes.") ~= nil, "the plan explains how to load recipes")
 	local br, bg, bb = ns.Color("blacksmithing")
-	check(ns.Bars.bars.blacksmithing.selected, "the bar whose map is open is marked selected")
+	check(ns.Bars.bars.blacksmithing.selected, "the bar whose panel is open is marked selected")
 	local accent = ns.Bars.bars.blacksmithing.accent
 	check(accent:IsShown() and accent.color[1] == br and accent.color[2] == bg and accent.color[3] == bb, "selection is a thin line in the profession's colour")
-	check(ns.Map.frame.bg.gradient == nil and ns.Map.frame.border[1].color[4] < 0.1, "the clean map is a flat panel with a hairline edge")
+	check(detail.frame.bg.gradient == nil and detail.frame.border[1].color[4] < 0.1, "the clean panel is flat with a hairline edge")
+	check(detail.frame.accent.color[1] == br and detail.frame.accent.color[2] == bg, "the panel's top edge is in the profession's colour")
+	-- The track covers 0-300: your skill, the part you can reach and a gold
+	-- mark where Journeyman is learned.
+	local inner = detail.metrics.INNER
+	local trackRect = m.Resolve(detail.frame.track)
+	local trackFill, trackAvail, goal = m.Resolve(detail.frame.track.fill), m.Resolve(detail.frame.track.avail), m.Resolve(detail.frame.track.goal)
+	eq(math.floor(trackFill.r - trackFill.l + 0.5), math.floor(inner * 45 / 300 + 0.5), "the track fills to 45 of 300")
+	eq(math.floor(trackAvail.r - trackAvail.l + 0.5), math.floor(inner * 75 / 300 + 0.5), "the reachable part ends at the cap")
+	check(detail.frame.track.goal:IsShown() and math.abs(goal.l + 1 - (trackRect.l + math.floor(inner * 50 / 300 + 0.5))) < 0.5, "a gold mark at 50")
+	m.Hover(detail.frame.track)
+	check(tooltipText(m):find("Journeyman: up to 150", 1, true) ~= nil and tooltipText(m):find("Gold mark: where Journeyman can be learned (50)", 1, true) ~= nil, "the track's tooltip explains the ranks")
+	m.Leave()
+	checkPanel(m, ns, "blacksmithing without recipes")
 
 	-- Open the Blacksmithing window: recipes get cached.
 	m.trade.open, m.trade.recipes = MODERN_PROFS[1], BS_RECIPES
@@ -324,163 +458,147 @@ scenarios[#scenarios + 1] = { "mainline client", function()
 	eq(ns.CraftableCount(byName["Copper Axe"]), 1, "craftable count limited by flux")
 	eq(ns.CraftableCount(byName["Copper Bracers"]), 13, "craftable count from copper bars")
 
-	eq(branchKeys(ns), "rank,next,skillups,plan,craft,recipes", "branches with recipe data")
-	checkMapGeometry(m, ns, "blacksmithing default")
-	local skillups = findNode(ns, "Skill-ups")
-	check(skillups and not skillups.data.open, "skill-ups starts folded")
-	eq(skillups.sign, -1, "content branches sit on the left")
-	eq(plain(skillups.value:GetText()), "6 · 2 · 2", "skill-up counts by colour")
-	m.Click(skillups)
-	m.Advance(0.5)
-	local axe = findNode(ns, "Copper Axe")
-	check(axe ~= nil and axe.value:GetText() == "x1", "orange recipe leaf with craftable count")
-	check(findNode(ns, "+3 more") ~= nil, "long branches end with '+N more'")
-	m.Click(findNode(ns, "Skill-ups"))
-	m.Advance(0.5)
+	-- The plan: crafts for the next points, from your bags first.
+	eq(tabKeys(ns), "plan,recipes", "recipes add a Recipes tab")
+	eq(detail.activeTab, "plan", "the plan comes first")
+	eq(titles(ns), "CRAFT FOR SKILL | next 5 points; SHOPPING LIST | all in your bags", "plan sections")
+	eq(rowList(ns), "3x Rough Grinding Stone=ready; 1x Copper Axe=ready; 2x Copper Chain Boots=ready; "
+		.. "Light Leather=2/2; Rough Stone=6/6; Copper Bar=22/22; Weak Flux=1/1", "orange crafts your bags cover, then yellow ones")
+	local boots = findRow(ns, "2x Copper Chain Boots")
+	check(boots and boots.label.textColor[1] == 1 and boots.label.textColor[2] == 1 and boots.label.textColor[3] == 0, "yellow crafts are yellow")
+	m.Hover(findRow(ns, "3x Rough Grinding Stone"))
+	local tip = tooltipText(m)
+	check(tip:find("[link]", 1, true) == 1 and tip:find("Orange: +1 skill every craft.", 1, true) and tip:find("You can make 3 from your bags.", 1, true),
+		"plan rows show the recipe, why it is there and how many you can make")
+	m.Leave()
+	m.Hover(boots)
+	check(tooltipText(m):find("Yellow: +1 skill about half the time.", 1, true) ~= nil, "yellow crafts say they are a coin flip")
+	m.Leave()
 
-	-- The plan: orange crafts to reach 50 and the reagents you are missing.
 	local plan = ns.PlanSkillUps(cache, 5)
-	local planned, total = {}, 0
+	local planned, points = {}, 0
 	for _, craft in ipairs(plan.crafts) do
 		planned[#planned + 1] = craft.count .. "x " .. craft.recipe.name
-		total = total + craft.count
+		points = points + craft.points
 	end
-	eq(total, 5, "plan covers exactly the points needed")
-	eq(table.concat(planned, ", "), "3x Rough Grinding Stone, 1x Copper Axe, 1x Coarse Sharpening Stone", "plan uses what you can make first, then the cheapest recipe")
-	eq(plan.reagents[1].itemID, ITEMS.coarseStone, "missing reagents come first")
-	eq(plan.reagents[1].short, 1, "one coarse stone short")
-	local planNode = findNode(ns, "Plan to 50")
-	check(planNode and planNode.data.open, "plan opens by default")
-	eq(plain(planNode and planNode.value:GetText()), "1 item short", "plan summary")
-	check(findNode(ns, "Item " .. ITEMS.coarseStone) ~= nil, "unknown item names show a placeholder")
+	eq(points, 5, "the plan covers the points needed, counting yellow as half")
+	eq(table.concat(planned, ", "), "3x Rough Grinding Stone, 1x Copper Axe, 2x Copper Chain Boots", "plan order")
+	local long = ns.PlanSkillUps(cache, 95)
+	points = 0
+	for _, craft in ipairs(long.crafts) do
+		points = points + craft.points
+	end
+	check(long.horizon == 10 and points >= 10 and points < 11, "a long climb is planned ten points at a time (colours change as you level)")
+
+	-- Out of rough stone: the rest is planned on the cheapest orange recipe
+	-- and the shopping list says what to get.
+	m.bags[ITEMS.roughStone] = nil
+	m.Fire("BAG_UPDATE_DELAYED")
+	m.Advance(1)
+	eq(titles(ns), "CRAFT FOR SKILL | next 5 points; SHOPPING LIST | 1 to get", "plan says one item is missing")
+	eq(rowList(ns), "1x Copper Axe=ready; 2x Copper Chain Boots=ready; 3x Coarse Sharpening Stone=need items; "
+		.. "Item 2836=0/3; Light Leather=2/2; Copper Bar=22/22; Weak Flux=1/1", "missing reagents come first, with a placeholder name")
 	check(m.itemRequests[ITEMS.coarseStone], "unknown item names are requested from the client")
 	m.itemNames[ITEMS.coarseStone] = "Coarse Stone"
 	m.Fire("ITEM_DATA_LOAD_RESULT", ITEMS.coarseStone, true)
 	m.Advance(1)
-	local coarse = findNode(ns, "Coarse Stone")
-	check(coarse ~= nil and coarse.value:GetText() == "0/1", "item name arrives and the shortage shows")
-	check(coarse ~= nil and coarse.stripe.color[1] == ns.BAD[1], "missing reagents are marked red")
-	local grind = findNode(ns, "3x Rough Grinding Stone")
-	check(grind ~= nil and grind.value:GetText() == "ready", "crafts your bags cover are marked ready")
-	local sharpen = findNode(ns, "1x Coarse Sharpening Stone")
-	check(sharpen ~= nil and sharpen.value:GetText() == "", "crafts that need shopping are not marked ready")
+	local coarse = findRow(ns, "Coarse Stone")
+	check(coarse ~= nil and coarse.value:GetText() == "0/3" and coarse.value.textColor[1] == ns.BAD[1], "the item name arrives and the shortage is red")
 	m.Hover(coarse)
-	eq(m.env.GameTooltip.lines[1], "[item] " .. ITEMS.coarseStone, "reagent leaf shows the item tooltip")
+	eq(m.env.GameTooltip.lines[1], "[item] " .. ITEMS.coarseStone, "shopping rows show the item tooltip")
 	m.Leave()
-	m.bags[ITEMS.coarseStone] = 1
+	checkPanel(m, ns, "plan with a shopping list")
+	m.bags[ITEMS.roughStone] = 7
 	m.Fire("BAG_UPDATE_DELAYED")
 	m.Advance(1)
-	eq(plain(findNode(ns, "Plan to 50").value:GetText()), "all in bags", "plan updates as you loot")
-	m.bags[ITEMS.coarseStone] = nil
-	m.Fire("BAG_UPDATE_DELAYED")
-	m.Advance(1)
+	eq(titles(ns), "CRAFT FOR SKILL | next 5 points; SHOPPING LIST | all in your bags", "the plan updates as you loot")
 
-	-- Placement: the map unfolds beside the bars, on the side with room.
-	local mapRect, barsRect = m.Resolve(ns.Map.frame), m.Resolve(ns.Bars.frame)
-	eq(math.floor(mapRect.l - barsRect.r + 0.5), 12, "map opens just right of the bars")
-	eq(math.floor(mapRect.t - barsRect.t + 0.5), 0, "map lines up with the top of the bars")
-	ns.db.point = { m.W - 240, 600 }
-	ns.Bars:RestorePosition()
-	ns.Map:Refresh()
-	mapRect, barsRect = m.Resolve(ns.Map.frame), m.Resolve(ns.Bars.frame)
-	eq(math.floor(barsRect.l - mapRect.r + 0.5), 12, "with the bars on the right, the map opens on their left")
-	ns.db.point = nil
-	ns.Bars:RestorePosition()
-	ns.Map:Refresh()
-
-	-- Unfold "Ready to craft" and check the layout again.
-	local craft = findNode(ns, "Ready to craft")
-	m.Click(craft)
-	m.Advance(0.5)
-	check(ns.db.expanded.blacksmithing.craft == true, "unfolding is remembered")
-	local grinding = findNode(ns, "Rough Grinding Stone")
-	check(grinding ~= nil and grinding.value:GetText() == "x3", "ready-to-craft leaves shown with counts")
-	check(findNode(ns, "+6 more") ~= nil, "ready-to-craft lists skill-up recipes first, the rest under '+N more'")
-	checkMapGeometry(m, ns, "blacksmithing with craft open")
-
-	-- Centre click folds everything, second click unfolds everything.
-	m.Click(ns.Map.center)
-	check(findNode(ns, "Rough Grinding Stone") == nil and findNode(ns, "Copper Axe") == nil, "centre click folds every branch")
-	m.Click(ns.Map.center)
-	check(findNode(ns, "Apprentice") ~= nil and findNode(ns, "Armor") ~= nil, "second centre click unfolds every branch")
-	checkMapGeometry(m, ns, "blacksmithing fully open")
-
-	-- After a drag the middle node stays put while branches fold and unfold.
-	m.RunScript(ns.Map.frame, "OnDragStart")
-	m.dragDX, m.dragDY = 120, -40
-	m.RunScript(ns.Map.frame, "OnDragStop")
-	m.dragDX, m.dragDY = nil, nil
-	check(ns.db.mapPoint ~= nil, "dragging the map remembers its spot")
-	local before = m.Resolve(ns.Map.center)
-	local widthBefore = ns.Map.frame:GetWidth()
-	local rightSide = {}
-	for _, branch in ipairs(ns.Map.tree.branches) do
-		if branch.sign == 1 and branch.open then
-			rightSide[#rightSide + 1] = branch.label
-		end
-	end
-	for _, label in ipairs(rightSide) do
-		m.Click(findNode(ns, label))
-	end
-	local after = m.Resolve(ns.Map.center)
-	check(math.abs(before.l - after.l) < 0.5 and math.abs(before.t - after.t) < 0.5, "middle node stays pinned when a side folds")
-	check(ns.Map.frame:GetWidth() < widthBefore - 100, "panel narrows when a side folds")
-	for _, label in ipairs(rightSide) do
-		m.Click(findNode(ns, label))
-	end
-	checkMapGeometry(m, ns, "after a drag")
-
-	-- Other characters.
-	ns.db.alts["Bob-Mockrealm"] = { name = "Bob", realm = "Mockrealm", class = "WARRIOR", className = "Warrior", level = 40,
-		profs = { blacksmithing = { 150, 150, "Blacksmithing" }, mining = { 210, 225, "Mining" } } }
-	ns.Map:Refresh()
-	eq(branchKeys(ns), "rank,next,skillups,plan,craft,recipes,alts", "alts branch appears")
-	m.Click(findNode(ns, "Alts"))
-	local bob = findNode(ns, "Bob")
-	check(bob ~= nil and bob.value:GetText() == "150/150", "alt and their skill are listed")
-	check(bob ~= nil and bob.label.textColor[1] == 0.78, "alts use class colours")
-	checkMapGeometry(m, ns, "with alts")
-	m.Hover(ns.Bars.bars.blacksmithing)
-	check(table.concat(m.env.GameTooltip.lines, "\n"):find("Also on: Bob 150/150", 1, true) ~= nil, "bar tooltip mentions alts")
-	m.Leave()
-	slash(m, "alts")
-	check(m.ChatHas("Bob-Mockrealm: Blacksmithing 150/150, Mining 210/225") ~= nil, "/pb alts lists other characters")
-	slash(m, "forget bob")
-	check(ns.db.alts["Bob-Mockrealm"] == nil and m.ChatHas("forgot Bob-Mockrealm") ~= nil, "/pb forget removes one")
-	check(ns.db.alts["Tester-Mockrealm"] ~= nil, "forget never removes the current character")
-
-	-- Recipe tooltip and shift-click link.
-	axe = findNode(ns, "Copper Axe")
+	-- Recipes tab: orange first, the ones you can make most of on top.
+	clickTab(m, ns, "recipes")
+	eq(ns.db.tabs.blacksmithing, "recipes", "the open tab is remembered per profession")
+	eq(titles(ns), "KNOWN RECIPES (12) | 6 orange  2 yellow  2 green", "recipe counts by colour")
+	eq(rowList(ns), "Rough Grinding Stone=x3; Copper Axe=x1; Copper Battle Axe=x1; Copper Claymore=x1; Heavy Copper Maul=x1; "
+		.. "Coarse Sharpening Stone; Copper Chain Boots=x3; Show all 12", "recipe order")
+	clickRow(m, ns, "Show all 12")
+	eq(#detail.rows.active, 12, "'Show all' lists every recipe")
+	checkPanel(m, ns, "every recipe")
+	local axe = findRow(ns, "Copper Axe")
 	m.Hover(axe)
-	check(m.env.GameTooltip.lines[1]:find("[link]", 1, true) == 1, "recipe leaf shows the recipe tooltip")
+	check(m.env.GameTooltip.lines[1]:find("[link]", 1, true) == 1, "recipe rows show the recipe tooltip")
 	m.Leave()
 	m.shift = true
 	m.Click(axe)
 	m.shift = false
 	eq(m.insertedLink, "|cffffd000|Henchant:2738|h[Copper Axe]|h|r", "shift-click links the recipe")
 
-	-- Bags change -> craftable counts update while the map is open.
+	-- Placement: beside the bars, on the side with room.
+	local panelRect, barsRect = m.Resolve(detail.frame), m.Resolve(ns.Bars.frame)
+	eq(math.floor(panelRect.l - barsRect.r + 0.5), 8, "the panel opens just right of the bars")
+	eq(math.floor(panelRect.t - barsRect.t + 0.5), 0, "the panel lines up with the top of the bars")
+	ns.db.point = { m.W - 240, 600 }
+	ns.Bars:RestorePosition()
+	detail:Refresh()
+	panelRect, barsRect = m.Resolve(detail.frame), m.Resolve(ns.Bars.frame)
+	eq(math.floor(barsRect.l - panelRect.r + 0.5), 8, "with the bars on the right, the panel opens on their left")
+	ns.db.point = nil
+	ns.Bars:RestorePosition()
+	detail:Refresh()
+
+	-- Other characters.
+	ns.db.alts["Bob-Mockrealm"] = { name = "Bob", realm = "Mockrealm", class = "WARRIOR", className = "Warrior", level = 40,
+		profs = { blacksmithing = { 150, 150, "Blacksmithing" }, mining = { 210, 225, "Mining" } } }
+	detail:Refresh()
+	eq(tabKeys(ns), "plan,recipes,alts", "an Alts tab appears once another character has it")
+	clickTab(m, ns, "alts")
+	local bob = findRow(ns, "Bob")
+	check(bob ~= nil and bob.value:GetText() == "150 / 150", "alt and their skill are listed")
+	check(bob ~= nil and bob.label.textColor[1] == 0.78, "alts use class colours")
+	m.Hover(bob)
+	eq(tooltipText(m), "Bob\nLevel 40 Warrior\nBob-Mockrealm", "alt tooltip")
+	m.Leave()
+	checkPanel(m, ns, "alts")
+	m.Hover(ns.Bars.bars.blacksmithing)
+	check(tooltipText(m):find("Also on: Bob 150/150", 1, true) ~= nil, "bar tooltip mentions alts")
+	m.Leave()
+	slash(m, "alts")
+	check(m.ChatHas("Bob-Mockrealm: Blacksmithing 150/150, Mining 210/225") ~= nil, "/pb alts lists other characters")
+	slash(m, "forget bob")
+	check(ns.db.alts["Bob-Mockrealm"] == nil and m.ChatHas("forgot Bob-Mockrealm") ~= nil, "/pb forget removes one")
+	check(ns.db.alts["Tester-Mockrealm"] ~= nil, "forget never removes the current character")
+	eq(tabKeys(ns), "plan,recipes", "the Alts tab goes with them")
+	eq(detail.activeTab, "plan", "and the panel falls back to the first tab")
+
+	-- Bags change -> craftable counts update while the panel is open.
+	clickTab(m, ns, "recipes")
 	m.bags[ITEMS.weakFlux] = 0
 	m.Fire("BAG_UPDATE_DELAYED")
 	m.Advance(1)
-	axe = findNode(ns, "Copper Axe")
-	eq(axe and axe.value:GetText(), "", "craftable count follows the bags")
+	eq(rowValue(ns, "Copper Axe"), "", "craftable counts follow the bags")
 
-	-- Switching profession and closing.
+	-- Switching profession: Mining's Where tab.
 	m.Click(ns.Bars.bars.mining)
-	eq(ns.Map.current, "mining", "clicking another bar switches the map")
-	eq(branchKeys(ns), "rank,next,nodes", "mining branches")
-	local silver, iron = findNode(ns, "Silver Vein"), findNode(ns, "Iron Deposit")
+	eq(detail.current, "mining", "clicking another bar switches the panel")
+	eq(tabKeys(ns), "where,nodes", "gathering tabs")
+	eq(nextText(ns), "33 to 125, then train Expert", "mining's next step")
+	eq(titles(ns), "BEST FOR YOU NOW | skill-up chance; RARE OR ONE ZONE; WHERE TO GO | you're level 18; NEXT UNLOCK", "where sections")
+	eq(rowList(ns), "Tin Vein=usually; Copper Vein=sometimes; "
+		.. "Lesser Bloodstone=Arathi only; Silver Vein=rare, in Tin spots; Incendicite Vein=Wetlands only; "
+		.. "The Barrens=level 10-25; Redridge Mountains=level 15-25; Stonetalon Mountains=level 15-27; Show all 7; "
+		.. "Iron Deposit=at 125 (+33)", "best nodes first; rare and one-zone nodes apart; zones that suit your level")
+	local silver = findRow(ns, "Silver Vein")
 	check(silver and silver.label.textColor[1] == 1 and silver.label.textColor[2] == 0.5, "silver vein is orange at 92 skill")
-	check(findNode(ns, "Tin Vein") ~= nil and findNode(ns, "Incendicite Vein") == nil, "common veins are leaves, zone-specific ones are not")
-	m.Hover(findNode(ns, "Ore"))
-	check(table.concat(m.env.GameTooltip.lines, "\n"):find("Incendicite Vein (65)", 1, true) ~= nil, "zone-specific veins are listed in the tooltip")
+	m.Hover(silver)
+	eq(tooltipText(m), "Silver Vein\nNeeds 75 skill.\nOrange for you: always a skill-up.\nRare, in Tin spots.", "node tooltip")
 	m.Leave()
-	eq(plain(ns.Map.center.sub:GetText()), "92/150 · Journeyman", "centre node shows skill and rank")
-	check(iron and iron.value:GetText() == "+33", "iron deposit shows the skill still needed")
-	checkMapGeometry(m, ns, "mining")
+	checkPanel(m, ns, "mining, where")
+	clickTab(m, ns, "nodes")
+	eq(titles(ns), "EVERY NODE | skill needed", "every node, with the skill it needs")
+	eq(rowList(ns), "Copper Vein=1; Tin Vein=65; Incendicite Vein=65 · Wetlands only; Silver Vein=75 · rare, in Tin spots; "
+		.. "Lesser Bloodstone=75 · Arathi only; Iron Deposit=125; Indurium Vein=150 · Uldaman only; Show all 13", "node list")
+	clickRow(m, ns, "Show all 13")
+	checkPanel(m, ns, "mining, every node")
 	m.Click(ns.Bars.bars.mining)
-	check(not ns.Map.frame:IsShown(), "clicking the open bar closes the map")
+	check(not detail.frame:IsShown(), "clicking the open bar closes the panel")
 	check(not ns.Bars.bars.mining.selected and not ns.Bars.bars.mining.accent:IsShown(), "selection cleared")
 
 	-- Skill-up: bar animates and turns gold when Journeyman becomes trainable.
@@ -495,10 +613,14 @@ scenarios[#scenarios + 1] = { "mainline client", function()
 	eq(ns.Bars.bars.blacksmithing.note:GetText(), "|cff59ff73+5|r  |cffffd100train|r", "session gain and 'train' notes")
 	eq(math.floor(ns.Bars.bars.blacksmithing.status:GetValue() * 75 + 0.5), 50, "bar fill settles on the new value")
 	m.Click(ns.Bars.bars.blacksmithing)
-	check(findNode(ns, "Visit a trainer").data.value == "now", "next step says to train now")
-	check(ns.Map.frame.footer:GetText():find("from skill 45", 1, true) ~= nil, "footer warns the recipe colours are stale")
-	check(ns.Map.center.sub:GetText():find("+5", 1, true) ~= nil, "middle node shows the session gain")
-	check(findNode(ns, "Plan to 75") ~= nil, "once trainable, the plan aims for the cap")
+	eq(detail.activeTab, "recipes", "the panel reopens on the tab you used last")
+	clickTab(m, ns, "plan")
+	eq(nextText(ns), "Learn Journeyman now", "the next step says to train now")
+	eq(detail.frame.nextLine.text.textColor[2], ns.GOOD[2], "in green")
+	check(plain(detail.frame.value:GetText()):find("+5", 1, true) == 1, "the header shows this session's gain")
+	eq(detail.frame.footer:GetText(), "Recipe colours are from skill 45. Open Blacksmithing to refresh them.", "the footer warns the colours are stale")
+	check(titles(ns):find("CRAFT FOR SKILL | next 10 of 25 points", 1, true) == 1, "once trainable, the plan aims for the cap, ten points at a time")
+	checkPanel(m, ns, "blacksmithing at 50")
 	m.Click(ns.Bars.bars.blacksmithing)
 
 	-- Linked professions are never cached as ours.
@@ -577,7 +699,8 @@ scenarios[#scenarios + 1] = { "mainline client", function()
 	m.Click(slim)
 	local sr2, sg2, sb2 = ns.Color("blacksmithing")
 	check(slim.border[1].color[1] == sr2 and slim.border[1].color[2] == sg2 and slim.border[1].color[3] == sb2, "selected slim bar gets a coloured border")
-	check(ns.Map.frame.bg.gradient == nil, "the map uses its plain look with slim bars")
+	check(detail.frame.bg.gradient == nil, "the panel uses its plain look with slim bars")
+	checkPanel(m, ns, "beside scaled slim bars")
 	m.Click(slim)
 	slash(m, "style")
 	eq(ns.db.style, "clean", "/pb style cycles clean -> classic -> slim -> clean")
@@ -607,8 +730,8 @@ scenarios[#scenarios + 1] = { "mainline client", function()
 	check(math.abs(ns.Bars.frame:GetAlpha() - 1) < 0.01, "/pb fade again turns it off")
 	slash(m, "width abc")
 	check(m.ChatHas("usage: /pb width") ~= nil, "/pb width needs a number")
-	slash(m, "mapscale 0.9")
-	eq(ns.db.mapScale, 0.9, "/pb mapscale")
+	slash(m, "panelscale 0.9")
+	eq(ns.db.panelScale, 0.9, "/pb panelscale")
 
 	slash(m, "combat")
 	m.inCombat = true
@@ -632,26 +755,40 @@ scenarios[#scenarios + 1] = { "mainline client", function()
 	check(not ns.char.hidden.cooking, "clicking a bar in edit mode shows it")
 	m.Click(ns.Bars.bars.fishing)
 	check(ns.char.hidden.fishing, "clicking a bar in edit mode hides it")
-	check(not ns.Map.frame:IsShown(), "edit mode clicks do not open the map")
+	check(not detail.frame:IsShown(), "edit mode clicks do not open the panel")
 	slash(m, "edit")
 	check(not ns.Bars.editing and not ns.Bars.bars.fishing:IsShown(), "leaving edit mode hides chosen bars")
 	slash(m, "show all")
 	check(ns.Bars.bars.fishing:IsShown(), "/pb show all")
 
+	-- "/pb <profession>" opens its panel; secondary professions get Ranks.
 	slash(m, "mining")
-	eq(ns.Map.current, "mining", "/pb <profession> opens its map")
-	slash(m, "map first aid")
-	eq(ns.Map.current, "firstaid", "/pb map with a two-word name")
-	slash(m, "map xyz")
-	check(m.ChatHas("no learned profession matches 'xyz'") ~= nil, "/pb map with no match reports it")
-	eq(ns.Map.current, "firstaid", "a bad /pb map leaves the map alone")
+	eq(detail.current, "mining", "/pb <profession> opens its panel")
+	eq(detail.frame:GetScale(), 0.9, "the panel uses /pb panelscale")
+	checkPanel(m, ns, "mining at 0.9")
+	slash(m, "first aid")
+	eq(detail.current, "firstaid", "/pb with a two-word name")
+	eq(tabKeys(ns), "plan,ranks", "secondary professions get a Ranks tab")
+	eq(nextText(ns), "Learn Journeyman now", "first aid at 75/75 can train")
+	clickTab(m, ns, "ranks")
+	eq(rowList(ns), "Apprentice=75 / 75; Journeyman=learn now; Expert=book at 125; Artisan=quest at 225", "how each rank is learned")
+	m.Hover(findRow(ns, "Expert"))
+	check(tooltipText(m):find("Learn it from the book Expert First Aid - Under Wraps at skill 125.", 1, true) ~= nil, "Expert First Aid is a book")
+	m.Leave()
+	m.Hover(findRow(ns, "Artisan"))
+	check(tooltipText(m):find("Learn it from the quest Triage at skill 225, character level 35.", 1, true) ~= nil, "Artisan First Aid is a quest")
+	m.Leave()
+	checkPanel(m, ns, "first aid ranks")
+	slash(m, "xyz")
+	check(m.ChatHas("'xyz' isn't a command or a profession you have") ~= nil, "an unknown word gets a short answer")
+	eq(detail.current, "firstaid", "and leaves the panel alone")
 	local found = false
 	for _, name in ipairs(m.env.UISpecialFrames) do
-		found = found or name == "ProfessionBarsMap"
+		found = found or name == "ProfessionBarsDetail"
 	end
-	check(found, "Escape closes the map (UISpecialFrames)")
-	ns.Map.frame:Hide()
-	check(ns.Map.current == nil, "hiding the map clears its state")
+	check(found, "Escape closes the panel (UISpecialFrames)")
+	detail.frame:Hide()
+	check(detail.current == nil, "hiding the panel clears its state")
 
 	-- A failing API is contained and reported once.
 	local realLevel = m.env.UnitLevel
@@ -679,10 +816,12 @@ scenarios[#scenarios + 1] = { "mainline client", function()
 	slash(m, "debug")
 	check(m.ChatHas("interface 16001") and m.ChatHas("read from: GetProfessions + C_TradeSkillUI") and m.ChatHas("12 recipes cached"), "/pb debug reports what it sees")
 	slash(m, "help")
-	check(m.ChatHas("/pb theme") ~= nil, "/pb help lists commands")
+	check(m.ChatHas("/pb theme") ~= nil and m.ChatHas("/pb panelscale") ~= nil, "/pb help lists commands")
 	slash(m, "reset")
 	eq(ns.db.theme, "vibrant", "/pb reset restores the theme")
 	eq(ns.db.scale, 1, "/pb reset restores the scale")
+	eq(ns.db.panelScale, 1, "/pb reset restores the panel scale")
+	check(next(ns.db.tabs) == nil, "/pb reset forgets the open tabs")
 	check(ns.db.point == nil, "/pb reset forgets the position")
 	check(ns.db.alts["Tester-Mockrealm"] ~= nil, "/pb reset keeps the alt data")
 	check(#ns.GetRecipeCache("blacksmithing").list == 12, "/pb reset keeps the recipe cache")
@@ -706,10 +845,20 @@ scenarios[#scenarios + 1] = { "classic-style skill lines only", function()
 	eq(table.concat(ns.scanSources, "+"), "GetSkillLineInfo", "fallback source used")
 	eq(plain(ns.Bars.bars.enchanting.value:GetText()), "230 / 300", "artisan value")
 	m.Click(ns.Bars.bars.tailoring)
-	eq(branchKeys(ns), "rank,next,skillups", "map opens without C_TradeSkillUI")
-	checkMapGeometry(m, ns, "tailoring")
+	eq(tabKeys(ns), "plan", "the panel opens without C_TradeSkillUI")
+	check(findRow(ns, "This client doesn't share recipe data with addons.") ~= nil, "and says why there are no recipes")
+	eq(nextText(ns), "5 to 125, then train Expert", "tailoring's next step")
+	checkPanel(m, ns, "tailoring")
 	m.Click(ns.Bars.bars.enchanting)
-	check(findNode(ns, "Max skill 300") ~= nil, "artisan next step is the grind to max")
+	eq(nextText(ns), "70 to 300", "artisan's next step is the grind to max")
+	eq(ns.Detail.frame.rankName:GetText(), "Artisan", "artisan rank")
+	m.Click(ns.Bars.bars.firstaid)
+	eq(nextText(ns), "Learn Expert now", "first aid at 150/150 can learn Expert")
+	eq(ns.Bars.bars.firstaid.note:GetText(), "|cffffd100book|r", "the bar says Expert First Aid is a book, not a trainer")
+	m.Hover(ns.Detail.frame.nextLine)
+	eq(m.env.GameTooltip.lines[1], "Learn Expert from the book Expert First Aid - Under Wraps. It raises your cap to 225.", "the next line names the book")
+	m.Leave()
+	checkPanel(m, ns, "first aid")
 	eq(#m.warnings, 0, "no conflicting anchors")
 	eq(ns.lastError, nil, "no contained errors")
 end }
@@ -721,8 +870,9 @@ scenarios[#scenarios + 1] = { "no professions yet", function()
 	eq(#shownBars(ns), 0, "no bars")
 	check(ns.Bars.empty:IsShown(), "empty state shown")
 	check(ns.Bars.empty.text:GetText():find("No professions yet", 1, true) == 1, "empty state text")
-	slash(m, "map")
-	check(m.ChatHas("no professions learned yet") ~= nil, "/pb map with nothing learned")
+	slash(m, "mining")
+	check(m.ChatHas("'mining' isn't a command or a profession you have") ~= nil, "/pb mining with nothing learned")
+	check(not ns.Detail.frame:IsShown(), "no panel to open")
 	m.Hover(ns.Bars.empty)
 	check(ns.Bars.header:IsShown(), "empty state still reveals the header")
 	eq(#m.warnings, 0, "no conflicting anchors")
@@ -753,29 +903,113 @@ scenarios[#scenarios + 1] = { "secret values and an unknown profession", functio
 	eq(ns.Bars.bars["other:jewelcrafting"].prof.icon, 134071, "unknown profession keeps the game's icon")
 	eq(ns.Bars.bars.skinning.prof.modifier, 0, "secret values are treated as missing")
 	m.Click(ns.Bars.bars["other:jewelcrafting"])
-	eq(branchKeys(ns), "rank,next", "unknown profession map")
-	checkMapGeometry(m, ns, "unknown profession")
+	eq(tabKeys(ns), "plan", "an unknown profession is treated like a craft")
+	check(findRow(ns, "Open your Jewelcrafting window once to load your recipes.") ~= nil, "its plan can still load recipes")
+	checkPanel(m, ns, "unknown profession")
+
 	m.Click(ns.Bars.bars.herbalism)
-	check(findNode(ns, "Every rank learned") ~= nil, "mastered profession")
-	check(findNode(ns, "Black Lotus") ~= nil, "herbalism at 300 lists top herbs")
+	eq(nextText(ns), "Mastered", "mastered profession")
+	eq(tabKeys(ns), "where,nodes", "herbalism tabs")
+	eq(rowList(ns), "Maxed out, so nothing gives skill any more.; Black Lotus=rare; Icecap=Winterspring only; "
+		.. "Felwood=level 48-55; Un'Goro Crater=level 48-55; Western Plaguelands=level 51-58; Show all 5",
+		"a maxed herbalist sees no skill-up chances, just rare herbs and where to farm")
+	checkPanel(m, ns, "herbalism")
+
 	m.Click(ns.Bars.bars.skinning)
-	eq(branchKeys(ns), "rank,next,skinning", "skinning map")
-	check(findNode(ns, "Skin up to level 14") ~= nil, "skinning reach at 45 skill")
-	check(findNode(ns, "Best: level 13-14") ~= nil, "best skinning band")
-	check(findNode(ns, "Good: level 1-12") ~= nil, "good skinning band")
-	check(findNode(ns, "Level 15 beasts") ~= nil, "next skinning milestone")
-	checkMapGeometry(m, ns, "skinning")
+	eq(tabKeys(ns), "where", "skinning tabs")
+	eq(nextText(ns), "5 to 50, then train Journeyman", "skinning's next step")
+	eq(rowList(ns), "Level 13-14 beasts=always; Level 1-12 beasts=usually; "
+		.. "Darkshore=level 10-20; Loch Modan=level 10-20; Silverpine Forest=level 10-20; Show all 5; "
+		.. "Level 15 beasts=at 50 (+5)", "skinning: beast levels, zones for them, next unlock")
+	checkPanel(m, ns, "skinning")
 	eq(#m.warnings, 0, "no conflicting anchors")
 	eq(ns.lastError, nil, "no contained errors")
 end }
 
-scenarios[#scenarios + 1] = { "layout stress: every branch full and open", function()
+scenarios[#scenarios + 1] = { "a rank that waits on character level", function()
+	local m = Mock.new()
+	m.level = 18
+	local profs = {
+		{ slot = 2, name = "Mining", icon = 136248, rank = 125, max = 150, line = 186 },
+		{ slot = 5, name = "Cooking", icon = 133971, rank = 200, max = 225, line = 185 },
+	}
+	installModern(m, profs, {})
+	local ns = boot(m)
+	eq(ns.Bars.bars.mining.note:GetText(), "|cffff7766lvl 20|r", "the bar says which level Expert needs")
+	m.Click(ns.Bars.bars.mining)
+	eq(nextText(ns), "Reach level 20 for Expert", "the panel says it too")
+	eq(ns.Detail.frame.nextLine.text.textColor[1], ns.BAD[1], "in red")
+	eq(rowValue(ns, "Iron Deposit"), "always", "iron gives skill every time at 125")
+	checkPanel(m, ns, "mining waiting on level")
+	slash(m, "style classic")
+	eq(ns.Bars.bars.mining.rank:GetText(), "|cffff7766Expert at level 20|r", "classic bars say it inside the bar")
+	slash(m, "style clean")
+
+	-- Cooking's Artisan rank is a quest, not a trainer.
+	slash(m, "cooking")
+	eq(nextText(ns), "25 to 225, then do the Artisan quest", "secondary professions are not sent to a trainer")
+	clickTab(m, ns, "ranks")
+	eq(rowList(ns), "Apprentice=done; Journeyman=done; Expert=200 / 225; Artisan=quest at 225", "cooking ranks")
+	profs[2].rank, profs[2].max = 225, 225
+	m.Fire("SKILL_LINES_CHANGED")
+	m.Advance(1)
+	eq(nextText(ns), "Reach level 35 for Artisan", "the Artisan quest needs level 35")
+	eq(rowValue(ns, "Artisan"), "at level 35", "and the Ranks tab says so")
+	-- Cooking at 125/150: Expert comes from a book.
+	profs[2].rank, profs[2].max = 125, 150
+	m.Fire("SKILL_LINES_CHANGED")
+	m.Advance(1)
+	eq(ns.Bars.bars.cooking.note:GetText(), "|cffffd100book|r", "the bar says Expert Cooking is a book")
+	eq(nextText(ns), "Learn Expert now", "the panel says it can be learned now")
+	eq(rowValue(ns, "Expert"), "learn now", "the Ranks tab too")
+	m.Hover(ns.Detail.frame.nextLine)
+	eq(m.env.GameTooltip.lines[1], "Learn Expert from the book Expert Cookbook. It raises your cap to 225.", "the next line names the book")
+	m.Leave()
+	checkPanel(m, ns, "cooking ranks")
+	eq(#m.warnings, 0, "no conflicting anchors")
+	eq(ns.lastError, nil, "no contained errors")
+end }
+
+scenarios[#scenarios + 1] = { "session gains survive a /reload", function()
+	local profs = { { slot = 1, name = "Blacksmithing", icon = 136241, rank = 40, max = 75, line = 164 } }
+	local function start(saved, now)
+		local m = Mock.new()
+		m.level = 18
+		m.now = now or 0
+		installModern(m, profs, {})
+		if saved then
+			m.env.ProfessionBarsDB, m.env.ProfessionBarsCharDB = copy(saved.db), copy(saved.char)
+		end
+		return m, boot(m)
+	end
+	local function logout(m)
+		m.Fire("PLAYER_LOGOUT")
+		return { db = copy(m.env.ProfessionBarsDB), char = copy(m.env.ProfessionBarsCharDB), at = m.now }
+	end
+	local m, ns = start({ db = { mapScale = 0.8, expanded = { mining = { ore = true } } }, char = {} })
+	check(ns.db.mapScale == nil and ns.db.expanded == nil, "settings left over from the mind map are cleared")
+	profs[1].rank = 44
+	m.Fire("CHAT_MSG_SKILL")
+	m.Advance(1)
+	eq(ns.SessionGain(ns.byKey.blacksmithing), 4, "+4 this session")
+	local saved = logout(m)
+	m, ns = start(saved, saved.at + 5)
+	eq(ns.SessionGain(ns.byKey.blacksmithing), 4, "a /reload keeps the session's gains")
+	eq(plain(ns.Bars.bars.blacksmithing.note:GetText()), "+4", "and the bar still shows them")
+	saved = logout(m)
+	m, ns = start(saved, saved.at + 700)
+	eq(ns.SessionGain(ns.byKey.blacksmithing), 0, "logging back in after a break starts a new session")
+	eq(#m.warnings, 0, "no conflicting anchors")
+	eq(ns.lastError, nil, "no contained errors")
+end }
+
+scenarios[#scenarios + 1] = { "layout stress: every tab, everything shown", function()
 	local m = Mock.new()
 	m.level = 30
 	local profs = { { slot = 2, name = "Mining", icon = 136248, rank = 140, max = 150, line = 186 } }
 	installModern(m, profs, {})
 	local ns = boot(m)
-	-- Smelting recipes give mining all six branches.
+	-- Smelting recipes give Mining a third tab.
 	local recipes = {}
 	for i = 1, 14 do
 		recipes[i] = { 7000 + i, "Smelt Test Bar " .. i, i % 4, (i % 3) + 1, { { 2770, 1 } } }
@@ -784,32 +1018,30 @@ scenarios[#scenarios + 1] = { "layout stress: every branch full and open", funct
 	m.trade.open, m.trade.recipes = profs[1], recipes
 	m.Fire("TRADE_SKILL_LIST_UPDATE")
 	m.Advance(1)
-	slash(m, "map mining")
-	m.Click(ns.Map.center)
-	if findNode(ns, "Copper Vein") == nil and findNode(ns, "Tin Vein") == nil and findNode(ns, "Apprentice") == nil then
-		m.Click(ns.Map.center)
+	slash(m, "mining")
+	eq(tabKeys(ns), "where,nodes,plan", "smelting recipes add a tab")
+	eq(ns.Detail.view.tabs[3].label, "Smelting", "mining calls its plan Smelting")
+	for _, key in ipairs({ "where", "nodes", "plan" }) do
+		clickTab(m, ns, key)
+		showEverything(m, ns)
+		checkPanel(m, ns, key .. ", everything shown")
 	end
-	eq(#ns.Map.tree.branches, 7, "seven branches (rank, next, ore, skill-ups, plan, craft, recipes)")
-	for _, branch in ipairs(ns.Map.tree.branches) do
-		check(branch.open, "branch " .. branch.key .. " is open")
-	end
-	checkMapGeometry(m, ns, "everything open")
-	-- A small screen forces the panel to scale down to fit.
-	local small = Mock.new({ width = 1024, height = 420 })
+	eq(rowList(ns):match("^[^;]+"), "10x Smelt Test Bar 12=ready", "smelting plan")
+	-- A short screen scales the panel down to fit.
+	local small = Mock.new({ width = 1024, height = 300 })
 	small.level = 30
 	installModern(small, profs, {})
 	local ns2 = boot(small)
-	small.trade.open, small.trade.recipes = profs[1], recipes
-	small.Fire("TRADE_SKILL_LIST_UPDATE")
-	small.Advance(1)
-	ns2.db.expanded.mining = { rank = true, next = true, nodes = true, skillups = true, plan = true, craft = true, recipes = true }
-	slash(small, "map mining")
-	check(ns2.Map.frame:GetScale() < 1, "panel scales down on a short screen")
-	checkMapGeometry(small, ns2, "short screen")
+	slash(small, "mining")
+	clickTab(small, ns2, "nodes")
+	showEverything(small, ns2)
+	check(ns2.Detail.frame:GetScale() < 1, "the panel scales down on a short screen")
+	checkPanel(small, ns2, "short screen")
 	eq(#m.warnings + #small.warnings, 0, "no conflicting anchors")
+	eq(ns.lastError, nil, "no contained errors")
 end }
 
-scenarios[#scenarios + 1] = { "camp recipes, long names and a compact map", function()
+scenarios[#scenarios + 1] = { "camp recipes, long names and secondary ranks", function()
 	local m = Mock.new()
 	m.level = 30
 	local profs = {
@@ -827,18 +1059,31 @@ scenarios[#scenarios + 1] = { "camp recipes, long names and a compact map", func
 	m.trade.recipes = { { 818, "Basic Campfire", 1, 1, { { 4470, 1 } } }, { 2538, "Charred Wolf Meat", 0, 1, { { 2672, 1 } } } }
 	m.Fire("TRADE_SKILL_LIST_UPDATE")
 	m.Advance(1)
-	slash(m, "map cooking")
-	eq(branchKeys(ns), "rank,next,skillups,plan,craft,recipes,camp", "camp branch appears for camp recipes")
-	check(findNode(ns, "Plan to 75") ~= nil, "trainable rank plans to the cap")
-	slash(m, "map enchanting")
-	check(findNode(ns, "Plan to 125") ~= nil and findNode(ns, "35x Bracer - Minor Stamina") ~= nil, "plan aims for the next training level, with the short recipe name")
-	m.Click(findNode(ns, "Skill-ups"))
-	check(findNode(ns, "Bracer - Minor Stamina") ~= nil, "skill-up leaves use the short name")
-	checkMapGeometry(m, ns, "enchanting")
-	slash(m, "map fishing")
-	eq(branchKeys(ns), "rank,next", "fishing map")
-	check(ns.Map.frame:GetWidth() < ns.Map.metrics.WIDTH - 100, "maps with one open side are narrower")
-	checkMapGeometry(m, ns, "fishing")
+
+	slash(m, "cooking")
+	eq(tabKeys(ns), "plan,recipes,camp,ranks", "camp recipes get their own tab")
+	eq(nextText(ns), "Learn Journeyman now", "cooking at 60 can train")
+	eq(titles(ns), "CRAFT FOR SKILL | next 10 of 15 points; SHOPPING LIST | 1 to get", "a trainable rank plans toward the cap, ten points at a time")
+	eq(rowList(ns), "10x Charred Wolf Meat=need items; Item 2672=0/10", "nothing in the bags: plan the best recipe")
+	clickTab(m, ns, "camp")
+	eq(rowList(ns), "Basic Campfire", "camp tab")
+	checkPanel(m, ns, "cooking camp")
+
+	slash(m, "enchanting")
+	eq(nextText(ns), "35 to 125, then train Expert", "enchanting's next step")
+	eq(rowList(ns), "10x Bracer - Minor Stamina=need items; Item 10940=0/30", "never a 35x plan: ten points at a time, short names")
+	clickTab(m, ns, "recipes")
+	check(findRow(ns, "Bracer - Minor Stamina") ~= nil, "recipe rows use the short name")
+	checkPanel(m, ns, "enchanting")
+
+	slash(m, "fishing")
+	eq(tabKeys(ns), "ranks", "fishing shows its ranks")
+	eq(nextText(ns), "10 to 50, then train Journeyman", "fishing's next step")
+	eq(rowList(ns), "Apprentice=40 / 75; Journeyman=trainer at 50; Expert=book at 125; Artisan=quest at 225", "fishing ranks")
+	m.Hover(findRow(ns, "Artisan"))
+	check(tooltipText(m):find("Learn it from the quest Nat Pagle, Angler Extreme at skill 225, character level 35.", 1, true) ~= nil, "Artisan Fishing is a quest")
+	m.Leave()
+	checkPanel(m, ns, "fishing")
 	eq(#m.warnings, 0, "no conflicting anchors")
 	eq(ns.lastError, nil, "no contained errors")
 end }
@@ -887,18 +1132,17 @@ scenarios[#scenarios + 1] = { "recipe cache follows what you know", function()
 	eq(cachedNames(), "D", "a scan with no answers keeps the cache")
 	m.env.C_TradeSkillUI.GetRecipeInfo = realInfo
 
-	-- A miner at 40 is not shown zone-specific veins they cannot mine yet.
+	-- A miner at 40 is not shown rare or one-zone veins they cannot mine yet.
 	m.Click(ns.Bars.bars.mining)
-	m.Hover(findNode(ns, "Ore"))
-	local tip = table.concat(m.env.GameTooltip.lines, "\n")
-	check(tip:find("Incendicite", 1, true) == nil and tip:find("Zone-specific", 1, true) == nil, "locked zone-specific nodes are not listed as in range")
-	m.Leave()
+	eq(titles(ns), "BEST FOR YOU NOW | skill-up chance; WHERE TO GO | you're level 20; NEXT UNLOCK", "no rare section until one is in reach")
+	eq(rowValue(ns, "Tin Vein"), "at 65 (+25)", "the next unlock is the next common vein")
+	check(findRow(ns, "Incendicite Vein") == nil, "locked one-zone veins are not suggested")
 	eq(#m.warnings, 0, "no conflicting anchors")
 	eq(ns.lastError, nil, "no contained errors")
 end }
 
 ---------------------------------------------------------------------------
--- Preview scene for tools/wowmock/preview.js
+-- Preview scenes for tools/wowmock/preview.js
 ---------------------------------------------------------------------------
 
 local function sceneMock(theme, style)
@@ -906,7 +1150,7 @@ local function sceneMock(theme, style)
 	m.level = 18
 	MODERN_PROFS[1].rank = 43
 	installModern(m, MODERN_PROFS, CHILD_INFOS)
-	m.bags = { [ITEMS.copperBar] = 26, [ITEMS.roughStone] = 7, [ITEMS.weakFlux] = 2, [ITEMS.lightLeather] = 3, [ITEMS.wool] = 1 }
+	m.bags = { [ITEMS.copperBar] = 26, [ITEMS.roughStone] = 3, [ITEMS.weakFlux] = 2, [ITEMS.lightLeather] = 3, [ITEMS.wool] = 1 }
 	for id, name in pairs(ITEM_NAMES) do
 		m.itemNames[id] = name
 	end
@@ -932,13 +1176,19 @@ local function sceneMock(theme, style)
 end
 
 local function label(text, x, y, size)
-	return { type = "text", rect = { l = x, r = x + 200, b = y, t = y + size + 4 }, text = text, size = size,
+	return { type = "text", rect = { l = x, r = x + 300, b = y, t = y + size + 4 }, text = text, size = size,
 		color = { 1, 1, 1, 0.85 }, justifyH = "LEFT", anchorH = "LEFT", fixedWidth = true, alpha = 1 }
+end
+
+local function append(ops, more)
+	for _, op in ipairs(more) do
+		ops[#ops + 1] = op
+	end
 end
 
 local SCENES = {}
 
--- Bars plus the Blacksmithing map, as in the screenshots in the README.
+-- Bars plus the Blacksmithing panel, as in the README.
 function SCENES.main()
 	local m, ns = sceneMock()
 	ns.db.point = { 40, 600 }
@@ -951,6 +1201,30 @@ function SCENES.main()
 	return m, m.Dump()
 end
 
+-- Three panels side by side: a craft's plan, a gatherer's Where tab and a
+-- secondary profession's ranks.
+function SCENES.panels()
+	local ops, m0 = {}, nil
+	local views = {
+		{ "blacksmithing", "plan", "Blacksmithing: Plan" },
+		{ "mining", "where", "Mining: Where" },
+		{ "cooking", "ranks", "Cooking: Ranks" },
+	}
+	for i, view in ipairs(views) do
+		local m, ns = sceneMock()
+		m0 = m0 or m
+		ns.db.tabs[view[1]] = view[2]
+		slash(m, view[1])
+		ns.Bars.frame:Hide()
+		local x = 30 + (i - 1) * 350
+		ns.Detail.frame:ClearAllPoints()
+		ns.Detail.frame:SetPoint("TOPLEFT", m.UIParent, "BOTTOMLEFT", x, 700)
+		ops[#ops + 1] = label(view[3], x, 708, 12)
+		append(ops, m.Dump())
+	end
+	return m0, ops
+end
+
 -- The same bars in every theme, side by side.
 function SCENES.themes()
 	local ops, m0 = {}, nil
@@ -961,9 +1235,7 @@ function SCENES.themes()
 		ns.db.point = { x, 600 }
 		ns.Bars:RestorePosition()
 		ops[#ops + 1] = label(ns.GetTheme().label, x, 606, 12)
-		for _, op in ipairs(m.Dump()) do
-			ops[#ops + 1] = op
-		end
+		append(ops, m.Dump())
 	end
 	return m0, ops
 end
@@ -979,20 +1251,17 @@ function SCENES.styles()
 		ns.db.point = { x, 600 }
 		ns.Bars:RestorePosition()
 		ops[#ops + 1] = label(entry[2], x, 606, 12)
-		for _, op in ipairs(m.Dump()) do
-			ops[#ops + 1] = op
-		end
+		append(ops, m.Dump())
 	end
 	return m0, ops
 end
 
--- A gathering profession's map (Mining) in the Midnight theme.
+-- Mining's Where tab in the Midnight theme.
 function SCENES.gather()
 	local m, ns = sceneMock("midnight")
 	ns.db.point = { 40, 560 }
 	ns.Bars:RestorePosition()
 	m.Click(ns.Bars.bars.mining)
-	m.Click(ns.Map.nodes.active[1]) -- unfold Rank too
 	m.Advance(1)
 	return m, m.Dump()
 end
@@ -1005,7 +1274,7 @@ function SCENES.ingame()
 	return m, m.Dump()
 end
 
-function SCENES.ingamemap()
+function SCENES.ingamepanel()
 	local m, ns = sceneMock()
 	m.Hover(ns.Bars.bars.blacksmithing)
 	m.Click(ns.Bars.bars.blacksmithing)

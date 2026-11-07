@@ -209,31 +209,6 @@ function ns.CreateCloseButton(parent, size)
 	return button
 end
 
--- Smooth horizontal S-curve between two points given as offsets from the
--- centre of `anchor`, drawn with pooled Line objects. Optionally collects
--- the segments into `out` (used to fade new branches in).
-local SEGMENTS = 14
-function ns.DrawCurve(pool, anchor, x1, y1, x2, y2, r, g, b, a, thickness, out)
-	local bend = (x2 - x1) * 0.5
-	local cx1, cx2 = x1 + bend, x2 - bend
-	local px, py = x1, y1
-	for i = 1, SEGMENTS do
-		local t = i / SEGMENTS
-		local u = 1 - t
-		local x = u * u * u * x1 + 3 * u * u * t * cx1 + 3 * u * t * t * cx2 + t * t * t * x2
-		local y = u * u * u * y1 + 3 * u * u * t * y1 + 3 * u * t * t * y2 + t * t * t * y2
-		local line = pool:Acquire()
-		line:SetThickness(thickness)
-		line:SetColorTexture(r, g, b, a)
-		line:SetStartPoint("CENTER", anchor, px, py)
-		line:SetEndPoint("CENTER", anchor, x, y)
-		if out then
-			out[#out + 1] = line
-		end
-		px, py = x, y
-	end
-end
-
 -- Vertical gradient (bottom colour to top colour) on a texture. Falls back to
 -- the average colour on clients without ColorMixin gradients.
 function ns.SetVerticalGradient(texture, bottom, top, alpha)

@@ -10,15 +10,15 @@ local DEFAULTS = {
 	fade = false, -- dim the bars until hovered
 	scale = 1,
 	width = 240,
-	mapScale = 1,
+	panelScale = 1,
 	hideInCombat = false,
 	colors = {}, -- [key] = { r, g, b } custom colours
-	expanded = {}, -- [key][branch] = true/false
+	tabs = {}, -- [key] = the panel tab last used for that profession
 	alts = {}, -- ["Name-Realm"] = { class, level, profs = { [key] = { rank, max } } }
 	welcomed = false,
 }
 -- What /pb reset puts back (it keeps your alts and recipe data).
-local LOOK = { "shown", "locked", "theme", "style", "fade", "scale", "width", "mapScale", "hideInCombat", "colors", "expanded" }
+local LOOK = { "shown", "locked", "theme", "style", "fade", "scale", "width", "panelScale", "hideInCombat", "colors", "tabs" }
 local CHAR_DEFAULTS = {
 	hidden = {}, -- [key] = true for professions without a bar
 	recipes = {}, -- [key] = { list = {...}, rank = n, time = t }
@@ -40,6 +40,8 @@ local function initDB()
 	ProfessionBarsDB = fill(ProfessionBarsDB or {}, DEFAULTS)
 	ProfessionBarsCharDB = fill(ProfessionBarsCharDB or {}, CHAR_DEFAULTS)
 	ns.db, ns.char = ProfessionBarsDB, ProfessionBarsCharDB
+	-- Left over from the mind map in earlier test builds.
+	ns.db.mapScale, ns.db.mapPoint, ns.db.expanded = nil, nil, nil
 end
 
 ---------------------------------------------------------------------------
@@ -53,28 +55,29 @@ function ns.UpdateProfessions()
 		ns.byKey[prof.key] = prof
 	end
 	ns.TrackSession(ns.profs)
+	ns.TouchSession() -- so a crash (no logout event) still keeps the session
 	ns.RememberCharacter(ns.profs)
 	ns.Bars:Refresh()
-	ns.Map:OnProfessionsChanged()
+	ns.Detail:OnProfessionsChanged()
 end
 
 function ns.UpdateRecipes()
 	local key = ns.ScanOpenProfession()
 	if key then
-		ns.Map:Refresh()
+		ns.Detail:Refresh()
 	end
 end
 
 function ns.RefreshAll()
 	ns.Bars:Refresh()
-	ns.Map:Refresh()
+	ns.Detail:Refresh()
 end
 
 function ns.ApplyVisibility()
 	local show = ns.db.shown and not (ns.db.hideInCombat and ns.inCombat)
 	ns.Bars:SetShown(show)
 	if not show then
-		ns.Map:Close()
+		ns.Detail:Close()
 	end
 end
 
@@ -102,8 +105,8 @@ end
 
 function ns.SetHidden(key, hidden)
 	ns.char.hidden[key] = hidden and true or nil
-	if hidden and ns.Map:IsOpenFor(key) then
-		ns.Map:Close()
+	if hidden and ns.Detail:IsOpenFor(key) then
+		ns.Detail:Close()
 	end
 	ns.Bars:Refresh()
 end
@@ -126,7 +129,7 @@ local PROFESSION_EVENTS = {
 local RECIPE_EVENTS = { "TRADE_SKILL_SHOW", "TRADE_SKILL_LIST_UPDATE", "TRADE_SKILL_DATA_SOURCE_CHANGED" }
 local OTHER_EVENTS = {
 	"BAG_UPDATE_DELAYED", "PLAYER_REGEN_DISABLED", "PLAYER_REGEN_ENABLED",
-	"ITEM_DATA_LOAD_RESULT", "GET_ITEM_INFO_RECEIVED",
+	"ITEM_DATA_LOAD_RESULT", "GET_ITEM_INFO_RECEIVED", "PLAYER_LOGOUT",
 }
 
 local handlers = {}
@@ -147,8 +150,9 @@ end
 function handlers.PLAYER_LOGIN()
 	initDB()
 	ns.inCombat = InCombatLockdown and InCombatLockdown() or false
+	ns.StartSession()
 	ns.Bars:Create()
-	ns.Map:Create()
+	ns.Detail:Create()
 	for _, list in ipairs({ PROFESSION_EVENTS, RECIPE_EVENTS, OTHER_EVENTS }) do
 		for _, name in ipairs(list) do
 			listen(name)
@@ -160,20 +164,25 @@ function handlers.PLAYER_LOGIN()
 	ns.Throttle("professions", 3, ns.UpdateProfessions)
 	if not ns.db.welcomed then
 		ns.db.welcomed = true
-		ns.Print("click a bar to open that profession's map. Hover the bars for options, /pb help for commands.")
+		ns.Print("click a bar for that profession's plan. Hover the bars for options, /pb help for commands.")
 	end
 end
 
-local function refreshOpenMap()
-	if ns.Map.current then
-		ns.Throttle("the map", 0.5, function() ns.Map:Refresh() end)
+local function refreshOpenPanel()
+	if ns.Detail.current then
+		ns.Throttle("the panel", 0.5, function() ns.Detail:Refresh() end)
 	end
 end
 
--- Bag counts drive "ready to craft" and the plan; item names load lazily.
-handlers.BAG_UPDATE_DELAYED = refreshOpenMap
-handlers.ITEM_DATA_LOAD_RESULT = refreshOpenMap
-handlers.GET_ITEM_INFO_RECEIVED = refreshOpenMap
+-- Bag counts drive the plan; item names load lazily.
+handlers.BAG_UPDATE_DELAYED = refreshOpenPanel
+handlers.ITEM_DATA_LOAD_RESULT = refreshOpenPanel
+handlers.GET_ITEM_INFO_RECEIVED = refreshOpenPanel
+
+-- Logout and /reload: remember when, so a reload keeps the session gains.
+function handlers.PLAYER_LOGOUT()
+	ns.TouchSession()
+end
 
 function handlers.PLAYER_REGEN_DISABLED()
 	ns.inCombat = true
@@ -247,7 +256,7 @@ end
 
 local HELP = {
 	"|cffffd100/pb|r  show or hide the bars",
-	"|cffffd100/pb map <profession>|r  open a profession's mind map",
+	"|cffffd100/pb <profession>|r  open a profession's panel, e.g. /pb mining",
 	"|cffffd100/pb edit|r  pick which professions get a bar (or hover the bars and click 'edit')",
 	"|cffffd100/pb hide <profession>|r, |cffffd100/pb show <profession|all>|r",
 	"|cffffd100/pb style [clean|classic|slim]|r  minimal, framed or compact bars",
@@ -255,7 +264,7 @@ local HELP = {
 	"|cffffd100/pb theme [vibrant|soft|midnight|mono]|r  set or cycle the colour theme",
 	"|cffffd100/pb color <profession> <#rrggbb|reset>|r  your own colour for one profession",
 	"|cffffd100/pb lock|r, |cffffd100/pb unlock|r  stop or allow dragging",
-	"|cffffd100/pb scale <0.5-2>|r, |cffffd100/pb mapscale <0.5-2>|r, |cffffd100/pb width <140-400>|r",
+	"|cffffd100/pb scale <0.5-2>|r, |cffffd100/pb panelscale <0.5-2>|r, |cffffd100/pb width <140-400>|r",
 	"|cffffd100/pb combat|r  hide the bars during combat (toggle)",
 	"|cffffd100/pb alts|r, |cffffd100/pb forget <name>|r  your other characters' professions",
 	"|cffffd100/pb reset|r  reset position and look (keeps alts and recipes)",
@@ -341,20 +350,6 @@ function commands.toggle()
 	ns.Toggle()
 end
 
-function commands.map(arg)
-	local key
-	if arg == "" then
-		key = ns.profs and ns.profs[1] and ns.profs[1].key
-	else
-		key = findProfession(arg)
-	end
-	if not key then
-		return ns.Print(arg == "" and "no professions learned yet." or ("no learned profession matches '" .. arg .. "'."))
-	end
-	ns.Toggle(true)
-	ns.Map:Open(key)
-end
-
 function commands.edit()
 	ns.Toggle(true)
 	ns.Bars:SetEditing(not ns.Bars.editing)
@@ -434,13 +429,13 @@ function commands.scale(arg)
 	ns.Bars:Refresh()
 end
 
-function commands.mapscale(arg)
+function commands.panelscale(arg)
 	local value = clampNumber(arg, 0.5, 2)
 	if not value then
-		return ns.Print("usage: /pb mapscale 0.5-2 (now " .. ns.db.mapScale .. ")")
+		return ns.Print("usage: /pb panelscale 0.5-2 (now " .. ns.db.panelScale .. ")")
 	end
-	ns.db.mapScale = value
-	ns.Map:Refresh()
+	ns.db.panelScale = value
+	ns.Detail:Refresh()
 end
 
 function commands.width(arg)
@@ -495,9 +490,9 @@ function commands.reset()
 		local value = DEFAULTS[key]
 		ns.db[key] = type(value) == "table" and {} or value
 	end
-	ns.db.point, ns.db.mapPoint = nil, nil
+	ns.db.point = nil
 	ns.Bars:RestorePosition()
-	ns.Map:RestorePosition()
+	ns.Detail:RestorePosition()
 	ns.ApplyVisibility()
 	ns.RefreshAll()
 	ns.Print("position and look reset.")
@@ -517,11 +512,14 @@ local function handleSlash(message)
 	if fn then
 		return fn(arg or "")
 	end
-	-- "/pb mining" opens that profession's map.
-	if findProfession(message) then
-		return commands.map(message:match("^%s*(.-)%s*$"))
+	-- "/pb mining" opens that profession's panel.
+	local text = message:match("^%s*(.-)%s*$")
+	local key = findProfession(text)
+	if key then
+		ns.Toggle(true)
+		return ns.Detail:Open(key)
 	end
-	commands.help()
+	ns.Print("'" .. text .. "' isn't a command or a profession you have. /pb help lists the commands.")
 end
 
 SLASH_PROFESSIONBARS1 = "/pb"

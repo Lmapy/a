@@ -1,6 +1,6 @@
 -- The bar stack: one colour-themed bar per profession, in the minimal
 -- "clean" style (default), the framed "classic" style or the compact "slim"
--- style. Click a bar to open its mind map. Hovering reveals a small header
+-- style. Click a bar to open its panel. Hovering reveals a small header
 -- with controls.
 local _, ns = ...
 
@@ -183,7 +183,7 @@ local function BarOnEnter(self)
 	local r, g, b = ns.Color(prof.key)
 	GameTooltip:SetOwner(self, "ANCHOR_RIGHT")
 	GameTooltip:AddLine(prof.name, r, g, b)
-	local step = ns.NextStep(prof.rank, prof.max, playerLevel())
+	local step = ns.NextStep(prof, playerLevel())
 	GameTooltip:AddDoubleLine(step.rank.name, prof.rank .. " / " .. prof.max, 1, 1, 1, 1, 1, 1)
 	if prof.modifier and prof.modifier > 0 then
 		GameTooltip:AddDoubleLine("Bonus from gear or race", "+" .. prof.modifier, 0.65, 0.65, 0.7, 0.35, 1, 0.45)
@@ -206,7 +206,7 @@ local function BarOnEnter(self)
 	if Bars.editing then
 		GameTooltip:AddLine("Click to show or hide this bar", 0.65, 0.65, 0.7)
 	else
-		GameTooltip:AddLine("Click to open the " .. prof.name .. " map", 0.65, 0.65, 0.7)
+		GameTooltip:AddLine("Click for the " .. prof.name .. " plan", 0.65, 0.65, 0.7)
 	end
 	GameTooltip:Show()
 end
@@ -220,7 +220,7 @@ local function BarOnClick(self)
 	if Bars.editing then
 		ns.SetHidden(self.key, not ns.char.hidden[self.key])
 	else
-		ns.SafeCall("opening the map", ns.Map.Toggle, ns.Map, self.key)
+		ns.SafeCall("opening the panel", ns.Detail.Toggle, ns.Detail, self.key)
 	end
 end
 
@@ -235,6 +235,9 @@ end
 local GLOSS = "Interface\\TargetingFrame\\UI-StatusBar"
 local GOLD, GOLD_DARK, GOLD_BRIGHT = ns.GOLD_EDGE, { 0.42, 0.31, 0.10 }, { 1.00, 0.88, 0.50 }
 local SEGMENTS = 8
+-- What the small gold note says when the next rank is ready: secondary
+-- professions learn Expert from a book and Artisan from a quest.
+local READY_NOTE = { book = "book", quest = "quest" }
 local STYLES = {
 	clean = { row = 26, gap = 8, pad = 10, icon = 18, textX = 26, bar = 4 },
 	classic = { row = 37, gap = 7, pad = 8, bar = 18 },
@@ -515,7 +518,7 @@ function Bars:UpdateBar(bar, prof, hidden)
 
 	-- Gold line where the next rank can be trained (the clean style only
 	-- shows it until you get there; then the numbers turn gold instead).
-	local step = ns.NextStep(prof.rank, prof.max, playerLevel())
+	local step = ns.NextStep(prof, playerLevel())
 	local nextRank = step.nextRank
 	if clean then
 		if step.state == "skill" and nextRank.skill < prof.max then
@@ -550,7 +553,9 @@ function Bars:UpdateBar(bar, prof, hidden)
 				notes[#notes + 1] = "|cff59ff73+" .. gain .. "|r"
 			end
 			if step.state == "train" then
-				notes[#notes + 1] = "|cffffd100train|r"
+				notes[#notes + 1] = "|cffffd100" .. (READY_NOTE[nextRank.how] or "train") .. "|r"
+			elseif step.state == "level" then
+				notes[#notes + 1] = "|cffff7766lvl " .. nextRank.level .. "|r"
 			end
 		end
 		bar.note:SetText(table.concat(notes, "  "))
@@ -572,6 +577,8 @@ function Bars:UpdateBar(bar, prof, hidden)
 	if classic then
 		if step.state == "train" then
 			bar.rank:SetText("|cffffd100Ready for " .. nextRank.name .. "|r")
+		elseif step.state == "level" then
+			bar.rank:SetText("|cffff7766" .. nextRank.name .. " at level " .. nextRank.level .. "|r")
 		elseif step.state == "mastered" then
 			bar.rank:SetText("Mastered")
 		else
@@ -587,11 +594,11 @@ function Bars:UpdateBar(bar, prof, hidden)
 	self:UpdateSelection(bar)
 end
 
--- Highlight the bar whose map is open.
+-- Highlight the bar whose panel is open.
 function Bars:UpdateSelection(only)
 	for key, bar in pairs(self.bars) do
 		if not only or only == bar then
-			local selected = ns.Map:IsOpenFor(key)
+			local selected = ns.Detail:IsOpenFor(key)
 			bar.selected = selected
 			if bar.style == "clean" then
 				bar.accent:SetShown(selected)

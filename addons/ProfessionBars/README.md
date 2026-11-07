@@ -2,13 +2,14 @@
 
 Colour-themed skill bars for your professions in World of Warcraft: Forever, in a
 minimal clean style (the default), a framed classic style or a compact slim style.
-Click a bar and that profession unfolds beside it as a mind map. The map shows:
-- your rank, and what it takes to reach the next one;
+Click a bar and that profession's panel opens beside it. The panel shows:
+- your skill, your rank and one line saying what to do next;
 - a plan for the next skill points, with the reagents you're missing;
-- what you can craft right now, and where your gathering skill stands;
+- for gatherers, the nodes worth farming now and the zones to find them in;
+- how Cooking, First Aid and Fishing are ranked up (trainer, book or quest);
 - which of your other characters have the same profession.
 
-![Bars and the Blacksmithing mind map](../../docs/professionbars/main.png)
+![Bars and the Blacksmithing panel](../../docs/professionbars/main.png)
 
 *These images come from the headless test harness (`tools/wowmock`), so they use
 stand-in icons and fonts. They are not in-game screenshots.*
@@ -20,9 +21,9 @@ In normal play the bars sit on the left, between your unit frame and chat:
 
 ![Profession Bars on a full screen](../../docs/professionbars/ingame.png)
 
-With a profession's map open, it unfolds beside the bars:
+With a profession's panel open beside the bars:
 
-![The map open on a full screen](../../docs/professionbars/ingame-map.png)
+![The panel open on a full screen](../../docs/professionbars/ingame-panel.png)
 
 ## Install
 
@@ -51,11 +52,8 @@ out of date, tick *Load out of date AddOns* or update the number on the
   - **Slim.** One compact bar per profession with the text inside.
   - `/pb fade` dims the bars until you hover them. A skill-up wakes them for a moment.
   - Hover a bar to see which of your other characters have that profession.
-- **Click a bar** to unfold its mind map beside the bars. Click the bar again, or
-  press Esc, to close it.
-- **Moving the map.** Drag it anywhere and it stays there. The profession in the
-  middle stays put while branches fold and unfold. `/pb reset` puts it back beside
-  the bars.
+- **Click a bar** to open its panel beside the bars, on whichever side has room.
+  Click the bar again, or press Esc, to close it. Click another bar to switch.
 - **Hover the bars** to show a small header:
   - **edit** lets you click bars to show or hide them;
   - **the colour square** switches theme;
@@ -70,28 +68,39 @@ out of date, tick *Load out of date AddOns* or update the number on the
 
 ![The four themes](../../docs/professionbars/themes.png)
 
-## The mind map
+## The panel
 
-Click a branch to unfold it, or click the middle to unfold or fold everything. Hover
-anything for details.
+The top of the panel is the same for every profession:
+- **Header.** Name, rank and skill, with a green **+N** for this session's gain.
+- **Track.** The whole 0-300 range. The bright part is your skill, the lighter part is
+  what your rank lets you reach, and the gold mark is where the next rank can be
+  learned. Hover it for every rank's cap.
+- **NEXT.** One line saying what to do next, such as *5 to 50, then train Journeyman*,
+  *Reach level 20 for Expert* or *5 to 125, then read the Expert book*. Hover it for
+  details. It turns green when you can learn the next rank now, and red when only
+  your character level is holding you back.
 
-| Branch | Shows |
+Below that are tabs. Only the ones with something to show appear, and the panel
+remembers the last tab you used for each profession.
+
+| Tab | Shows |
 | --- | --- |
-| **Rank** | Apprentice, Journeyman, Expert and Artisan, and which you have done. |
-| **Next step** | The skill and character level needed for the next rank, and whether you can train now. |
-| **Plan to N** | The orange crafts that reach your next training level (or your cap), plus a shopping list. Missing reagents are red; crafts your bags already cover say *ready*. |
-| **Skill-ups** | Your orange and yellow recipes, with how many you can craft from your bags. |
-| **Ready to craft** | Everything you have the reagents for right now. |
-| **Recipes** | Known recipes by category. |
+| **Plan** | Crafts for the next skill points, at most ten points ahead (recipe colours change as you level). Orange recipes come first; yellow ones count as half a point, because they only skill up about half the time. Crafts your bags already cover say *ready*. The shopping list below shows what's missing, in red. Mining's version is called **Smelting**. |
+| **Recipes** | Known recipes, orange first, with how many you can make from your bags. |
 | **Camp** | Camp recipes you know. It only appears when the game lists recipes under a camp name. |
-| **Ore / Herbs** | Nodes coloured by skill-up chance, plus the next unlocks and the skill still needed. Zone-specific nodes are listed in the tooltip. |
-| **Beasts** | The highest level you can skin, the best levels for skill-ups and the next milestones. |
+| **Where** | For Mining and Herbalism, the nodes that give skill-ups now, best first. Rare spawns and one-zone nodes (Silver, Incendicite, Black Lotus...) are listed apart, with where to find them, and are never suggested as farming targets. Then zones for your skill bracket, those that suit your level first, and the next unlock. For Skinning, the beast levels to skin and the zones to find them. |
+| **Nodes** | Every node with the skill it needs. |
+| **Ranks** | For Cooking, First Aid and Fishing: how each rank is learned. Expert comes from a book and Artisan from a quest, and the tooltips name them. |
 | **Alts** | Your other characters with this profession, in class colours. |
 
+Long lists end with *Show all N*. Hover anything for details. Shift-click a recipe to
+link it in chat.
+
 Recipes load the first time you open a profession's window on a character, because
-the game only shares recipe colours then. The map tells you when it needs this, and
-when the colours are older than your current skill. Bag counts update live. Shift-click
-a recipe to link it in chat.
+the game only shares recipe colours then. The panel tells you when it needs this, and
+when the colours are older than your current skill. Bag counts update live.
+
+![Three panels: a craft's plan, a gatherer's Where tab and Cooking's ranks](../../docs/professionbars/panels.png)
 
 ![A gathering profession: Mining](../../docs/professionbars/gather.png)
 
@@ -100,7 +109,7 @@ a recipe to link it in chat.
 | Command | What it does |
 | --- | --- |
 | `/pb` | Show or hide the bars. |
-| `/pb <profession>` or `/pb map <profession>` | Open a profession's map, e.g. `/pb mining`. |
+| `/pb <profession>` | Open a profession's panel, e.g. `/pb mining` or `/pb first aid`. |
 | `/pb edit` | Choose which professions get a bar. |
 | `/pb hide <profession>`, `/pb show <profession\|all>` | Hide or show one bar. |
 | `/pb style [clean\|classic\|slim]` | Minimal, framed or compact bars. Cycles with no name. |
@@ -108,10 +117,10 @@ a recipe to link it in chat.
 | `/pb theme [vibrant\|soft\|midnight\|mono]` | Set the theme, or cycle with no name. |
 | `/pb color <profession> <#rrggbb\|reset>` | Give one profession your own colour. |
 | `/pb lock`, `/pb unlock` | Stop or allow dragging. |
-| `/pb scale <0.5-2>`, `/pb mapscale <0.5-2>`, `/pb width <140-400>` | Sizes. |
+| `/pb scale <0.5-2>`, `/pb panelscale <0.5-2>`, `/pb width <140-400>` | Sizes. |
 | `/pb combat` | Hide the bars while in combat (toggle). |
 | `/pb alts`, `/pb forget <name>` | List your other characters' professions, or forget one. |
-| `/pb reset` | Reset position, size, style, fade, theme and colours. Alts and recipes are kept. |
+| `/pb reset` | Reset position, size, style, fade, theme, colours and tabs. Alts and recipes are kept. |
 | `/pb debug` | Print which game APIs the addon found, what they returned and the last error. |
 
 ## Known limitations
@@ -119,12 +128,16 @@ a recipe to link it in chat.
 - **Not yet run on the live client.** Everything is tested against a mock of the
   game's API (below). If something looks off, `/pb debug` shows what the client
   returned.
-- **Plans are a minimum.** They only use orange recipes and what's in your bags.
-  They ignore the bank and auction prices, and some recipes turn yellow as you level.
-- **Classic numbers.** Rank requirements, trainer levels and node levels are Classic
-  values in `Data.lua`. Forever may change some of them, and new zones may add nodes.
-- **Big map.** With branches open on both sides the map is about 800 pixels wide;
-  `/pb mapscale` shrinks it.
+- **Plans are short on purpose.** They look ten points ahead, use orange and yellow
+  recipes, and only count what's in your bags. They ignore the bank and auction
+  prices.
+- **Classic numbers.** Rank requirements (including the secondary professions' books
+  and quests), node skills and zone levels are Classic values in `Data.lua`. Forever
+  may change some of them, and its new zones aren't listed yet.
+- **Zones ignore faction.** The Where tab lists every zone for your skill bracket,
+  Alliance or Horde.
+- **Sessions.** Session gains survive a `/reload`. Logging back in after more than
+  ten minutes away starts a new session.
 - **English only.** The addon's own text is in English.
 - **Alts appear after one login.** Each character shows up once you've logged in on
   it with the addon enabled.
@@ -145,7 +158,7 @@ The addon runs headless against a mock of the WoW API in `tools/wowmock`. From t
 repository root:
 
 ```sh
-lua5.1 tools/wowmock/run.lua        # ~4,800 checks: scanning, bars, plans, map layout, commands
+lua5.1 tools/wowmock/run.lua        # ~3,400 checks: scanning, bars, plans, panel layout, commands
 luacheck addons/ProfessionBars      # lint (config in .luacheckrc)
 ```
 

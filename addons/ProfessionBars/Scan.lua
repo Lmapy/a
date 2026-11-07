@@ -411,6 +411,31 @@ end
 
 ns.sessionStart = {}
 
+-- Session gains survive a /reload: the starting skills live in the
+-- character's saved data, and a new session starts only when the character
+-- was away (logged out) for more than ten minutes.
+local SESSION_GAP = 600
+function ns.StartSession()
+	local session = ns.char and ns.char.session
+	local now = time()
+	if type(session) ~= "table" or type(session.start) ~= "table" or not session.seen or now - session.seen > SESSION_GAP then
+		session = { start = {} }
+		if ns.char then
+			ns.char.session = session
+		end
+	end
+	session.seen = now
+	ns.sessionStart = session.start
+end
+
+-- Marks the character as active: on updates and when the UI goes away
+-- (logout or /reload).
+function ns.TouchSession()
+	if ns.char and type(ns.char.session) == "table" then
+		ns.char.session.seen = time()
+	end
+end
+
 -- Remember each profession's skill the first time it is seen this session.
 function ns.TrackSession(list)
 	for _, prof in ipairs(list) do
