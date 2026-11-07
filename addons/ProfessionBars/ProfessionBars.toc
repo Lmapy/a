@@ -1,0 +1,19 @@
+## Interface: 16001
+## Title: Profession Bars
+## Notes: Clean, colour-themed profession bars. Click one to open that profession as a mind map. /pb
+## Version: 0.1.0
+## IconTexture: Interface\Icons\Trade_BlackSmithing
+## SavedVariables: ProfessionBarsDB
+## SavedVariablesPerCharacter: ProfessionBarsCharDB
+## AddonCompartmentFunc: ProfessionBars_OnAddonCompartmentClick
+## AddonCompartmentFuncOnEnter: ProfessionBars_OnAddonCompartmentEnter
+## AddonCompartmentFuncOnLeave: ProfessionBars_OnAddonCompartmentLeave
+
+Data.lua
+Theme.lua
+Util.lua
+Scan.lua
+Content.lua
+Bars.lua
+Detail.lua
+Core.lua
